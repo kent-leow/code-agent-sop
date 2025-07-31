@@ -32,22 +32,23 @@ Transform user stories into detailed, executable implementation tasks with expli
 
 4. **Generate Individual Task Files**
    - Create separate files for each major task
+   - Use hierarchical numbering system (phase.story.task)
    - Include descriptive names for easy identification
    - Maintain traceability to user story
 
 ## Output Structure
-- **Location**: `.docs/tasks/phase-{phase-id}/us-{phase}.{story}-{description}/`
-- **Task Files**: `task-{number}-{descriptive-name}.md` for each major task
+- **Location**: `.docs/tasks/phase-{phase-id}/us-{phase}.{story}/`
+- **Task Files**: `task-{phase}.{story}.{task-number}-{descriptive-name}.md` for each major task
 - **Supporting Files**: Technical specifications as needed
 
 ### File Structure Example
 ```
 .docs/tasks/
 └── phase-1/
-    └── us-1.1-user-authentication/
-        ├── task-1-setup-auth-service.md
-        ├── task-2-implement-login-flow.md
-        ├── task-3-create-user-dashboard.md
+    └── us-1.1/
+        ├── task-1.1.1-setup-auth-service.md
+        ├── task-1.1.2-implement-login-flow.md
+        ├── task-1.1.3-create-user-dashboard.md
         ├── api-spec.yaml (if applicable)
         ├── database-schema.sql (if applicable)
         └── ui-mockups/ (if applicable)
@@ -55,11 +56,11 @@ Transform user stories into detailed, executable implementation tasks with expli
 
 ### Individual Task File Template
 ```markdown
-# Task {Number}: {Task Name}
+# Task {Phase}.{Story}.{Task}: {Task Name}
 
 ## Task Overview
 - **User Story**: us-{phase}.{story}-{description}
-- **Task ID**: task-{number}-{descriptive-name}
+- **Task ID**: task-{phase}.{story}.{task}-{descriptive-name}
 - **Priority**: {High|Medium|Low}
 - **Estimated Effort**: {hours}
 - **Dependencies**: {other task files}
@@ -164,10 +165,15 @@ ComponentName/
    - If larger, break into smaller sub-tasks
    - Consider developer skill level and complexity
 
-3. **Task Naming**
+3. **Task Numbering**
+   - Use hierarchical numbering: `{phase}.{story}.{task}`
+   - Example: For user story `us-1.2`, tasks are `task-1.2.1`, `task-1.2.2`, etc.
+   - Maintains clear traceability from phase → story → task
+
+4. **Task Naming**
    - Use action-oriented, descriptive names
-   - Follow pattern: `task-{number}-{verb}-{object}-{context}`
-   - Examples: `task-1-setup-auth-service`, `task-2-implement-password-reset`
+   - Follow pattern: `task-{phase}.{story}.{task}-{verb}-{object}-{context}`
+   - Examples: `task-1.1.1-setup-auth-service`, `task-1.1.2-implement-password-reset`, `task-2.3.1-create-payment-gateway`
 
 ## Cross-Story Dependencies
 ### Internal Dependencies
@@ -230,11 +236,11 @@ ComponentName/
 - **Executable**: Sufficient detail for implementation
 
 ## Naming & Organization
-- **Folder Structure**: `phase-{id}/us-{phase}.{story}-{description}/`
-- **Task Files**: `task-{number}-{descriptive-name}.md` (e.g., `task-1-setup-database.md`, `task-2-create-api-endpoints.md`)
+- **Folder Structure**: `phase-{id}/us-{phase}.{story}/`
+- **Task Files**: `task-{phase}.{story}.{task}-{descriptive-name}.md` (e.g., `task-1.1.1-setup-database.md`, `task-1.1.2-create-api-endpoints.md`)
 - **Supporting Files**: Domain-specific technical files
 - **Task Naming**: Action-oriented, specific outcomes using kebab-case
-- **Numbering**: Sequential within each user story folder
+- **Numbering**: Hierarchical - matches user story number plus sequential task number
 
 ## Success Criteria
 - All user story acceptance criteria covered by individual task files
