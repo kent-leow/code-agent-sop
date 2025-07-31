@@ -33,131 +33,98 @@ Transform analyzed business requirements into a comprehensive, machine-readable 
 - **Location**: `.docs/overview-plan.json`
 - **Format**: Structured JSON with complete development blueprint
 
+````prompt
+---
+mode: agent
+---
+
+# Implementation Plan Generator
+
+Transform requirements into machine-readable implementation plan.
+
+## Input
+- Location: `.docs/analysis/**`
+- Files: `*-requirements-v*.md`
+
+## Process
+1. Parse functional/non-functional requirements
+2. Design phase structure with dependencies
+3. Define technical architecture
+
+## Output
+- Location: `.docs/overview-plan.json`
+- Format: Structured JSON
+
+### JSON Schema
 ```json
 {
   "project": {
     "name": "string",
     "version": "string",
-    "description": "string",
-    "created": "ISO8601",
-    "lastUpdated": "ISO8601"
+    "description": "string"
   },
   "architecture": {
-    "style": "string (monolithic|microservices|serverless)",
-    "components": [
-      {
-        "id": "string",
-        "name": "string",
-        "type": "string (frontend|backend|database|service)",
-        "technology": "string",
-        "dependencies": ["string"],
-        "description": "string"
-      }
-    ],
-    "integrations": [
-      {
-        "source": "string",
-        "target": "string",
-        "type": "string (REST|GraphQL|messaging|database)",
-        "description": "string"
-      }
-    ]
-  },
-  "phases": [
-    {
+    "style": "monolithic|microservices|serverless",
+    "components": [{
       "id": "string",
       "name": "string",
-      "description": "string",
-      "priority": "number",
-      "estimatedDuration": "string",
-      "dependencies": ["string"],
-      "deliverables": ["string"],
-      "modules": [
-        {
-          "id": "string",
-          "name": "string",
-          "description": "string",
-          "requirements": ["REQ-ID"],
-          "components": ["component-id"],
-          "complexity": "string (low|medium|high)",
-          "estimatedEffort": "string"
-        }
-      ]
-    }
-  ],
+      "type": "frontend|backend|database|service",
+      "technology": "string",
+      "dependencies": ["string"]
+    }],
+    "integrations": [{
+      "source": "string",
+      "target": "string",
+      "type": "REST|GraphQL|messaging|database"
+    }]
+  },
+  "phases": [{
+    "id": "string",
+    "name": "string",
+    "priority": "number",
+    "estimatedDuration": "string",
+    "dependencies": ["string"],
+    "modules": [{
+      "id": "string",
+      "name": "string",
+      "requirements": ["REQ-ID"],
+      "components": ["component-id"],
+      "complexity": "low|medium|high"
+    }]
+  }],
   "requirements": {
-    "functional": [
-      {
-        "id": "string",
-        "title": "string",
-        "description": "string",
-        "priority": "string",
-        "phase": "string",
-        "module": "string",
-        "acceptanceCriteria": ["string"],
-        "dependencies": ["string"]
-      }
-    ],
-    "nonFunctional": [
-      {
-        "id": "string",
-        "category": "string (performance|security|scalability|usability)",
-        "title": "string",
-        "description": "string",
-        "metric": "string",
-        "target": "string",
-        "phases": ["string"]
-      }
-    ]
+    "functional": [{
+      "id": "string",
+      "title": "string",
+      "priority": "string",
+      "phase": "string",
+      "acceptanceCriteria": ["string"]
+    }],
+    "nonFunctional": [{
+      "id": "string",
+      "category": "performance|security|scalability|usability",
+      "metric": "string",
+      "target": "string"
+    }]
   },
   "technology": {
-    "frontend": {
-      "framework": "string",
-      "language": "string",
-      "buildTools": ["string"],
-      "testing": ["string"]
-    },
-    "backend": {
-      "framework": "string",
-      "language": "string",
-      "runtime": "string",
-      "testing": ["string"]
-    },
-    "database": {
-      "primary": "string",
-      "caching": "string",
-      "migrations": "string"
-    },
-    "infrastructure": {
-      "hosting": "string",
-      "cicd": "string",
-      "monitoring": "string",
-      "logging": "string"
-    }
+    "frontend": {"framework": "string", "language": "string"},
+    "backend": {"framework": "string", "language": "string"},
+    "database": {"primary": "string", "caching": "string"},
+    "infrastructure": {"hosting": "string", "cicd": "string"}
   },
-  "timeline": {
-    "totalEstimate": "string",
-    "milestones": [
-      {
-        "name": "string",
-        "phase": "string",
-        "deliverables": ["string"],
-        "estimatedDate": "ISO8601"
-      }
-    ]
-  },
-  "risks": [
-    {
-      "id": "string",
-      "description": "string",
-      "impact": "string (low|medium|high)",
-      "probability": "string (low|medium|high)",
-      "mitigation": "string",
-      "phases": ["string"]
-    }
-  ]
+  "risks": [{
+    "description": "string",
+    "impact": "low|medium|high",
+    "mitigation": "string"
+  }]
 }
 ```
+
+## Success Criteria
+- All requirements mapped to phases
+- Dependencies sequenced
+- Technology stack coherent
 
 ## Quality Standards
 - **Completeness**: All requirements mapped to phases/modules
