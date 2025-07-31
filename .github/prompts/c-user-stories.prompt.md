@@ -31,8 +31,8 @@ Transform implementation plan modules into detailed user stories with complete a
 
 ## Output Structure
 - **Location**: `.docs/user-stories/phase-{phase-id}/`
-- **Naming Convention**: `us-{phase}.{story-number}.md`
-- **Example**: `us-1.1.md`, `us-1.2.md`, `us-2.1.md`
+- **Naming Convention**: `us-{phase}.{story-number}-{descriptive-title}.md`
+- **Example**: `us-1.1-user-authentication.md`, `us-1.2-dashboard-layout.md`, `us-2.1-payment-processing.md`
 
 ### File Format Template
 ```markdown
@@ -103,9 +103,10 @@ Transform implementation plan modules into detailed user stories with complete a
 
 ## Naming & Organization
 - **Phase Folder**: `phase-{phase-id}/` (e.g., `phase-1/`, `phase-2/`)
-- **Story File**: `us-{phase}.{story}.md` (e.g., `us-1.1.md`, `us-2.3.md`)
+- **Story File**: `us-{phase}.{story}-{descriptive-title}.md` (e.g., `us-1.1-user-authentication.md`, `us-2.3-payment-gateway.md`)
 - **Story Numbering**: Sequential within each phase
 - **Title Format**: `{Action Verb} {Object} {Context}`
+- **File Naming**: Kebab-case descriptive titles based on story functionality
 
 ## Success Criteria
 - All modules from implementation plan converted to stories
