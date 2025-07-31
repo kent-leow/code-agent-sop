@@ -7,7 +7,7 @@ mode: agent
 Execute implementation tasks efficiently by following the detailed task breakdown, implementing code, running tests, and validating completion against defined criteria.
 
 ## Input Sources
-- **Primary**: `.docs/tasks/phase-{x}/us-{x}.{y}/implementation-tasks.md`
+- **Primary**: `.docs/user-stories/phase-{x}/us-{x}.{y}-{description}.md`
 - **Context**: Related technical specifications and supporting files
 - **Reference**: Project codebase and existing patterns
 
@@ -37,6 +37,7 @@ Execute implementation tasks efficiently by following the detailed task breakdow
    - Complete definition of done checklist
    - Prepare for code review
    - Mark task as complete
+   - **Update user story status to done**
 
 ## Execution Standards
 
@@ -65,6 +66,7 @@ Before marking any task complete, ensure:
 - [ ] Documentation updated
 - [ ] Code reviewed (if required)
 - [ ] Deployment ready
+- [ ] **User story marked as done**
 
 ## Execution Flow
 
@@ -99,6 +101,7 @@ For each subtask:
 - Validate against definition of done
 - Update documentation
 - Mark task complete
+- Update source user story status
 ```
 
 ### 3. Integration & Validation
@@ -129,6 +132,12 @@ For each subtask:
 - Add comments where needed
 - Ensure code standards compliance
 - Create pull request (if applicable)
+
+# User Story Status Update
+- Update source user story file status to "Done"
+- Add completion timestamp
+- Document any deviations from original requirements
+- Link to implemented code/features
 ```
 
 ## Error Handling Protocol
@@ -156,6 +165,45 @@ For each subtask:
 - **Dependency Resolution**: Address blocking dependencies
 
 ## Progress Tracking
+
+### User Story Status Management
+After successful task completion, update the source user story file:
+
+```markdown
+# Update Pattern for User Stories
+## Status Update in `.docs/user-stories/phase-{x}/us-{x}.{y}-{description}.md`
+
+### Required Updates
+1. **Status Field**: Change from "In Progress" → "Done"
+2. **Completion Date**: Add timestamp of completion
+3. **Implementation Notes**: Brief summary of what was built
+4. **Validation Results**: Summary of test results and acceptance criteria validation
+
+### Update Format
+```yaml
+---
+status: Done
+completed_date: {YYYY-MM-DD HH:MM:SS}
+implemented_by: {system/agent identifier}
+validation_status: Passed
+---
+
+## Implementation Summary
+- **Features Delivered**: {list of completed features}
+- **Tests Status**: {test results summary}
+- **Acceptance Criteria**: {all criteria met confirmation}
+- **Performance**: {performance validation results}
+- **Security**: {security validation results}
+```
+
+### Validation Before Status Update
+- [ ] All acceptance criteria validated
+- [ ] All tests passing
+- [ ] Performance requirements met
+- [ ] Security requirements satisfied
+- [ ] Integration tests completed
+- [ ] Documentation updated
+```
 
 ### Task Status Levels
 - **Not Started**: Task not yet begun
@@ -196,5 +244,56 @@ For each subtask:
 - Performance requirements validated
 - Security requirements implemented
 - Documentation updated and accurate
+- **Source user story file updated to "Done" status**
+- **Implementation summary added to user story**
 - Ready for deployment or next phase
 - Zero critical bugs or issues remaining
+
+## User Story Completion Protocol
+
+### Final Step: Mark User Story as Done
+After all implementation and validation is complete:
+
+1. **Locate Source User Story**
+   - Find the original `.docs/user-stories/phase-{x}/us-{x}.{y}-{description}.md` file
+   - Verify this is the correct source user story
+
+2. **Update Status Metadata**
+   ```yaml
+   ---
+   status: Done
+   completed_date: {current timestamp}
+   implementation_summary: "{brief description of what was built}"
+   validation_results: "All acceptance criteria met, tests passing"
+   ---
+   ```
+
+3. **Add Implementation Notes Section**
+   ```markdown
+   ## Implementation Completed
+   
+   ### Delivered Features
+   - {feature 1 with brief description}
+   - {feature 2 with brief description}
+   
+   ### Technical Implementation
+   - **Code Location**: {main files/modules created}
+   - **Test Coverage**: {test suite summary}
+   - **Performance**: {performance validation results}
+   - **Security**: {security measures implemented}
+   
+   ### Validation Results
+   - [x] All acceptance criteria met
+   - [x] Unit tests passing
+   - [x] Integration tests passing
+   - [x] Performance requirements satisfied
+   - [x] Security requirements validated
+   
+   **Completion Date**: {timestamp}
+   **Status**: ✅ DONE
+   ```
+
+4. **Verify Update**
+   - Confirm file is saved properly
+   - Verify status change is reflected
+   - Ensure all required information is documented
