@@ -5,29 +5,27 @@ mode: agent
 
 # User Stories Generator
 
-Transform implementation plan modules into user stories with acceptance criteria.
+Goal: Convert plan modules into traceable user stories with testable AC.
 
-## Input
-- Primary: `.docs/overview-plan.json`
-- Reference: `.docs/requirements/**`
+Inputs
+- `.docs/overview-plan.json` (primary)
+- `.docs/requirements/**` (reference)
 
-## Process
-1. Extract module info from plan
-2. Map to requirements and acceptance criteria
-3. Structure as user stories
+Process
+1) Extract modules from plan.
+2) Map to requirements and AC.
+3) Write stories.
 
-## Output
-- Location: `.docs/user-stories/phase-{phase-id}/`
-- Naming: `us-{phase}.{story}-{title}.md`
+Output
+- Path: `.docs/user-stories/phase-{phase-id}/`
+- Name: `us-{phase}.{story}-{title}.md`
 
-### Template
+Template
 ```markdown
 # User Story {Phase}.{Number}: {Title}
 
 ## Story
-**As a** {user role}  
-**I want** {functionality}  
-**So that** {business value}
+As a {role}, I want {functionality}, so that {value}.
 
 ## Context
 - Module: {module}
@@ -37,31 +35,25 @@ Transform implementation plan modules into user stories with acceptance criteria
 
 ## Acceptance Criteria
 ### Functional
-- [ ] Given {precondition} When {action} Then {result}
+- [ ] Given {pre} When {action} Then {result}
 
 ### Non-Functional
 - [ ] Performance: {metrics}
 - [ ] Security: {requirements}
 
-## Business Rules
-- {Rule}: {Description}
-
 ## Dependencies
-- Technical: {components}
-- Stories: {story IDs}
+- Tech: {components}
+- Stories: {ids}
 
-## Definition of Done
+## DoD
 - [ ] Code reviewed
 - [ ] Tests passing
 - [ ] Criteria verified
 
 ## Estimates
 - Points: {points}
-- Hours: {hours}
 - Complexity: Low|Medium|High
 ```
 
-## Success Criteria
-- All modules converted to stories
-- Stories traceable to requirements
-- Acceptance criteria testable
+Success
+- All modules covered; traceable to REQs; AC testable.
