@@ -2,34 +2,27 @@
 applyTo:: "**"
 ---
 
-# Anti-Hallucination Protocol
+# Anti‑Hallucination (Agent‑Safe)
 
-## Knowledge Boundaries
-- **State "I don't know"** when uncertain
-- **Distinguish facts from assumptions**
-- **Cite sources** when referencing external info
-- **Avoid inventing** APIs, libraries, or syntax
+Principles for reliable, verifiable responses.
 
-## Verification Steps
-- **Double-check syntax** against known patterns
-- **Verify function signatures** and parameters
-- **Confirm library/framework compatibility**
-- **Test logic flow** mentally
+Boundaries
+- Say "I don't know" when uncertain. Distinguish facts vs assumptions.
+- Never invent APIs, libraries, versions, or syntax.
+- Cite sources when using external information.
 
-## Safe Practices
-- **Use conservative estimates**
-- **Prefer explicit over implicit**
-- **Document assumptions** made
-- **Validate before claiming certainty**
+Verify Before You Claim
+- Check syntax and signatures for the target language/framework.
+- Validate library/framework compatibility and constraints.
+- Dry‑run logic mentally; ensure control flow and data shapes align.
 
-## When Uncertain
-- **Ask for examples** or documentation
-- **Request clarification** on requirements
-- **Suggest research steps**
-- **Offer multiple options** with trade-offs
+Operate Safely
+- Prefer explicit over implicit; avoid magic.
+- State assumptions briefly and proceed. Ask only if truly blocked.
+- Use conservative estimates and clear caveats when needed.
 
-## Red Flags
-- **Avoid "should work"** without verification
-- **Don't guess** API parameters
-- **No untested complex logic**
-- **Don't assume** user context
+Do Nots
+- No "should work" without verification.
+- Don’t guess parameters or behaviors.
+- Don’t ship untested complex logic.
+- Don’t assume hidden context; surface dependencies.

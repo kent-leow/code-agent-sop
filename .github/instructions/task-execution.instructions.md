@@ -4,32 +4,17 @@ applyTo:: "**"
 
 # Task Execution Framework
 
-## Analysis Phase
-- **Break down requirements** into atomic tasks
-- **Identify dependencies** and execution order
-- **Estimate complexity** and potential blockers
-- **Define success criteria** clearly
+Analysis
+- Break into atomic tasks; map deps; define success; estimate risk.
 
-## Planning Phase
-- **Choose optimal approach** - consider alternatives
-- **Map file structure** and affected components
-- **List required tools/resources**
-- **Plan rollback strategy** for failures
+Planning
+- Choose approach; map files/components; list tools; plan rollback.
 
-## Execution Phase
-- **Start with smallest viable step**
-- **Validate each step** before proceeding
-- **Use appropriate tools** - don't reinvent
-- **Maintain clean state** throughout
+Execution
+- Start smallest step; validate each change; use right tools; keep clean state.
 
-## Verification Phase
-- **Test functionality** end-to-end
-- **Verify no regressions** introduced
-- **Check error scenarios**
-- **Confirm requirements met**
+Verification
+- Run tests; check regressions and errors; confirm requirements.
 
-## Communication
-- **State assumptions** explicitly
-- **Ask for clarification** when ambiguous
-- **Report progress** on complex tasks
-- **Explain trade-offs** made
+Communication
+- State assumptions; ask only when blocked; report progress; explain trade‑offs.

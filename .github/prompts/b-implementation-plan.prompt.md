@@ -58,83 +58,52 @@ Transform requirements into machine-readable implementation plan.
 ### JSON Schema
 ```json
 {
-  "project": {
-    "name": "string",
-    "version": "string",
-    "description": "string"
-  },
-  "architecture": {
-    "style": "monolithic|microservices|serverless",
-    "components": [{
-      "id": "string",
-      "name": "string",
-      "type": "frontend|backend|database|service",
-      "technology": "string",
-      "dependencies": ["string"]
+  # Implementation Plan Generator
+
+  Goal: Convert analysis into a single machine‑readable plan.
+
+  Inputs
+  - `.docs/analysis/**` files `*-requirements-v*.md`
+
+  Process
+  1) Parse functional/non‑functional requirements.
+  2) Design phases with ordered dependencies.
+  3) Define technical architecture and integrations.
+
+  Output
+  - Path: `.docs/overview-plan.json`
+  - Format: Structured JSON
+
+  JSON Schema
+  ```json
+  {
+    "project": {"name": "string", "version": "string", "description": "string"},
+    "architecture": {
+      "style": "monolithic|microservices|serverless",
+      "components": [{"id": "string", "name": "string", "type": "frontend|backend|database|service", "technology": "string", "dependencies": ["string"]}],
+      "integrations": [{"source": "string", "target": "string", "type": "REST|GraphQL|messaging|database"}]
+    },
+    "phases": [{
+      "id": "string", "name": "string", "priority": "number", "estimatedDuration": "string", "dependencies": ["string"],
+      "modules": [{"id": "string", "name": "string", "requirements": ["REQ-ID"], "components": ["component-id"], "complexity": "low|medium|high"}]
     }],
-    "integrations": [{
-      "source": "string",
-      "target": "string",
-      "type": "REST|GraphQL|messaging|database"
-    }]
-  },
-  "phases": [{
-    "id": "string",
-    "name": "string",
-    "priority": "number",
-    "estimatedDuration": "string",
-    "dependencies": ["string"],
-    "modules": [{
-      "id": "string",
-      "name": "string",
-      "requirements": ["REQ-ID"],
-      "components": ["component-id"],
-      "complexity": "low|medium|high"
-    }]
-  }],
-  "requirements": {
-    "functional": [{
-      "id": "string",
-      "title": "string",
-      "priority": "string",
-      "phase": "string",
-      "acceptanceCriteria": ["string"]
-    }],
-    "nonFunctional": [{
-      "id": "string",
-      "category": "performance|security|scalability|usability",
-      "metric": "string",
-      "target": "string"
-    }]
-  },
-  "technology": {
-    "frontend": {"framework": "string", "language": "string"},
-    "backend": {"framework": "string", "language": "string"},
-    "database": {"primary": "string", "caching": "string"},
-    "infrastructure": {"hosting": "string", "cicd": "string"}
-  },
-  "risks": [{
-    "description": "string",
-    "impact": "low|medium|high",
-    "mitigation": "string"
-  }]
-}
-```
+    "requirements": {
+      "functional": [{"id": "string", "title": "string", "priority": "string", "phase": "string", "acceptanceCriteria": ["string"]}],
+      "nonFunctional": [{"id": "string", "category": "performance|security|scalability|usability", "metric": "string", "target": "string"}]
+    },
+    "technology": {
+      "frontend": {"framework": "string", "language": "string"},
+      "backend": {"framework": "string", "language": "string"},
+      "database": {"primary": "string", "caching": "string"},
+      "infrastructure": {"hosting": "string", "cicd": "string"}
+    },
+    "risks": [{"description": "string", "impact": "low|medium|high", "mitigation": "string"}]
+  }
+  ```
 
-## Success Criteria
-- All requirements mapped to phases
-- Dependencies sequenced
-- Technology stack coherent
+  Quality
+  - Complete, consistent, feasible, and traceable.
 
-## Quality Standards
-- **Completeness**: All requirements mapped to phases/modules
-- **Consistency**: Technology choices align across components
-- **Feasibility**: Realistic timelines and effort estimates
-- **Traceability**: Clear mapping from requirements to implementation
-
-## Success Criteria
-- JSON validates against schema
-- All business requirements covered in phases
-- Dependencies properly sequenced
-- Technology stack coherent and justified
-- Timeline realistic with buffer for risks
+  Success
+  - JSON validates; all requirements covered; deps sequenced; tech coherent.
+  },

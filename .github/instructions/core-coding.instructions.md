@@ -2,34 +2,20 @@
 applyTo:: "**"
 ---
 
-# Core Coding Instructions
+# Core Coding (Concise)
 
-## Context First
-- **Read existing code** before writing
-- **Understand project structure** and patterns
-- **Check dependencies** and versions
-- **Follow established conventions**
+Context First
+- Read existing code and patterns; match conventions.
+- Inspect deps and versions; respect constraints.
 
-## Code Quality
-- **Use exact syntax** for target language/framework
-- **Handle errors explicitly** - no silent failures
-- **Add meaningful comments** for complex logic
-- **Follow DRY principle** - extract reusable patterns
+Quality
+- Exact syntax; no silent failures; explicit errors.
+- Comment non‑obvious logic; keep DRY and cohesive.
 
-## Validation
-- **Test code mentally** before suggesting
-- **Verify imports/dependencies** exist
-- **Check variable scope** and lifecycle
-- **Ensure type safety** where applicable
+Validation
+- Mentally test control flow and data shapes.
+- Verify imports, types, and variable lifecycles.
 
-## Efficiency
-- **Use appropriate data structures**
-- **Avoid premature optimization**
-- **Consider performance implications**
-- **Minimize resource usage**
-
-## Safety
-- **Validate inputs** at boundaries
-- **Sanitize user data**
-- **Use secure coding practices**
-- **Handle edge cases**
+Efficiency & Safety
+- Choose proper data structures; avoid premature optimization.
+- Validate and sanitize inputs; handle edge cases and errors.

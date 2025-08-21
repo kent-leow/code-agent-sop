@@ -5,28 +5,28 @@ mode: agent
 
 # Implementation Tasks Generator
 
-Transform user stories into executable implementation tasks.
+Goal: Turn stories into atomic, executable tasks with specs.
 
-## Input
-- Primary: `.docs/user-stories/phase-{x}/us-{x}.{y}-{description}.md`
-- Reference: `.docs/overview-plan.json`
+Inputs
+- `.docs/user-stories/phase-{x}/us-{x}.{y}-{desc}.md`
+- `.docs/overview-plan.json`
 
-## Process
-1. Parse acceptance criteria into development tasks
-2. Break down into atomic, executable tasks
-3. Add technical specifications
+Process
+1) Parse AC into tasks.
+2) Make tasks atomic and explicit.
+3) Add technical specs.
 
-## Output
-- Location: `.docs/tasks/phase-{phase}/us-{phase}.{story}/`
+Output
+- Path: `.docs/tasks/phase-{phase}/us-{phase}.{story}/`
 - Files: `task-{phase}.{story}.{task}-{name}.md`
 
-### Task Template
+Template
 ```markdown
 # Task {Phase}.{Story}.{Task}: {Name}
 
 ## Overview
-- User Story: us-{phase}.{story}-{description}
-- Task ID: task-{phase}.{story}.{task}-{name}
+- Story: us-{phase}.{story}-{desc}
+- ID: task-{phase}.{story}.{task}-{name}
 - Priority: High|Medium|Low
 - Effort: {hours}
 - Dependencies: {task files}
@@ -46,19 +46,17 @@ Transform user stories into executable implementation tasks.
 - Dependencies: {packages}
 - Tools: {dev/test tools}
 
-## Implementation Steps
+## Steps
 ### Step 1: {Name}
 - Action: {specific action}
 - Deliverable: {output}
 - Acceptance: {verification}
 - Files: {create/modify}
 
-## Technical Specs
-### API Endpoints
-```
+## Specs
+### API
 GET /api/endpoint
 POST /api/endpoint
-```
 
 ### Database
 ```sql
@@ -66,39 +64,33 @@ CREATE TABLE example (id SERIAL PRIMARY KEY);
 ```
 
 ## Testing
-- [ ] Unit tests for {functions}
-- [ ] Integration tests for {flows}
-- [ ] E2E tests for {workflows}
+- [ ] Unit: {functions}
+- [ ] Integration: {flows}
+- [ ] E2E: {workflows}
 
-## Acceptance Criteria
-- [ ] {Criteria from user story}
+## Acceptance
+- [ ] Story criteria covered
 - [ ] Steps completed
 - [ ] Tests passing
 
 ## Dependencies
-- Before: {prerequisite tasks}
-- After: {dependent tasks}
-- External: {services/infrastructure}
+- Before: {prereqs}
+- After: {dependents}
+- External: {services}
 
 ## Risks
 - Risk: {issue}
 - Mitigation: {approach}
 
-## Definition of Done
-- [ ] Code implemented
+## DoD
+- [ ] Implemented
 - [ ] Tests passing
 - [ ] Reviewed
 - [ ] Integrated
 ```
 
-## Task Standards
-- Atomic: Independently completable
-- Explicit: No implementation assumptions
-- Testable: Clear validation criteria
-- Traceable: Links to user story
+Standards
+- Atomic; explicit; testable; traceable to story.
 
-## Success Criteria
-- All acceptance criteria covered
-- Tasks atomic (1-3 days)
-- Dependencies identified
-- Technical specs complete
+Success
+- AC covered; 1–3 day tasks; deps identified; specs complete.

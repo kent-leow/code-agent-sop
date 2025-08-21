@@ -5,42 +5,28 @@ mode: agent
 
 # Task Execution Engine
 
-Execute implementation tasks by following task breakdown, implementing code, testing, and validating completion.
+Goal: Implement tasks to completion with tests and validations.
 
-## Input
-- Primary: `.docs/tasks/phase-{phase}/us-{phase}.{story}/task-{phase}-{story}-{task}-{name}.md`
-- Context: Technical specs, project codebase
+Inputs
+- `.docs/tasks/phase-{phase}/us-{phase}.{story}/task-{phase}-{story}-{task}-{name}.md`
+- Project codebase and specs
 
-## Process
-1. Parse task dependencies and prerequisites
-2. Implement code per specifications
-3. Execute tests and validate criteria
-4. Update task/story status to "Done"
+Loop
+1) Read task; resolve prerequisites/deps.
+2) Implement code per specs and patterns.
+3) Write/run tests; validate criteria.
+4) Update task and story status to Done.
 
-## Execution Standards
-### Code Implementation
-- Follow specifications exactly
-- Use project patterns
-- Implement error handling
-- Meet performance requirements
+Standards
+- Exact to spec; proper error handling; performance as required.
+- Testing: unit, integration, E2E; perf/security as applicable.
 
-### Testing Approach
-- Unit tests: functions/methods
-- Integration tests: component interactions
-- E2E tests: user workflows
-- Performance/security validation
+Quality Gates
+- [ ] Subtasks complete; standards met; tests passing; requirements met
+- [ ] Docs updated; task and story marked Done
 
-### Quality Gates
-- [ ] All subtasks completed
-- [ ] Code follows standards
-- [ ] Tests passing
-- [ ] Requirements met
-- [ ] Documentation updated
-- [ ] Task file marked "Done"
-- [ ] User story marked "Done"
-
-## Status Updates
-### Task File Update
+Status Updates
+Task file
 ```yaml
 ---
 status: Done
@@ -51,7 +37,7 @@ code_location: "{path}"
 ---
 ```
 
-### User Story Update
+User story
 ```yaml
 ---
 status: Done
@@ -61,15 +47,10 @@ validation_results: "All criteria met"
 ---
 ```
 
-## Error Handling
-1. Document issue and root cause
-2. Try alternative approaches
-3. Escalate if blocking
+Errors
+1) Record issue/root cause.
+2) Try alternatives.
+3) Escalate if blocking.
 
-## Success Criteria
-- All tasks completed
-- Code matches specifications
-- All tests passing
-- Performance/security validated
-- Source files marked "Done"
-- Ready for deployment
+Success
+- All tasks complete; code matches spec; all tests pass; perf/security validated; ready to ship.

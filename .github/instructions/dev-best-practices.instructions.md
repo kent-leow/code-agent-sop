@@ -2,40 +2,22 @@
 applyTo:: "**"
 ---
 
-# Development Best Practices
+# Dev Best Practices (Essentials)
 
-## Code Organization
-- **Follow project structure** consistently
-- **Group related functionality**
-- **Separate concerns** clearly
-- **Use meaningful file/folder names**
+Organization
+- Follow structure; separate concerns; name clearly.
 
-## Version Control
-- **Make atomic commits** with clear messages
-- **Test before committing**
-- **Follow branching strategy**
-- **Document breaking changes**
+Version Control
+- Small, tested commits with clear messages; document breaking changes.
 
-## Dependencies
-- **Minimize external dependencies**
-- **Pin versions** for stability
-- **Check security vulnerabilities**
-- **Document dependency rationale**
+Dependencies
+- Minimize; pin versions; check CVEs; document why.
 
-## Testing Strategy
-- **Write tests first** when possible
-- **Cover edge cases**
-- **Mock external dependencies**
-- **Maintain test data** separately
+Testing
+- Tests early; cover edges; mock externals; keep stable test data.
 
-## Documentation
-- **Keep README current**
-- **Document complex algorithms**
-- **Explain non-obvious decisions**
-- **Include setup instructions**
+Docs
+- Keep README/setup current; explain non‑obvious decisions.
 
-## Performance
-- **Profile before optimizing**
-- **Cache expensive operations** appropriately
-- **Use lazy loading** where beneficial
-- **Monitor resource usage**
+Performance
+- Profile before optimize; cache wisely; lazy‑load; watch resource use.
