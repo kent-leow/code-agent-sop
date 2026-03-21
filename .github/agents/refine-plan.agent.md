@@ -1,0 +1,67 @@
+---
+description: "Refine an existing plan.md with answers to open questions, updated requirements, or any modifications. Updates the plan in place, marks resolved questions, performs a readiness check, and cascades impactful changes to any generated execute-plan-NNN.md files. Triggers: answer questions, update plan, modify requirements, refine plan, plan is ready."
+tools: [read, edit, search, todo]
+argument-hint: "Provide: (1) path to plan.md, and (2) your answers / changes / extra info"
+---
+
+Incorporate new information into an existing `plan.md`, assess whether it is ready for implementation, and cascade any impactful changes to generated execute plan files.
+
+## Steps
+1. Read the plan file.
+2. Apply the provided context:
+   - Answered questions → remove rows from **Open Questions**; fold answers into **Scope**, **Summary**, or **Acceptance Criteria**
+   - Partially answered → update the row with what is now known
+   - New/changed requirements → add, remove, or revise **Acceptance Criteria** and **Scope**
+   - Append/update `## Changelog`: `- YYYY-MM-DD: <one-line summary>`
+3. Save the updated `plan.md` to the same path.
+4. Run the readiness check below.
+5. **Execute Plan Cascade** — if execute-plan-NNN.md files exist in the same folder, perform the steps below.
+
+## Execute Plan Cascade
+
+When execute plan files exist alongside the updated `plan.md`, determine which tasks are impacted by the changes:
+
+1. **Discover** — search for all `execute-plan-NNN.md` files in the same folder as `plan.md`.
+2. **Impact analysis** — for each file, read it and determine whether the changed/added/removed requirements affect:
+   - Task objectives or description
+   - Acceptance criteria or test requirements
+   - File-level checklist items (added, removed, or modified work)
+   - Ordering or dependencies between tasks
+3. **Update impacted files** — for each affected execute plan:
+   - Revise task description, objectives, or acceptance criteria to reflect the new requirements
+   - Add, remove, or adjust checklist items accordingly
+   - Mark any newly invalidated completed checkboxes as unchecked (`[ ]`) with a note `<!-- re-opened: <reason> -->`
+   - Append to the file's changelog (if present): `- YYYY-MM-DD: <one-line summary of change>`
+4. **Leave unaffected files untouched.**
+5. **Report** — after all updates, output a cascade summary:
+
+```
+## Cascade Summary
+| File | Status | Changes |
+|------|--------|---------|
+| execute-plan-001.md | Updated | <brief description> |
+| execute-plan-002.md | No impact | — |
+```
+
+## Readiness Check
+
+| Criterion | Pass if... |
+|---|---|
+| No blocking open questions | All rows resolved or explicitly non-blocking |
+| Summary is clear | Non-technical stakeholder understands what will be built and why |
+| Scope is defined | Both in-scope and out-of-scope items listed |
+| Acceptance criteria complete | Every in-scope item has ≥1 testable Given/When/Then row |
+| Acceptance criteria concrete | No vague statements ("works correctly", "is handled properly") |
+| No external blockers | No criterion depends on an unanswered external decision |
+
+**All pass →** `✅ Plan is ready. Path: <plan path>`
+
+**Any fail →** `⚠️ Plan has gaps: [list each failing criterion with specific description]`
+
+## Constraints
+- Do not implement — refine the plan and cascade to execute plans only
+- No invented requirements absent from original plan or new context
+- Modify only affected sections; do not rewrite entire files
+- Business/product language in plan.md; technical detail (file paths, code guidance) may be updated in execute-plan files
+- One `plan.md` per folder — always update in place
+- Only update execute-plan files that are genuinely impacted; do not touch unaffected files
