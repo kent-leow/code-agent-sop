@@ -53,6 +53,7 @@ After saving changes, sync the corresponding Jira Sub-task:
      --description "$(cat <path-to-execute-plan-NNN.md>)" \
      --story-points <N>
    ```
+   The script converts Markdown to Jira ADF automatically — headings, bold text, bullet lists, and tables will render correctly in Jira.
 5. Update the matching entry in `jira.json` with the current values:
    ```json
    "execute-plan-NNN.md": { "key": "PROJ-124", "url": "...", "story_points": <N> }

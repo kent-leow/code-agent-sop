@@ -75,7 +75,7 @@ After generating all execute-plan files, create or update a Jira Sub-task per fi
 1. Read `jira.json` from the same folder. If it does not exist or `parent.key` is missing, skip and note.
 2. Estimate story points per sub-task: count tasks (checkboxes) in the slice; 1 SP per task; minimum 1.
 3. For each execute-plan file, check whether an entry already exists under `subtasks` in `jira.json`:
-   - **No existing entry** → create a new Sub-task (pass the full file content as description):
+   - **No existing entry** → create a new Sub-task (pass the full file content as description; the script converts Markdown to Jira ADF — headings, bold, lists, and tables will render correctly):
      ```bash
      bash .github/skills/jira-ticket/scripts/create-ticket.sh \
        --title "<slice title>" \
@@ -84,7 +84,7 @@ After generating all execute-plan files, create or update a Jira Sub-task per fi
        --parent <parent.key> \
        --story-points <N>
      ```
-   - **Entry already exists** → update the existing Sub-task (pass the full file content as description):
+   - **Entry already exists** → update the existing Sub-task (pass the full file content as description; the script converts Markdown to Jira ADF — headings, bold, lists, and tables will render correctly):
      ```bash
      bash .github/skills/jira-ticket/scripts/update-ticket.sh \
        --issue-key <existing.key> \

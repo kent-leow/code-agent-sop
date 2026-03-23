@@ -31,6 +31,7 @@ After saving `plan.md`, sync the Jira Story:
      --description "$(cat <path-to-plan.md>)" \
      --story-points <N>
    ```
+   The script converts Markdown to Jira ADF automatically — headings, bold text, bullet lists, and tables will render correctly in Jira.
    Update `parent.story_points` (and title/description if changed) in `jira.json`.
 3. **Does not exist** → create the Jira Story the same way as `generate-plan` step 6; save `jira.json`.
 4. If JIRA env vars are missing, skip and note: `⚠️ Jira skipped — set JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL`

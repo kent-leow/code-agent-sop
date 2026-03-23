@@ -1,39 +1,30 @@
 #!/usr/bin/env bash
-# create-ticket.sh — Create a Jira issue via REST API v3
-# Usage: bash create-ticket.sh --title "..." [--description "..."] [--issue-type Story] [--story-points N] [--parent PROJ-42] [--assignee <accountId>]
+# update-ticket.sh — Update title, description, and/or story points on an existing Jira issue
+# Usage: bash update-ticket.sh --issue-key PROJ-123 [--title "..."] [--description "..."] [--story-points N]
 
 set -euo pipefail
 
-# ── Defaults ──────────────────────────────────────────────────────────────────
+ISSUE_KEY=""
 TITLE=""
 DESCRIPTION=""
-ISSUE_TYPE="Story"
 STORY_POINTS=""
-PARENT_KEY=""
-ASSIGNEE_ID="${JIRA_ASSIGNEE_ACCOUNT_ID:-}"
 
-# ── Arg parsing ───────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --title)        TITLE="$2";         shift 2 ;;
-    --description)  DESCRIPTION="$2";   shift 2 ;;
-    --issue-type)   ISSUE_TYPE="$2";    shift 2 ;;
-    --story-points) STORY_POINTS="$2";  shift 2 ;;
-    --parent)       PARENT_KEY="$2";    shift 2 ;;
-    --assignee)     ASSIGNEE_ID="$2";   shift 2 ;;
+    --issue-key)    ISSUE_KEY="$2";    shift 2 ;;
+    --title)        TITLE="$2";        shift 2 ;;
+    --description)  DESCRIPTION="$2";  shift 2 ;;
+    --story-points) STORY_POINTS="$2"; shift 2 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
 
-# ── Validate required env vars ────────────────────────────────────────────────
 : "${JIRA_TOKEN:?JIRA_TOKEN environment variable is required}"
-: "${JIRA_BASE_URL:?JIRA_BASE_URL environment variable is required (e.g. https://your-org.atlassian.net)}"
-: "${JIRA_PROJECT_KEY:?JIRA_PROJECT_KEY environment variable is required (e.g. PROJ)}"
+: "${JIRA_BASE_URL:?JIRA_BASE_URL environment variable is required}"
 : "${JIRA_EMAIL:?JIRA_EMAIL environment variable is required}"
 
-if [[ -z "$TITLE" ]]; then
-  echo "Error: --title is required" >&2
-  exit 1
+if [[ -z "$ISSUE_KEY" ]]; then
+  echo "Error: --issue-key is required" >&2; exit 1
 fi
 
 # ── Build description ADF block (converts Markdown → ADF) ────────────────────
@@ -136,56 +127,46 @@ def md_to_adf(text):
 print(json.dumps(md_to_adf(sys.argv[1])))
 " "$DESCRIPTION")
 else
-  DESCRIPTION_JSON='{"type":"doc","version":1,"content":[]}'
+  DESCRIPTION_JSON=""
 fi
 
 # ── Build JSON payload ────────────────────────────────────────────────────────
-FIELDS=$(python3 -c "
+PAYLOAD=$(python3 -c "
 import json, sys
-project_key   = sys.argv[1]
-title         = sys.argv[2]
-issue_type    = sys.argv[3]
-story_points  = sys.argv[4]
-parent_key    = sys.argv[5]
-description   = json.loads(sys.argv[6])
-assignee_id   = sys.argv[7]
+title         = sys.argv[1]
+story_points  = sys.argv[2]
+description   = sys.argv[3]
 
-fields = {
-    'project':     {'key': project_key},
-    'summary':     title,
-    'issuetype':   {'name': issue_type},
-    'description': description,
-}
+fields = {}
+
+if title:
+    fields['summary'] = title
 
 if story_points:
     fields['customfield_10016'] = float(story_points)
 
-if parent_key:
-    fields['parent'] = {'key': parent_key}
-
-if assignee_id:
-    fields['assignee'] = {'accountId': assignee_id}
+if description:
+    fields['description'] = json.loads(description)
 
 print(json.dumps({'fields': fields}))
-" "$JIRA_PROJECT_KEY" "$TITLE" "$ISSUE_TYPE" "$STORY_POINTS" "$PARENT_KEY" "$DESCRIPTION_JSON" "$ASSIGNEE_ID")
+" "$TITLE" "$STORY_POINTS" "$DESCRIPTION_JSON")
 
 # ── Call Jira API ─────────────────────────────────────────────────────────────
 RESPONSE=$(curl -s -w "\n%{http_code}" \
-  -X POST \
+  -X PUT \
   -H "Content-Type: application/json" \
   -u "${JIRA_EMAIL}:${JIRA_TOKEN}" \
-  --data "$FIELDS" \
-  "${JIRA_BASE_URL}/rest/api/3/issue")
+  --data "$PAYLOAD" \
+  "${JIRA_BASE_URL}/rest/api/3/issue/${ISSUE_KEY}")
 
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
 BODY=$(echo "$RESPONSE" | awk 'NR>1{print prev} {prev=$0}')
 
-if [[ "$HTTP_CODE" != "201" ]]; then
+if [[ "$HTTP_CODE" != "204" ]]; then
   echo "Error: Jira API returned HTTP $HTTP_CODE" >&2
   echo "$BODY" >&2
   exit 1
 fi
 
-ISSUE_KEY=$(echo "$BODY" | python3 -c "import json,sys; print(json.load(sys.stdin)['key'])")
-echo "Created: $ISSUE_KEY"
+echo "Updated: $ISSUE_KEY"
 echo "URL: ${JIRA_BASE_URL}/browse/${ISSUE_KEY}"
