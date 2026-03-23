@@ -17,6 +17,7 @@ You are the primary executor for a vertical slice. Your job is to:
 - Target `execute-plan-NNN.md` (all tasks, Done When, Prerequisites)
 - Sibling `plan.md` (acceptance criteria, business context)
 - All other `execute-plan-*.md` files in the same folder
+- `jira.json` in the same folder (if it exists) — note the sub-task key for this execute-plan filename under `subtasks`
 
 ### 1.2 Check Prerequisites
 For each slice listed in **Prerequisites**:
@@ -74,6 +75,12 @@ After all tasks are implemented:
    - Satisfied → mark `[x]` and append `<!-- verified YYYY-MM-DD -->`.
    - Blocked → leave `[ ]` and append `<!-- blocked: <reason> -->`.
 3. Re-scan sibling execute plans once more to confirm no stale cross-references remain.
+4. **Jira Sub-task Update** — if `jira.json` has a `subtasks` entry matching this execute-plan filename:
+   - Re-count task checkboxes in this file for story points (1 SP per task, min 1).
+   - Invoke `#jira-ticket`: issue key <KEY>, story points <N> (update).
+   - Update `story_points` for this entry in `jira.json`.
+   - If `jira.json` or the entry does not exist, skip and note.
+   - If JIRA env vars are missing, skip and note: `⚠️ Jira skipped — set JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL`
 
 ---
 

@@ -41,7 +41,7 @@ RESPONSE=$(curl -s -w "\n%{http_code}" \
   "${JIRA_BASE_URL}/rest/api/3/issue/${ISSUE_KEY}")
 
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-BODY=$(echo "$RESPONSE" | head -n -1)
+BODY=$(echo "$RESPONSE" | awk 'NR>1{print prev} {prev=$0}')
 
 if [[ "$HTTP_CODE" != "204" ]]; then
   echo "Error: Jira API returned HTTP $HTTP_CODE" >&2

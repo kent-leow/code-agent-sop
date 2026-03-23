@@ -14,7 +14,7 @@ Receive raw input and produce a concise, Jira-ready `plan.md` in `.docs/<task-na
 5. Write `plan.md` per the structure below.
 6. **Jira** — Create a Jira Story for this plan using the `jira-ticket` skill:
    - Estimate story points: `(number of AC rows × 2) + (number of Open Questions rows)`, minimum 1.
-   - Read the full content of the generated `plan.md` and pass it as the description.
+   - Read the full content of the generated `plan.md` and pass it as the description. The script converts Markdown to Jira ADF automatically — headings, bold text, bullet lists, and tables will render correctly in Jira.
    - Run: `bash .github/skills/jira-ticket/scripts/create-ticket.sh --title "<plan title>" --description "$(cat .docs/<folder-name>/plan.md)" --issue-type Story --story-points <N>`
    - Save `.docs/<folder-name>/jira.json`:
      ```json
