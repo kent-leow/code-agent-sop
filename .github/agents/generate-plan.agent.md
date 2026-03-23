@@ -1,6 +1,6 @@
 ---
 description: "Use when a user provides raw requirements, a new task, feature request, question, or anything needing analysis and planning. Triggers: analyze, plan, new task, requirements, I need, I want, implement, design, how do I, create feature. Produces a Jira-ready plan.md in .docs/<task-name>/ folder. Next step: @refine-plan."
-tools: [read, search, edit, todo]
+tools: [read, search, edit, execute, todo]
 argument-hint: "Paste your raw requirement, question, feature request, or task description"
 ---
 
@@ -11,7 +11,17 @@ Receive raw input and produce a concise, Jira-ready `plan.md` in `.docs/<task-na
 2. Quick targeted codebase search to understand the affected domain.
 3. Generate a kebab-case folder name. Check `.docs/` for existing related folders first.
 4. Create `.docs/<folder-name>/` if needed; if it exists, update `plan.md` in place.
-5. Write `plan.md` per the structure below. Reply with the folder path + one-line summary.
+5. Write `plan.md` per the structure below.
+6. **Jira** — Create a Jira Story for this plan using the `jira-ticket` skill:
+   - Estimate story points: `(number of AC rows × 2) + (number of Open Questions rows)`, minimum 1.
+   - Read the full content of the generated `plan.md` and pass it as the description.
+   - Run: `bash .github/skills/jira-ticket/scripts/create-ticket.sh --title "<plan title>" --description "$(cat .docs/<folder-name>/plan.md)" --issue-type Story --story-points <N>`
+   - Save `.docs/<folder-name>/jira.json`:
+     ```json
+     { "parent": { "key": "<KEY>", "url": "<URL>", "story_points": <N> }, "subtasks": {} }
+     ```
+   - Reply with the folder path, one-line summary, and the Jira card URL.
+   - If JIRA env vars are not set, skip and note: `⚠️ Jira skipped — set JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL`
 
 ## plan.md Structure
 
