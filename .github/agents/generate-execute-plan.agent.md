@@ -1,6 +1,6 @@
 ---
 description: "Takes a ready plan.md and generates detailed, developer-executable task files (execute-plan-001.md, 002.md, ...). Each task is a complete, independently testable vertical slice with file-level checklists, code guidance, and test requirements. Triggers: generate tasks, generate execute plan, ready to implement, break down plan, generate subtasks."
-tools: [read, search, edit, todo]
+tools: [read, search, edit, execute, todo]
 argument-hint: "Provide the path to a ready plan.md (e.g. .docs/create-form-and-application/plan.md)"
 ---
 
@@ -67,6 +67,40 @@ Generated <N> execute plan(s) in .docs/<folder>/:
 
 Start with execute-plan-001.md. Verify all "Done When" before moving to the next slice.
 ```
+
+## Jira Sub-tasks
+
+After generating all execute-plan files, create or update a Jira Sub-task per file under the plan's parent issue:
+
+1. Read `jira.json` from the same folder. If it does not exist or `parent.key` is missing, skip and note.
+2. Estimate story points per sub-task: count tasks (checkboxes) in the slice; 1 SP per task; minimum 1.
+3. For each execute-plan file, check whether an entry already exists under `subtasks` in `jira.json`:
+   - **No existing entry** → create a new Sub-task (pass the full file content as description):
+     ```bash
+     bash .github/skills/jira-ticket/scripts/create-ticket.sh \
+       --title "<slice title>" \
+       --description "$(cat .docs/<folder>/execute-plan-NNN.md)" \
+       --issue-type Sub-task \
+       --parent <parent.key> \
+       --story-points <N>
+     ```
+   - **Entry already exists** → update the existing Sub-task (pass the full file content as description):
+     ```bash
+     bash .github/skills/jira-ticket/scripts/update-ticket.sh \
+       --issue-key <existing.key> \
+       --title "<slice title>" \
+       --description "$(cat .docs/<folder>/execute-plan-NNN.md)" \
+       --story-points <N>
+     ```
+4. After all sub-tasks are created or updated, write/update `jira.json` — record each sub-task under `"subtasks"`:
+   ```json
+   "subtasks": {
+     "execute-plan-001.md": { "key": "PROJ-124", "url": "...", "story_points": 2 },
+     "execute-plan-002.md": { "key": "PROJ-125", "url": "...", "story_points": 3 }
+   }
+   ```
+5. Include all sub-task URLs in the reply.
+6. If JIRA env vars are missing, skip and note: `⚠️ Jira skipped — set JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL`
 
 ## Constraints
 - No code — describe what to write, not the code itself
