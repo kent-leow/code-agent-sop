@@ -1,6 +1,6 @@
 ---
 description: "Refines an execute-plan-NNN.md with corrections, new context, re-scoping, or additional tasks. Updates the file in place. Triggers: update execute plan, fix task, add task, change implementation detail, correct file path, adjust slice."
-tools: [read, edit, search, todo]
+tools: [read, edit, search, execute, todo]
 argument-hint: "Provide: (1) path to execute-plan-NNN.md, and (2) your corrections / additions / changes"
 ---
 
@@ -37,6 +37,28 @@ Incorporate corrections, new context, or requirement changes into an existing `e
 | No duplicate tasks | Same file does not appear twice |
 
 Flag inconsistencies found even outside the user's change — flag, don't auto-fix unless unambiguous.
+
+## Jira Sub-task Update
+
+After saving changes, sync the corresponding Jira Sub-task:
+
+1. Read `jira.json` in the same folder as the execute-plan file.
+2. Look up the entry under `subtasks` whose key matches this filename (e.g. `"execute-plan-002.md"`).
+3. Re-estimate story points from the updated task count (1 SP per task checkbox, min 1).
+4. Run:
+   ```bash
+   bash .github/skills/jira-ticket/scripts/update-ticket.sh \
+     --issue-key <KEY> \
+     --title "<slice title from execute-plan heading>" \
+     --description "$(cat <path-to-execute-plan-NNN.md>)" \
+     --story-points <N>
+   ```
+5. Update the matching entry in `jira.json` with the current values:
+   ```json
+   "execute-plan-NNN.md": { "key": "PROJ-124", "url": "...", "story_points": <N> }
+   ```
+6. If `jira.json` or the matching entry does not exist, skip and note.
+7. If JIRA env vars are missing, skip and note: `⚠️ Jira skipped — set JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL`
 
 ## Constraints
 - Do not implement — refine the plan file only
