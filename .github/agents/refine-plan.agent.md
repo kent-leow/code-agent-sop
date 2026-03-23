@@ -1,6 +1,6 @@
 ---
 description: "Refine an existing plan.md with answers to open questions, updated requirements, or any modifications. Updates the plan in place, marks resolved questions, performs a readiness check, and cascades impactful changes to any generated execute-plan-NNN.md files. Triggers: answer questions, update plan, modify requirements, refine plan, plan is ready."
-tools: [read, edit, search, todo]
+tools: [read, edit, search, execute, todo]
 argument-hint: "Provide: (1) path to plan.md, and (2) your answers / changes / extra info"
 ---
 
@@ -16,6 +16,24 @@ Incorporate new information into an existing `plan.md`, assess whether it is rea
 3. Save the updated `plan.md` to the same path.
 4. Run the readiness check below.
 5. **Execute Plan Cascade** — if execute-plan-NNN.md files exist in the same folder, perform the steps below.
+6. **Jira Update** — see section below.
+
+## Jira Update
+
+After saving `plan.md`, sync the Jira Story:
+
+1. Look for `jira.json` in the same folder as `plan.md`.
+2. **Exists** → read `parent.key`; re-estimate story points (same formula: `AC rows × 2 + Open Question rows`, min 1); run:
+   ```bash
+   bash .github/skills/jira-ticket/scripts/update-ticket.sh \
+     --issue-key <KEY> \
+     --title "<updated plan heading>" \
+     --description "$(cat <path-to-plan.md>)" \
+     --story-points <N>
+   ```
+   Update `parent.story_points` (and title/description if changed) in `jira.json`.
+3. **Does not exist** → create the Jira Story the same way as `generate-plan` step 6; save `jira.json`.
+4. If JIRA env vars are missing, skip and note: `⚠️ Jira skipped — set JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL`
 
 ## Execute Plan Cascade
 
