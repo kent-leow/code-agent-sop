@@ -1,6 +1,6 @@
 ---
 description: "Refines an execute-plan-NNN.md with corrections, new context, re-scoping, or additional tasks. Updates the file in place. Triggers: update execute plan, fix task, add task, change implementation detail, correct file path, adjust slice."
-tools: [read, edit, search, execute, todo]
+tools: [read, edit, search, execute, todo, com.figma.mcp/mcp/*]
 argument-hint: "Provide: (1) path to execute-plan-NNN.md, and (2) your corrections / additions / changes"
 ---
 
@@ -9,10 +9,13 @@ Incorporate corrections, new context, or requirement changes into an existing `e
 ## Steps
 1. Read the execute-plan file and sibling `plan.md`.
 2. If the change references unfamiliar files or patterns, do a targeted codebase search to verify paths before editing.
-3. Apply changes per the table below. Touch only what changed.
-4. After applying: verify all logic tasks have test children; verify "Done When" still reflects the tasks.
-5. Append/update `## Changelog`: `- YYYY-MM-DD: <one-line summary>`
-6. Save.
+3. **Figma** — If the execute plan or `plan.md` references a Figma URL, or the user's change involves UI components, use Figma MCP before editing:
+   - Call `mcp_com_figma_mcp_get_design_context` with the Figma URL to verify that task descriptions and file paths match the current design.
+   - If the design has changed or a new Figma URL is provided, update affected task descriptions, file paths, and Done When items to reflect the latest design.
+4. Apply changes per the table below. Touch only what changed.
+5. After applying: verify all logic tasks have test children; verify "Done When" still reflects the tasks.
+6. Append/update `## Changelog`: `- YYYY-MM-DD: <one-line summary>`
+7. Save.
 
 ## Change Types
 

@@ -1,6 +1,6 @@
 ---
 name: jira-ticket
-description: 'Create Jira issues with title, description, and story points via the Jira REST API. Use for: filing new tickets, creating sub-tasks under a parent issue, updating story points on a ticket or epic. Requires JIRA_TOKEN (API token), JIRA_BASE_URL, and JIRA_PROJECT_KEY. Handles: main ticket creation, sub-task creation, story point updates, input validation.'
+description: 'Create and retrieve Jira issues via the Jira REST API. Use for: filing new tickets, creating sub-tasks, updating story points, retrieving issue comments. Requires JIRA_TOKEN (API token), JIRA_BASE_URL, JIRA_PROJECT_KEY, and JIRA_EMAIL. Handles: main ticket creation, sub-task creation, story point updates, comment retrieval, input validation.'
 argument-hint: '<title> [description] [story_points] [parent_key]'
 ---
 
@@ -11,6 +11,7 @@ argument-hint: '<title> [description] [story_points] [parent_key]'
 - Create sub-tasks under an existing parent ticket
 - Update story points on a ticket
 - Batch-create a parent ticket + sub-tasks in one step
+- Retrieve and display all comments on an existing ticket
 
 ## Prerequisites
 
@@ -33,7 +34,7 @@ Collect from the user (or infer from context):
 - **Title** (required): Summary/title of the ticket
 - **Description** (recommended): Detailed description in plain text or Atlassian Document Format (ADF)
 - **Issue type** (default: `Story`): Story, Task, Bug, Sub-task
-- **Story points** (optional): Numeric value for `story_points` / `customfield_10016`
+- **Story points** (optional): Numeric value for `story_points` / `customfield_10274`
 - **Parent key** (optional): If creating a sub-task, the parent ticket key (e.g. `PROJ-42`)
 - **Labels / components** (optional)
 
@@ -47,7 +48,7 @@ bash .github/skills/jira-ticket/scripts/get-fields.sh
 
 Common field IDs:
 - `story_points` (Jira Software next-gen)
-- `customfield_10016` (classic Scrum boards)
+- `customfield_10274` (Story Points — verified for this instance)
 - `customfield_10028` (some enterprise instances)
 
 ### 3. Create the Main Ticket
@@ -87,7 +88,22 @@ bash .github/skills/jira-ticket/scripts/update-story-points.sh \
   --story-points 5
 ```
 
-### 6. Confirm & Report
+### 6. Retrieve Comments on a Ticket (Optional)
+
+To fetch and display comments for an existing ticket:
+
+```bash
+bash .github/skills/jira-ticket/scripts/get-comments.sh \
+  --issue-key "GOBIZWKST2-324"
+```
+
+Optional flags:
+- `--max-results N` — number of comments to return (default: `50`)
+- `--order-by created` — oldest first (default); use `-created` for newest first
+
+Output is formatted as numbered entries showing author, date, comment ID, and plain-text body extracted from ADF.
+
+### 7. Confirm & Report
 
 After all API calls succeed, output a summary:
 - Created issue key and URL: `$JIRA_BASE_URL/browse/PROJ-123`

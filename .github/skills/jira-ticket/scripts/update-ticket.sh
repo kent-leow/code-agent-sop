@@ -143,7 +143,7 @@ if title:
     fields['summary'] = title
 
 if story_points:
-    fields['customfield_10016'] = float(story_points)
+    fields['customfield_10274'] = float(story_points)
 
 if description:
     fields['description'] = json.loads(description)
