@@ -1,6 +1,6 @@
 ---
 description: "Refine an existing plan.md with answers to open questions, updated requirements, or any modifications. Updates the plan in place, marks resolved questions, performs a readiness check, and cascades impactful changes to any generated execute-plan-NNN.md files. Triggers: answer questions, update plan, modify requirements, refine plan, plan is ready."
-tools: [read, edit, search, execute, todo]
+tools: [execute/runNotebookCell, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, read/getNotebookSummary, read/problems, read/readFile, read/viewImage, read/terminalSelection, read/terminalLastCommand, edit/createDirectory, edit/createFile, edit/createJupyterNotebook, edit/editFiles, edit/editNotebook, edit/rename, search/changes, search/codebase, search/fileSearch, search/listDirectory, search/textSearch, search/usages, com.figma.mcp/mcp/*, todo]
 argument-hint: "Provide: (1) path to plan.md, and (2) your answers / changes / extra info"
 ---
 
@@ -8,15 +8,21 @@ Incorporate new information into an existing `plan.md`, assess whether it is rea
 
 ## Steps
 1. Read the plan file.
-2. Apply the provided context:
+2. **Figma** — If the plan involves UI and a Figma URL is present (in the plan or provided by the user), extract Figma context to validate or enrich the plan before applying changes.
+   - **Tool selection**: if `com.figma.mcp/mcp/*` tools are available, use them; otherwise read `.github/skills/figma-design-context/SKILL.md` and use the shell scripts.
+   - *MCP*: call `mcp_com_figma_mcp_get_design_context` to verify Acceptance Criteria align with the current design.
+   - *Skill*: run `get-design-context.sh` + `summarize-context.sh` for the target node to retrieve the same spec.
+   - Update or add Acceptance Criteria rows where the design contradicts or extends what is written. Note the source as `(from Figma)`.
+   - If the user provides new or updated Figma URLs, fetch the fresh design context before making edits.
+3. Apply the provided context:
    - Answered questions → remove rows from **Open Questions**; fold answers into **Scope**, **Summary**, or **Acceptance Criteria**
    - Partially answered → update the row with what is now known
    - New/changed requirements → add, remove, or revise **Acceptance Criteria** and **Scope**
    - Append/update `## Changelog`: `- YYYY-MM-DD: <one-line summary>`
-3. Save the updated `plan.md` to the same path.
-4. Run the readiness check below.
-5. **Execute Plan Cascade** — if execute-plan-NNN.md files exist in the same folder, perform the steps below.
-6. **Jira Update** — see section below.
+4. Save the updated `plan.md` to the same path.
+5. Run the readiness check below.
+6. **Execute Plan Cascade** — if execute-plan-NNN.md files exist in the same folder, perform the steps below.
+7. **Jira Update** — see section below.
 
 ## Jira Update
 

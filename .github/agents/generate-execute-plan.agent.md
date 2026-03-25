@@ -1,6 +1,6 @@
 ---
 description: "Takes a ready plan.md and generates detailed, developer-executable task files (execute-plan-001.md, 002.md, ...). Each task is a complete, independently testable vertical slice with file-level checklists, code guidance, and test requirements. Triggers: generate tasks, generate execute plan, ready to implement, break down plan, generate subtasks."
-tools: [read, search, edit, execute, todo]
+tools: [read, search, edit, execute, todo, com.figma.mcp/mcp/*]
 argument-hint: "Provide the path to a ready plan.md (e.g. .docs/create-form-and-application/plan.md)"
 ---
 
@@ -15,6 +15,23 @@ Search only areas the plan scopes:
 - Module / component / service / routing patterns (frontend)
 - Test file locations and patterns (unit + integration)
 - Shared utilities, validators, constants to reuse
+
+## Figma (UI tasks)
+If `plan.md` references a Figma URL or its Acceptance Criteria describe UI behaviour, extract Figma context before generating execute plans.
+
+**Tool selection** — check availability first:
+- **MCP available** (`com.figma.mcp/mcp/*` tools respond): use MCP calls.
+- **MCP unavailable**: read `.github/skills/figma-design-context/SKILL.md` and use the shell scripts.
+
+Steps:
+- Retrieve design context:
+  - *MCP*: call `mcp_com_figma_mcp_get_design_context` with the Figma URL.
+  - *Skill*: run `get-design-context.sh` + `summarize-context.sh` for the target node.
+- Retrieve visual reference when needed:
+  - *MCP*: call `mcp_com_figma_mcp_get_screenshot`.
+  - *Skill*: run `get-screenshot.sh` and use `view_image` to view it.
+- Map Figma components to existing codebase components; reference them in the execute plan task descriptions.
+- If Code Connect mappings are present in the response, use those component names directly.
 
 ## Slice Design
 - Each slice delivers a complete, runnable, testable unit end-to-end

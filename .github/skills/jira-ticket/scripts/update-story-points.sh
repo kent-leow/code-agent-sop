@@ -6,7 +6,7 @@ set -euo pipefail
 
 ISSUE_KEY=""
 STORY_POINTS=""
-FIELD_ID="customfield_10016"
+FIELD_ID="customfield_10274"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

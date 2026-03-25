@@ -1,6 +1,6 @@
 ---
 description: "Use when a user provides raw requirements, a new task, feature request, question, or anything needing analysis and planning. Triggers: analyze, plan, new task, requirements, I need, I want, implement, design, how do I, create feature. Produces a Jira-ready plan.md in .docs/<task-name>/ folder. Next step: @refine-plan."
-tools: [read, search, edit, execute, todo]
+tools: [read, search, edit, execute, todo, com.figma.mcp/mcp/*]
 argument-hint: "Paste your raw requirement, question, feature request, or task description"
 ---
 
@@ -9,10 +9,15 @@ Receive raw input and produce a concise, Jira-ready `plan.md` in `.docs/<task-na
 ## Steps
 1. Parse the core task, domain, and requirements. Do not invent anything not stated.
 2. Quick targeted codebase search to understand the affected domain.
-3. Generate a kebab-case folder name. Check `.docs/` for existing related folders first.
-4. Create `.docs/<folder-name>/` if needed; if it exists, update `plan.md` in place.
-5. Write `plan.md` per the structure below.
-6. **Jira** — Create a Jira Story for this plan using the `jira-ticket` skill:
+3. **Figma** — If the requirement mentions a Figma URL or references a UI design, use Figma MCP before writing the plan:
+   - Call `mcp_com_figma_mcp_get_design_context` with the provided Figma URL to retrieve design intent, component annotations, and layout specs.
+   - Use `mcp_com_figma_mcp_get_screenshot` if a visual reference is needed to understand the design.
+   - Incorporate component names, visible states, interactions, and designer annotations into **Acceptance Criteria**, **Scope**, and **Notes**. Do not invent UI details absent from the design.
+   - If no Figma URL is provided but the task is clearly UI-related, note it in **Open Questions**: `Figma design URL needed to confirm visual specifications`.
+4. Generate a kebab-case folder name. Check `.docs/` for existing related folders first.
+5. Create `.docs/<folder-name>/` if needed; if it exists, update `plan.md` in place.
+6. Write `plan.md` per the structure below.
+7. **Jira** — Create a Jira Story for this plan using the `jira-ticket` skill:
    - Estimate story points: `(number of AC rows × 2) + (number of Open Questions rows)`, minimum 1.
    - Read the full content of the generated `plan.md` and pass it as the description. The script converts Markdown to Jira ADF automatically — headings, bold text, bullet lists, and tables will render correctly in Jira.
    - Run: `bash .github/skills/jira-ticket/scripts/create-ticket.sh --title "<plan title>" --description "$(cat .docs/<folder-name>/plan.md)" --issue-type Story --story-points <N>`

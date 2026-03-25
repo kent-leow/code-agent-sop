@@ -158,7 +158,7 @@ fields = {
 }
 
 if story_points:
-    fields['customfield_10016'] = float(story_points)
+    fields['customfield_10274'] = float(story_points)
 
 if parent_key:
     fields['parent'] = {'key': parent_key}
