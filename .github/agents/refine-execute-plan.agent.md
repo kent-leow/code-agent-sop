@@ -9,9 +9,11 @@ Incorporate corrections, new context, or requirement changes into an existing `e
 ## Steps
 1. Read the execute-plan file and sibling `plan.md`.
 2. If the change references unfamiliar files or patterns, do a targeted codebase search to verify paths before editing.
-3. **Figma** — If the execute plan or `plan.md` references a Figma URL, or the user's change involves UI components, use Figma MCP before editing:
-   - Call `mcp_com_figma_mcp_get_design_context` with the Figma URL to verify that task descriptions and file paths match the current design.
-   - If the design has changed or a new Figma URL is provided, update affected task descriptions, file paths, and Done When items to reflect the latest design.
+3. **Figma** — execute plan or `plan.md` has Figma URL, or change involves UI: load cached context or fetch if missing/updated.
+   - **Cache path** (relative to plan folder): `figma/<nodeId>.png`, `figma/<nodeId>.json`, `figma/<nodeId>.md`
+   - **Cache-first**: if `figma/<nodeId>.json` exists and no update signalled → read `figma/<nodeId>.md`; skip fetch.
+   - **Fetch & save** (cache miss or force-refresh): **Tools**: MCP if available; else `.github/skills/figma-design-context/SKILL.md` + scripts. *MCP* `get_design_context`; *Skill* `get-design-context.sh` + `summarize-context.sh` → save to `figma/<nodeId>.json` + `figma/<nodeId>.md`.
+   - Update task descriptions, file paths, Done When items where design differs.
 4. Apply changes per the table below. Touch only what changed.
 5. After applying: verify all logic tasks have test children; verify "Done When" still reflects the tasks.
 6. Append/update `## Changelog`: `- YYYY-MM-DD: <one-line summary>`

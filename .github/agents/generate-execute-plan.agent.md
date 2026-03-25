@@ -17,21 +17,17 @@ Search only areas the plan scopes:
 - Shared utilities, validators, constants to reuse
 
 ## Figma (UI tasks)
-If `plan.md` references a Figma URL or its Acceptance Criteria describe UI behaviour, extract Figma context before generating execute plans.
+If `plan.md` has Figma URL or UI-related AC, fetch context first.
 
-**Tool selection** — check availability first:
-- **MCP available** (`com.figma.mcp/mcp/*` tools respond): use MCP calls.
-- **MCP unavailable**: read `.github/skills/figma-design-context/SKILL.md` and use the shell scripts.
+**Cache path** (relative to plan folder): `figma/<nodeId>.png`, `figma/<nodeId>.json`, `figma/<nodeId>.md`
 
-Steps:
-- Retrieve design context:
-  - *MCP*: call `mcp_com_figma_mcp_get_design_context` with the Figma URL.
-  - *Skill*: run `get-design-context.sh` + `summarize-context.sh` for the target node.
-- Retrieve visual reference when needed:
-  - *MCP*: call `mcp_com_figma_mcp_get_screenshot`.
-  - *Skill*: run `get-screenshot.sh` and use `view_image` to view it.
-- Map Figma components to existing codebase components; reference them in the execute plan task descriptions.
-- If Code Connect mappings are present in the response, use those component names directly.
+**Cache-first**: if `figma/<nodeId>.json` + `figma/<nodeId>.png` exist and no update signalled → read `figma/<nodeId>.md` + `view_image figma/<nodeId>.png`; skip fetch.
+
+**Fetch & save** (cache miss or force-refresh):
+- **Tools**: MCP if available; else `.github/skills/figma-design-context/SKILL.md` + scripts.
+- Design context: *MCP* `get_design_context`; *Skill* `get-design-context.sh` → save to `figma/<nodeId>.json`; run `summarize-context.sh` → save to `figma/<nodeId>.md`.
+- Screenshot: *MCP* `get_screenshot`; *Skill* `get-screenshot.sh` → save to `figma/<nodeId>.png`; then `view_image`.
+- Map Figma components → codebase equivalents; use Code Connect names when present.
 
 ## Slice Design
 - Each slice delivers a complete, runnable, testable unit end-to-end
