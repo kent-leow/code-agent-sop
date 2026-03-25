@@ -50,39 +50,21 @@ For each **new** file: locate 2–3 comparable files to derive naming, structure
 ### 2.4 Map Implementation Order
 entity → repository → service → controller → frontend component → test
 
-### 2.5 Figma Design Extraction *(UI tasks — mandatory)*
-Trigger: the execute plan or `plan.md` references a Figma URL **or** any task involves a UI component.
+### 2.5 Figma *(UI tasks — mandatory)*
+Trigger: execute plan or `plan.md` has Figma URL, or task involves UI.
 
-**Tool selection** — check availability before proceeding:
-- **MCP available** (`com.figma.mcp/mcp/*` tools respond): use the MCP path below.
-- **MCP unavailable**: read `.github/skills/figma-design-context/SKILL.md` and follow its procedure using the shell scripts.
+**Cache path** (relative to plan folder): `figma/<nodeId>.png`, `figma/<nodeId>.json`, `figma/<nodeId>.md`
 
-Follow this sequence in order:
-
-1. **Discover the target node**
-   - If the URL contains a `node-id`, convert `-` to `:` (e.g. `514-47004` → `514:47004`).
-   - If no node ID is present:
-     - *MCP*: call `mcp_com_figma_mcp_get_metadata` on the file to list top-level frames.
-     - *Skill*: run `bash .github/skills/figma-design-context/scripts/get-metadata.sh --file-key <fileKey>`.
-
-2. **Capture a visual reference**
-   - *MCP*: call `mcp_com_figma_mcp_get_screenshot` on the target node.
-   - *Skill*: run `get-screenshot.sh --file-key <fileKey> --node-id <nodeId> --scale 2 --output ./figma-screenshot.png`, then use `view_image` to open it.
-   - Study the screenshot before reading any generated code — it is ground truth for layout and hierarchy.
-
-3. **Extract design context**
-   - *MCP*: call `mcp_com_figma_mcp_get_design_context` on the target node.
-   - *Skill*: run `get-design-context.sh --file-key <fileKey> --node-id <nodeId> --output ./figma-context.json`, then `summarize-context.sh --input ./figma-context.json`.
-   - Prefer Code Connect-mapped codebase components over generating new ones from scratch.
-   - Note spacing, border-radius, colours, and typography from the output.
-
-4. **Map tokens to the project system**
-   - Figma output uses Tailwind classes and CSS variable references (e.g. `var(--type-color/header-dark, #13151a)`). Translate these to the project's actual style system (e.g. `styled-components` + theme tokens, CSS modules, design tokens file).
-   - Use a project theme/token value when one exists. Hard-code a raw hex value only when no project equivalent is defined.
-   - Never copy Tailwind utility classes verbatim into a `styled-components` or CSS-modules project.
-
-5. **Identify component reuse**
-   - Search the codebase for existing UI primitives that satisfy the design (buttons, cards, icons, skeletons). Use them; do not re-implement.
+**Cache-first flow**:
+1. **Node ID** — URL `node-id`: replace `-` → `:`. No ID? *MCP*: `get_metadata`; *Skill*: `get-metadata.sh --file-key <key>`.
+2. **Check cache** — if `figma/<nodeId>.json` + `figma/<nodeId>.png` exist **and** user has NOT signalled a Figma update → load `figma/<nodeId>.md` + `view_image figma/<nodeId>.png`; skip to step 5.
+3. **Fetch & save** (cache miss or force-refresh):
+   - *MCP*: `get_screenshot` → save to `figma/<nodeId>.png`; `get_design_context` → save raw JSON to `figma/<nodeId>.json`.
+   - *Skill* (MCP unavailable): `get-screenshot.sh … --output figma/<nodeId>.png`; `get-design-context.sh … --output figma/<nodeId>.json`; `summarize-context.sh --input figma/<nodeId>.json` → save output to `figma/<nodeId>.md`.
+   - Always `view_image figma/<nodeId>.png` after saving.
+4. **Write summary** — if `figma/<nodeId>.md` doesn't exist, write summarize output to it.
+5. **Token mapping** — translate CSS vars/Tailwind → project style system (styled-components, CSS modules, tokens). No verbatim Tailwind in non-Tailwind projects.
+6. **Reuse** — find existing UI primitives (buttons, cards, icons); use them, don't rebuild.
 
 ---
 
