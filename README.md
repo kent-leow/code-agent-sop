@@ -1,111 +1,62 @@
-# README.md
+# Kent's Copilot Agent SOP
 
-# Kent's Developer Prompt Collection
+A production-ready collection of VS Code Copilot agents, skills, and instructions for end-to-end software development workflows — from raw requirements to shipped code.
 
-A comprehensive collection of specialized prompts for software development workflows.
+## Structure
 
-## 🎯 Overview
-
-This repository contains battle-tested prompt templates designed for various software development roles and scenarios. Each prompt follows a structured approach to ensure consistent, high-quality outputs.
-
-## 📁 Prompt Categories
-
-### 🔍 **Code Quality & Review**
-- [`code-reviewer.md`](.github/prompts/code-reviewer.md) - Comprehensive code review framework
-- [`bug-hunter.md`](.github/prompts/bug-hunter.md) - Systematic debugging and root cause analysis
-
-### 🏗️ **Architecture & Design**  
-- [`architecture-planner.md`](.github/prompts/architecture-planner.md) - System architecture design and planning
-- [`api-designer.md`](.github/prompts/api-designer.md) - RESTful API design and documentation
-- [`database-architect.md`](.github/prompts/database-architect.md) - Database design and optimization
-
-### 🚀 **Project Management**
-- [`sprint-executor.md`](.github/prompts/sprint-executor.md) - Sprint planning and task management
-- [`devops-engineer.md`](.github/prompts/devops-engineer.md) - Infrastructure and deployment workflows
-
-## 🎪 Key Features
-
-### **Structured Approach**
-- Clear role definitions
-- Contextual parameters
-- Step-by-step frameworks
-- Actionable deliverables
-
-### **Real-World Focus**
-- Based on industry best practices
-- Includes practical checklists
-- Covers edge cases and trade-offs
-- Provides concrete examples
-
-### **Consistency**
-- Standardized formatting
-- Common terminology
-- Predictable output structure
-- Reusable templates
-
-## 🚀 How to Use
-
-1. **Choose the right prompt** for your current task
-2. **Fill in the context** section with your specific details
-3. **Follow the framework** step by step
-4. **Adapt as needed** for your unique situation
-
-### Example Usage
-```markdown
-# Using the Code Reviewer Prompt
-
-## Context
-- Review type: Feature PR
-- Language/Framework: TypeScript/React
-- Project size: Medium
-
-[Follow the review checklist and output format]
+```
+.github/
+├── agents/          # Custom Copilot agent modes
+├── instructions/    # Always-on Copilot instructions
+└── skills/          # Reusable capability modules
 ```
 
-## 📋 Prompt Instructions Integration
+## Agents
 
-This collection works in conjunction with the instruction files in `.github/instructions/`:
+Invoke with `@<agent-name>` in Copilot Chat.
 
-- **`strict-mode.instructions.md`** - Core response guidelines
-- **`anti-hallucination.instructions.md`** - Verification protocols  
-- **`core-coding.instructions.md`** - Code quality standards
-- **`dev-best-practices.instructions.md`** - Development workflows
-- **`task-execution.instructions.md`** - Systematic task approach
+| Agent | Purpose | Trigger phrases |
+|---|---|---|
+| [`generate-plan`](.github/agents/generate-plan.agent.md) | Turn raw requirements into a Jira-ready `plan.md` | *analyze, plan, I need, create feature* |
+| [`refine-plan`](.github/agents/refine-plan.agent.md) | Answer open questions and lock a plan for implementation | *refine plan, answer questions, plan is ready* |
+| [`generate-execute-plan`](.github/agents/generate-execute-plan.agent.md) | Break a ready `plan.md` into vertical-slice execute plans | *generate tasks, break down plan, ready to implement* |
+| [`execute-plan`](.github/agents/execute-plan.agent.md) | Implement an `execute-plan-NNN.md` end-to-end | *implement, code this, run slice, do the work* |
+| [`refine-execute-plan`](.github/agents/refine-execute-plan.agent.md) | Apply corrections or additions to an execute plan | *update execute plan, fix task, adjust slice* |
+| [`gitlab-mr`](.github/agents/gitlab-mr.agent.md) | Review, summarise, or fix comments on a GitLab MR | *review MR, fix comment, show diff* |
+| [`snapshot-sync`](.github/agents/snapshot-sync.agent.md) | Create or update `SNAPSHOT.md` for any repo | *snapshot, update snapshot, missing snapshot* |
 
-## 🎨 Customization
+## Skills
 
-Each prompt can be customized by:
-- Adjusting context parameters
-- Modifying checklists for your needs
-- Adding company-specific requirements
-- Integrating with your existing tools
+Skills are loaded on demand by agents or directly via `@agent` when the domain applies.
 
-## 🤝 Contributing
-
-When adding new prompts:
-1. Follow the established structure
-2. Include practical examples
-3. Add comprehensive checklists
-4. Test with real scenarios
-
-## 📝 Template Structure
-
-```markdown
-# [Role Name]
-
-## Role
-[Clear role definition]
-
-## Context  
-[Required parameters]
-
-## [Framework Name]
-[Structured approach with sections]
+| Skill | Purpose |
+|---|---|
+| [`figma-design-context`](.github/skills/figma-design-context/SKILL.md) | Fetch Figma layout, spacing, typography, and screenshots via REST API (no MCP needed) |
+| [`jira-ticket`](.github/skills/jira-ticket/SKILL.md) | Create stories, sub-tasks, and update story points via Jira REST API |
 
 ## Instructions
-[Key guidelines for execution]
+
+Automatically applied to every Copilot interaction.
+
+| File | Scope |
+|---|---|
+| [`guidelines.instructions.md`](.github/instructions/guidelines.instructions.md) | Core engineering principles — grounding, anti-hallucination, SOLID, quality gates |
+| [`jira.instructions.md`](.github/instructions/jira.instructions.md) | Jira instance config, project key, auth env vars, script paths |
+
+## Workflow
+
+See [`.docs-workflow-README.md`](.docs-workflow-README.md) for the full requirements-to-code pipeline.
+
+```
+Raw requirement
+  → @generate-plan       (plan.md + Jira story)
+  → @refine-plan         (resolve open questions)
+  → @generate-execute-plan  (execute-plan-NNN.md per slice)
+  → @execute-plan           (production code + tests)
 ```
 
----
+## Prerequisites
 
-**Built for developers, by developers** 🚀
+- VS Code with GitHub Copilot
+- `JIRA_TOKEN`, `JIRA_EMAIL`, `JIRA_BASE_URL`, `JIRA_PROJECT_KEY` in `~/.zshenv`
+- `FIGMA_TOKEN` in `~/.zshenv` (if using Figma skill without MCP)
