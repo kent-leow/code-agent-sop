@@ -53,18 +53,13 @@ entity → repository → service → controller → frontend component → test
 ### 2.5 Figma *(UI tasks — mandatory)*
 Trigger: execute plan or `plan.md` has Figma URL, or task involves UI.
 
-**Cache path** (relative to plan folder): `figma/<nodeId>.png`, `figma/<nodeId>.json`, `figma/<nodeId>.md`
+Cache: `figma/<nodeId>.{json,png,md}` relative to the plan folder.
+- **Hit** (all three files exist, no update requested) → read `figma/<nodeId>.md` + `view_image` on `figma/<nodeId>.png`; skip fetching entirely.
+- **Miss / refresh**:
+  - **Try Figma MCP first**: call `mcp_com_figma_mcp_get_design_context` + `mcp_com_figma_mcp_get_screenshot`; save the design JSON to `figma/<nodeId>.json`, the screenshot to `figma/<nodeId>.png`, and write a human-readable summary to `figma/<nodeId>.md`; then `view_image`.
+  - **If MCP is unavailable or blocked by admin**: load the `figma-design-context` skill (`.github/skills/figma-design-context/SKILL.md`) and follow its procedure, directing output to `figma/<nodeId>.{json,png,md}`; then `view_image`.
 
-**Cache-first flow**:
-1. **Node ID** — URL `node-id`: replace `-` → `:`. No ID? *MCP*: `get_metadata`; *Skill*: `get-metadata.sh --file-key <key>`.
-2. **Check cache** — if `figma/<nodeId>.json` + `figma/<nodeId>.png` exist **and** user has NOT signalled a Figma update → load `figma/<nodeId>.md` + `view_image figma/<nodeId>.png`; skip to step 5.
-3. **Fetch & save** (cache miss or force-refresh):
-   - *MCP*: `get_screenshot` → save to `figma/<nodeId>.png`; `get_design_context` → save raw JSON to `figma/<nodeId>.json`.
-   - *Skill* (MCP unavailable): `get-screenshot.sh … --output figma/<nodeId>.png`; `get-design-context.sh … --output figma/<nodeId>.json`; `summarize-context.sh --input figma/<nodeId>.json` → save output to `figma/<nodeId>.md`.
-   - Always `view_image figma/<nodeId>.png` after saving.
-4. **Write summary** — if `figma/<nodeId>.md` doesn't exist, write summarize output to it.
-5. **Token mapping** — translate CSS vars/Tailwind → project style system (styled-components, CSS modules, tokens). No verbatim Tailwind in non-Tailwind projects.
-6. **Reuse** — find existing UI primitives (buttons, cards, icons); use them, don't rebuild.
+Translate CSS/Tailwind → project style system; reuse existing UI primitives.
 
 ---
 
@@ -90,16 +85,22 @@ For each task **in dependency order**:
    - Satisfied → `[x]` + `<!-- verified YYYY-MM-DD -->`
    - Blocked → `[ ]` + `<!-- blocked: <reason> -->`
 3. Re-scan sibling execute plans — confirm no stale cross-references remain.
-4. **Jira sub-task update** — if `jira.json` has a `subtasks` entry for this execute-plan filename:
-   - Re-count task checkboxes (1 SP per task, min 1).
-   - Run only when the new count differs from the stored `story_points`:
-     ```bash
-     bash .github/skills/jira-ticket/scripts/update-ticket.sh \
-       --issue-key <KEY> \
-       --story-points <N>
-     ```
-   - Update `story_points` in `jira.json`.
-   - If `jira.json`, the entry, or JIRA env vars are missing → skip and note: `⚠️ Jira skipped — set JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL`
+4. **Post-completion confirmation** — after verification, present this exact prompt and **wait for the user's reply** before doing anything else:
+
+   > ✅ Execute Plan NNN complete.
+   >
+   > What would you like to do next?
+   > **A** — Update the Jira Sub-task story points
+   > **B** — Make further updates to this execute plan
+   > **C** — Nothing (skip Jira)
+
+   - **A**: Update Jira Sub-task (use the `jira-ticket` skill — `.github/skills/jira-ticket/SKILL.md`):
+     - Read `jira.json`; find the `subtasks` entry for this execute-plan filename.
+     - Re-count task checkboxes (1 SP per task, min 1). Only update if the count differs from stored `story_points`.
+     - Update `story_points` in `jira.json`.
+     - If `jira.json`, the entry, or JIRA env vars are missing → note: `⚠️ Jira skipped — set JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL`
+   - **B**: Wait for user instructions; apply them to the execute plan; then re-present this prompt.
+   - **C**: Stop. No Jira action.
 
 ---
 

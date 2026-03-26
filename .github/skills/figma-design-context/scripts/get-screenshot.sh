@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # get-screenshot.sh — Download a rendered PNG screenshot of a Figma node
-# Usage: bash get-screenshot.sh --file-key <fileKey> --node-id <nodeId> [--scale 2] [--output ./figma-screenshot.png]
+# Usage: bash get-screenshot.sh --file-key <fileKey> --node-id <nodeId> [--scale 2] [--output ./figma-screenshot.png] [--max-dimension 7900]
 #
 # Accepts node IDs in both API format (2313:102848) and URL format (2313-102848)
 # Requires: FIGMA_TOKEN set in environment (see SKILL.md for setup)
+#
+# Large frames: automatically resizes to --max-dimension (default 7900) using sips
+# to stay within Claude's 8000px per-side image limit.
 
 set -euo pipefail
 
@@ -11,13 +14,15 @@ FILE_KEY=""
 NODE_ID=""
 SCALE="2"
 OUTPUT="./figma-screenshot.png"
+MAX_DIM="7900"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --file-key) FILE_KEY="$2"; shift 2 ;;
-    --node-id)  NODE_ID="$2";  shift 2 ;;
-    --scale)    SCALE="$2";    shift 2 ;;
-    --output)   OUTPUT="$2";   shift 2 ;;
+    --file-key)       FILE_KEY="$2";  shift 2 ;;
+    --node-id)        NODE_ID="$2";   shift 2 ;;
+    --scale)          SCALE="$2";     shift 2 ;;
+    --output)         OUTPUT="$2";    shift 2 ;;
+    --max-dimension)  MAX_DIM="$2";   shift 2 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
@@ -71,4 +76,25 @@ print(url)
 echo "Downloading image..."
 curl -s -L -o "$OUTPUT" "$IMAGE_URL"
 echo "Screenshot saved to: $OUTPUT"
+
+# ── Auto-resize if image exceeds Claude's 8000px-per-side limit ──────────────
+if command -v sips &>/dev/null; then
+  DIMS=$(sips -g pixelWidth -g pixelHeight "$OUTPUT" 2>/dev/null | awk '/pixel(Width|Height)/{print $2}')
+  IMG_W=$(echo "$DIMS" | head -1)
+  IMG_H=$(echo "$DIMS" | tail -1)
+  if [[ -n "$IMG_W" && -n "$IMG_H" ]]; then
+    echo "Image dimensions: ${IMG_W}x${IMG_H}"
+    if [[ "$IMG_W" -gt "$MAX_DIM" || "$IMG_H" -gt "$MAX_DIM" ]]; then
+      echo "Exceeds ${MAX_DIM}px limit — resizing proportionally..."
+      sips -Z "$MAX_DIM" "$OUTPUT" --out "$OUTPUT" >/dev/null 2>&1
+      AFTER=$(sips -g pixelWidth -g pixelHeight "$OUTPUT" 2>/dev/null | awk '/pixel(Width|Height)/{print $2}')
+      NEW_W=$(echo "$AFTER" | head -1)
+      NEW_H=$(echo "$AFTER" | tail -1)
+      echo "Resized to ${NEW_W}x${NEW_H}"
+    fi
+  fi
+else
+  echo "Note: sips not found — skipping dimension check. If view_image fails with an 8000px error, re-run with --scale 1 or --max-dimension."
+fi
+
 echo "Use the view_image tool to view it: view_image $OUTPUT"

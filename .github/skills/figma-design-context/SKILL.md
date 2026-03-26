@@ -83,6 +83,9 @@ bash .github/skills/figma-design-context/scripts/get-screenshot.sh \
 Then use the `view_image` tool to view `./figma-screenshot.png`.  
 This gives you the visual reference equivalent to `mcp_com_figma_mcp_get_screenshot`.
 
+> **Large frames**: the script automatically resizes the downloaded PNG to fit within 7900px (Claude's 8000px limit) using `sips`. No manual intervention needed. To override: `--max-dimension <px>`.  
+> For very large frames where detail matters, fetch individual child nodes with `--node-id <childNodeId> --scale 2` instead of the top-level frame.
+
 ---
 
 ### Step 3 — Get full design spec
@@ -184,3 +187,4 @@ echo $FIGMA_TOKEN   # should print the token
 | `curl: (22) The requested URL returned error: 404` | Wrong `fileKey` | Re-check the URL — segment immediately after `/design/` |
 | Empty `images` object in screenshot response | Node ID not found | Run `get-metadata.sh` to confirm the correct node ID |
 | `err: Not found` in context JSON | Node ID missing in file | Confirm node ID with `get-metadata.sh` |
+| `At least one of the image dimensions exceed max allowed size: 8000 pixels` | Screenshot PNG too large for Claude | The script now auto-resizes via `sips`; if you bypassed the script, re-run it or pass `--scale 1` to reduce source size |
