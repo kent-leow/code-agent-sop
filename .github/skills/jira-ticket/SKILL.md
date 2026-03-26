@@ -103,10 +103,23 @@ Optional flags:
 
 Output is formatted as numbered entries showing author, date, comment ID, and plain-text body extracted from ADF.
 
-### 7. Confirm & Report
+### 7. Persist Ticket State
+
+Save created ticket keys to `.docs/<task>/jira.json` (create the file if it doesn't exist), where `<task>` matches the plan folder name. Format:
+
+```json
+{
+  "parent": "GOBIZWKST2-123",
+  "subtasks": ["GOBIZWKST2-124", "GOBIZWKST2-125"]
+}
+```
+
+This file is used by other agents to reference ticket keys without re-querying Jira.
+
+### 8. Confirm & Report
 
 After all API calls succeed, output a summary:
-- Created issue key and URL: `$JIRA_BASE_URL/browse/PROJ-123`
+- Created issue key and URL: `$JIRA_BASE_URL/browse/$JIRA_PROJECT_KEY-123`
 - Sub-task keys and URLs (if any)
 - Final story point values
 
