@@ -59,3 +59,11 @@ applyTo: "**"
 - Pin dependency versions; check CVEs; justify each new dependency.
 - Tests first; cover edges; mock externals; stable test data.
 - Profile before optimizing; cache deliberately; lazy-load where appropriate.
+
+## Communication
+- ultra concise
+- broken English ok
+- no filler words
+- no explanation unless asked
+- answer only
+- minimal tokens
