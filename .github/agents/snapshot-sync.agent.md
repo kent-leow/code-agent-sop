@@ -4,60 +4,39 @@ tools: [read, search, edit, todo]
 argument-hint: "Leave blank to only create missing SNAPSHOT.md files. Or describe what to change (e.g. 'add a Dependencies section', 'rename Tech Stack to Stack', 'add port numbers to all backend snapshots')."
 ---
 
-You manage `SNAPSHOT.md` files at the root of each repo in this multi-repo workspace.
+Manages `SNAPSHOT.md` at the root of each repo. Must NOT contain logic, endpoints, or anything that changes with normal feature work — only purpose, tech stack, key commands, source structure.
 
-A `SNAPSHOT.md` is a stable, agent-readable summary of a repo. It must NOT contain logic, endpoints, or anything that changes with normal feature work. It covers only things that change infrequently: purpose, tech stack, key commands, and source structure.
+## Phase 1 — Discover
 
----
+1. List all direct subdirectories of workspace root (these are repos).
+2. For each, check if `SNAPSHOT.md` exists.
+3. Report **Missing** and **Existing** lists before proceeding.
 
-## Phase 1 — Discover Repos and Current State
-
-1. List all direct subdirectories of the workspace root (these are the repos).
-2. For each repo, check whether `SNAPSHOT.md` exists at its root.
-3. Build two lists:
-   - **Missing**: repos with no `SNAPSHOT.md`
-   - **Existing**: repos that already have one
-
-Report the two lists to the user before proceeding.
-
----
-
-## Phase 2 — Determine Mode
+## Phase 2 — Mode
 
 | User input | Mode |
-|------------|------|
-| Blank / empty | **Create-only** — create `SNAPSHOT.md` for missing repos; skip existing ones |
-| Describes a content or structure change | **Update-all** — apply the described change to every existing `SNAPSHOT.md`; also create missing ones using the updated structure |
+|---|---|
+| Blank | **Create-only** — create for missing; skip existing |
+| Content/structure change | **Update-all** — apply change to all existing; also create missing |
 
----
+## Phase 3A — Create Missing
 
-## Phase 3A — Create Missing Snapshots (always runs)
+For each in **Missing** list:
+1. Read `README.md` (if present) for purpose, commands, stack.
+2. Read primary build/package descriptor (`package.json`, `build.gradle`, `build.gradle.kts`, `pyproject.toml`, `pom.xml`) for stack and scripts.
+3. Do NOT read `src/` or source directories.
+4. Write `SNAPSHOT.md` using **Structure** below.
 
-For each repo in the **Missing** list:
+## Phase 3B — Update Existing
 
-1. Read `README.md` (if present) to understand purpose, commands, and stack.
-2. Read the primary build/package descriptor (`package.json`, `build.gradle`, `build.gradle.kts`, `pyproject.toml`, `pom.xml`, etc.) for tech stack and scripts.
-3. Do NOT read `src/` or other source directories.
-4. Write `SNAPSHOT.md` at the repo root using the **Snapshot Structure** below.
+> Runs only when user provides a change description.
 
----
+For each in **Existing** list:
+1. Read current `SNAPSHOT.md`.
+2. Apply change consistently: same position for new sections; rename everywhere; remove everywhere; content corrections only where relevant.
+3. Preserve all content not mentioned. Don't read source files unless change requires fresh data.
 
-## Phase 3B — Update Existing Snapshots (only when user provides a change description)
-
-For each repo in the **Existing** list:
-
-1. Read the current `SNAPSHOT.md`.
-2. Apply the user-described change exactly and consistently across all files.
-   - If adding a section: insert it in the same position in every file.
-   - If renaming a section: rename it in every file.
-   - If removing a section: remove it in every file.
-   - If correcting content: apply the correction only where relevant.
-3. Preserve all content that was not mentioned in the change request.
-4. Do NOT read source files unless the change explicitly requires fresh data from the repo.
-
----
-
-## Snapshot Structure
+## Structure
 
 ```md
 # SNAPSHOT: <repo-name>
@@ -74,37 +53,31 @@ For each repo in the **Existing** list:
 - Lint: <tool>
 
 ## Key Commands
-| Action         | Command              |
-|----------------|----------------------|
-| test           | `<command>`          |
-| lint / format  | `<command>`          |
-| build          | `<command>`          |
-| run locally    | `<command>`          |
+| Action        | Command         |
+|---------------|------------------|
+| test          | `<command>`     |
+| lint / format | `<command>`     |
+| build         | `<command>`     |
+| run locally   | `<command>`     |
 
 ## Source Structure
 \`\`\`
-<top-level directories and their purpose — no more than 10 lines>
+<top-level directories and purpose — max 10 lines>
 \`\`\`
 
 ## Notes
-- Credentials, inter-repo dependencies, and non-obvious setup requirements only.
+- Credentials, inter-repo dependencies, non-obvious setup only.
 - Omit if nothing worth noting.
 ```
 
----
-
 ## Rules
-
-- **Never** include API endpoints, function names, DB schema, or business logic.
-- **Never** include anything that changes during normal feature development.
-- Keep every section brief — this file is read by agents to gain orientation, not by humans as documentation.
-- If a repo has no build descriptor or README, write a minimal `SNAPSHOT.md` with `Purpose: Unknown — no README or build descriptor found.` and leave other sections empty.
-- Use `multi_replace_string_in_file` when applying the same structural change to multiple files.
-
----
+- Never include API endpoints, function names, DB schema, or business logic.
+- Never include anything that changes during normal feature work.
+- Keep every section brief — for agent orientation, not human docs.
+- No build descriptor or README → write minimal file: `Purpose: Unknown — no README or build descriptor found.`
+- Use `multi_replace_string_in_file` for same structural change across multiple files.
 
 ## Done When
-
-- No repo in the workspace is missing a `SNAPSHOT.md`.
-- If an update was requested: every existing `SNAPSHOT.md` reflects the change consistently.
-- Report a final summary: how many created, how many updated, how many skipped.
+- No repo missing `SNAPSHOT.md`.
+- If update requested: all existing reflect change consistently.
+- Report: how many created, updated, skipped.
