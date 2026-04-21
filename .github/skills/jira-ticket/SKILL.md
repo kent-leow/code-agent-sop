@@ -6,55 +6,31 @@ argument-hint: '<title> [description] [story_points] [parent_key]'
 
 # Jira Ticket Creation
 
-## When to Use
-- Create a new Jira issue (story, task, bug) with title and description
-- Create sub-tasks under an existing parent ticket
-- Update story points on a ticket
-- Batch-create a parent ticket + sub-tasks in one step
-- Retrieve and display all comments on an existing ticket
-
 ## Prerequisites
 
-Ensure the following environment variables are set before proceeding. If any are missing, prompt the user to provide them:
+Check: `echo $JIRA_TOKEN $JIRA_BASE_URL $JIRA_PROJECT_KEY $JIRA_EMAIL`
 
 | Variable | Description |
 |---|---|
-| `JIRA_TOKEN` | Jira API token (from [Atlassian account settings](https://id.atlassian.com/manage-profile/security/api-tokens)) |
-| `JIRA_BASE_URL` | Your Jira instance URL, e.g. `https://your-org.atlassian.net` |
-| `JIRA_PROJECT_KEY` | Project key, e.g. `PROJ` |
-| `JIRA_EMAIL` | Your Atlassian account email (used for Basic Auth with the token) |
+| `JIRA_TOKEN` | Jira API token (from Atlassian account settings) |
+| `JIRA_BASE_URL` | e.g. `https://your-org.atlassian.net` |
+| `JIRA_PROJECT_KEY` | e.g. `PROJ` |
+| `JIRA_EMAIL` | Atlassian account email |
 
-Check by running: `echo $JIRA_TOKEN $JIRA_BASE_URL $JIRA_PROJECT_KEY $JIRA_EMAIL`
+Missing vars → prompt user before proceeding.
 
 ## Procedure
 
 ### 1. Gather Inputs
+- **Title** (required), **Description** (recommended), **Issue type** (default: `Story`), **Story points** (optional), **Parent key** (for sub-tasks), Labels/components (optional)
 
-Collect from the user (or infer from context):
-- **Title** (required): Summary/title of the ticket
-- **Description** (recommended): Detailed description in plain text or Atlassian Document Format (ADF)
-- **Issue type** (default: `Story`): Story, Task, Bug, Sub-task
-- **Story points** (optional): Numeric value for `story_points` / `customfield_10274`
-- **Parent key** (optional): If creating a sub-task, the parent ticket key (e.g. `PROJ-42`)
-- **Labels / components** (optional)
-
-### 2. Resolve Story Points Field Name
-
-Different Jira instances use different custom field IDs for story points. Run the [field discovery script](./scripts/get-fields.sh) to find the correct ID:
-
+### 2. Resolve Story Points Field
 ```bash
 bash .github/skills/jira-ticket/scripts/get-fields.sh
 ```
+Use `customfield_10274` (verified for this instance) unless script shows otherwise.
 
-Common field IDs:
-- `story_points` (Jira Software next-gen)
-- `customfield_10274` (Story Points — verified for this instance)
-- `customfield_10028` (some enterprise instances)
-
-### 3. Create the Main Ticket
-
-Run the [create-ticket script](./scripts/create-ticket.sh):
-
+### 3. Create Main Ticket
 ```bash
 bash .github/skills/jira-ticket/scripts/create-ticket.sh \
   --title "Your ticket title" \
@@ -62,76 +38,46 @@ bash .github/skills/jira-ticket/scripts/create-ticket.sh \
   --issue-type "Story" \
   --story-points 3
 ```
+Save the output issue key (e.g. `PROJ-123`).
 
-The script outputs the created issue key (e.g. `PROJ-123`). Save it for sub-task creation.
-
-### 4. Create Sub-tasks (Optional)
-
-If sub-tasks were requested, repeat for each sub-task using `--issue-type Sub-task --parent PROJ-123`:
-
+### 4. Create Sub-tasks (optional)
 ```bash
 bash .github/skills/jira-ticket/scripts/create-ticket.sh \
-  --title "Sub-task title" \
-  --description "Sub-task description" \
-  --issue-type "Sub-task" \
-  --parent "PROJ-123" \
-  --story-points 1
+  --title "Sub-task title" --description "..." \
+  --issue-type "Sub-task" --parent "PROJ-123" --story-points 1
 ```
 
-### 5. Update Story Points on Parent / Epic (Optional)
-
-After creating sub-tasks, update the parent's story points to reflect the total:
-
+### 5. Update Story Points (optional)
 ```bash
 bash .github/skills/jira-ticket/scripts/update-story-points.sh \
-  --issue-key "PROJ-123" \
-  --story-points 5
+  --issue-key "PROJ-123" --story-points 5
 ```
 
-### 6. Retrieve Comments on a Ticket (Optional)
-
-To fetch and display comments for an existing ticket:
-
+### 6. Get Comments (optional)
 ```bash
 bash .github/skills/jira-ticket/scripts/get-comments.sh \
-  --issue-key "GOBIZWKST2-324"
+  --issue-key "GOBIZWKST2-324" [--max-results N] [--order-by created]
 ```
 
-Optional flags:
-- `--max-results N` — number of comments to return (default: `50`)
-- `--order-by created` — oldest first (default); use `-created` for newest first
-
-Output is formatted as numbered entries showing author, date, comment ID, and plain-text body extracted from ADF.
-
-### 7. Persist Ticket State
-
-Save created ticket keys to `.docs/<task>/jira.json` (create the file if it doesn't exist), where `<task>` matches the plan folder name. Format:
-
+### 7. Persist State
+Save to `.docs/<task>/jira.json`:
 ```json
 {
-  "parent": "GOBIZWKST2-123",
-  "subtasks": ["GOBIZWKST2-124", "GOBIZWKST2-125"]
+  "parent": { "key": "GOBIZWKST2-123", "url": "...", "story_points": N },
+  "subtasks": { "task-001.md": { "key": "GOBIZWKST2-124", "url": "...", "story_points": 2 } }
 }
 ```
 
-This file is used by other agents to reference ticket keys without re-querying Jira.
-
-### 8. Confirm & Report
-
-After all API calls succeed, output a summary:
-- Created issue key and URL: `$JIRA_BASE_URL/browse/$JIRA_PROJECT_KEY-123`
-- Sub-task keys and URLs (if any)
+### 8. Report
+- Issue key + URL: `$JIRA_BASE_URL/browse/$ISSUE_KEY`
+- Sub-task keys/URLs (if any)
 - Final story point values
 
-## Reference
+## Errors
 
-See [Jira REST API reference](./references/jira-api.md) for full payload schemas and field descriptions.
-
-## Error Handling
-
-| Error | Resolution |
+| Error | Fix |
 |---|---|
-| `401 Unauthorized` | Verify `JIRA_TOKEN` and `JIRA_EMAIL` are correct |
-| `400 Bad Request` | Check issue type name — it is case-sensitive. Run field discovery to confirm field IDs |
+| `401 Unauthorized` | Verify `JIRA_TOKEN` and `JIRA_EMAIL` |
+| `400 Bad Request` | Issue type is case-sensitive; run field discovery |
 | `404 Not Found` | Verify `JIRA_BASE_URL` and `JIRA_PROJECT_KEY` |
-| Sub-task creation fails | Ensure the project supports sub-tasks; some next-gen projects use `Child Issue` instead |
+| Sub-task fails | Some next-gen projects use `Child Issue` instead of `Sub-task` |
