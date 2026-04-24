@@ -106,14 +106,14 @@
 </details>
 
 <details>
-<summary>🦊 &nbsp;<b>gitlab-mr</b> &nbsp;—&nbsp; Review, summarise, or fix comments on a GitLab MR</summary>
+<summary>🔍 &nbsp;<b>git-review</b> &nbsp;—&nbsp; Review, summarise, or fix comments on a GitHub PR or GitLab MR</summary>
 <br/>
 
-**What it does:** Reads a GitLab MR diff, summarises changes, highlights risks, and can apply fix-review-comment patches directly to source files.
+**What it does:** Auto-detects platform from URL. Reads the diff, summarises changes, highlights risks, and can apply fix-review-comment patches directly to source files. Supports both `github.com` PRs and `sgts.gitlab-dedicated.com` MRs.
 
-**Trigger with:** <kbd>review MR</kbd> <kbd>fix comment</kbd> <kbd>show diff</kbd> <kbd>code review</kbd> or paste an MR URL
+**Trigger with:** <kbd>review PR</kbd> <kbd>review MR</kbd> <kbd>fix comment</kbd> <kbd>show diff</kbd> <kbd>code review</kbd> or paste a PR/MR URL
 
-📄 [View agent →](.github/agents/gitlab-mr.agent.md)
+📄 [View agent →](.github/agents/git-review.agent.md)
 
 </details>
 
@@ -173,7 +173,7 @@
 ║  ⚡ @execute-task     →  production code + tests ✅      ║
 ║         │                                                ║
 ║         ▼                                                ║
-║  🔧 @fix-task         →  fix.md  (post-impl fixes)      ║
+║  🔧 @fix-task         →  fix-{datetime}.md  (per-issue-batch)║
 ║                                                          ║
 ╚══════════════════════════════════════════════════════════╝
 ```
