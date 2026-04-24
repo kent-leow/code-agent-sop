@@ -1,56 +1,78 @@
 ---
-description: "Reads, reviews, or acts on a GitLab MR from sgts.gitlab-dedicated.com. Triggers: review MR, read MR, check MR, fix comment, show diff, what changed in MR, pr review, code review, review merge request, fix review comment, paste of a sgts.gitlab-dedicated.com MR URL or a bare MR number with an action."
+description: "Reads, reviews, or acts on a GitHub PR or GitLab MR. Auto-detects platform from URL. Triggers: review PR, review MR, read MR, check MR, fix comment, show diff, what changed in MR/PR, pr review, code review, review merge request, fix review comment, paste of a GitHub PR URL or GitLab MR URL, or a bare number with an action."
 tools: [read, search, edit, execute, todo]
-argument-hint: "Provide the MR URL (https://sgts.gitlab-dedicated.com/.../merge_requests/NNN). Action defaults to 'review'. Other actions: 'summarise', 'fix comment: <comment text>', 'checkout', 'diff'."
+argument-hint: "Provide the PR/MR URL (e.g. https://github.com/<owner>/<repo>/pull/NNN or https://sgts.gitlab-dedicated.com/<group>/<project>/-/merge_requests/NNN). Action defaults to 'review'. Other actions: 'summarise', 'fix comment: <comment text>', 'checkout', 'diff'. Optionally provide local repo path if auto-detection fails."
 ---
 
-- GitLab: `sgts.gitlab-dedicated.com` — TechPass auth; HTTP always returns login page. **Never use fetch_webpage.**
-- Git SSH configured and works.
-- Repos: `/Users/a2456813/Development/IdeaProjects/`.
-- Output dir: `/Users/a2456813/Development/IdeaProjects/.docs/pr-reviews/` — create if missing.
+Supports **GitHub** (`github.com`) and **GitLab** (`sgts.gitlab-dedicated.com`). Git commands are universal; only the fetch ref and URL parsing differ.
+
+- GitLab: TechPass auth; HTTP always returns login page. **Never use fetch_webpage for GitLab.**
+- GitHub: public or private repos via HTTPS/SSH as configured.
+- Default GitLab repo root: `/Users/a2456813/Development/IdeaProjects/`
+- Default GitHub repo root: `/Users/a2456813/Development/`
+- Output dir: `<repo-path>/.docs/pr-reviews/` — create if missing.
 
 ## Step 1 — Resolve Inputs
 
-Parse the MR URL to extract:
+Parse the URL to extract platform and fields:
 
-| Field | Source |
+**GitHub** — `https://github.com/<owner>/<repo>/pull/<PR_ID>`
+
+| Field | Value |
 |---|---|
-| MR number | `/merge_requests/NNN` |
+| Platform | `github` |
+| ID | `<PR_ID>` |
+| Repo name | `<repo>` |
+| Ref to fetch | `refs/pull/<PR_ID>/head` |
+| Local ref name | `pr-<PR_ID>` |
+| Target branch | `main` or `master` (check which exists) |
+
+**GitLab** — `https://sgts.gitlab-dedicated.com/<group>/<project>/-/merge_requests/<MR_ID>`
+
+| Field | Value |
+|---|---|
+| Platform | `gitlab` |
+| ID | `<MR_ID>` |
 | Repo name | path segment immediately before `/-/` |
-| Target branch | `master` unless URL or user specifies otherwise |
-| Action | user-stated or default `review` |
+| Ref to fetch | `refs/merge-requests/<MR_ID>/head` |
+| Local ref name | `mr-<MR_ID>` |
+| Target branch | `master` unless stated otherwise |
 
-Repo path = `/Users/a2456813/Development/IdeaProjects/<repo-name>`.
-Output file = `/Users/a2456813/Development/IdeaProjects/.docs/pr-reviews/<MR_ID>.md`.
+**Repo path resolution (in order):**
+1. User-provided path
+2. GitLab → `/Users/a2456813/Development/IdeaProjects/<repo-name>`
+3. GitHub → `/Users/a2456813/Development/<repo-name>`
+4. Not found → ask before proceeding.
 
-## Step 2 — Fetch the MR
+Output file = `<repo-path>/.docs/pr-reviews/<ID>.md`.
+
+## Step 2 — Fetch the Branch
 
 ```bash
 cd <repo-path>
-# Refresh target branch from remote first — never diff against stale local state
+# Refresh target branch — never diff against stale local state
 git fetch origin <target-branch>
-git fetch origin "refs/merge-requests/<MR_ID>/head:mr-<MR_ID>"
+git fetch origin "<ref-to-fetch>:<local-ref-name>"
 ```
 
 Ambiguity warning → use the SHA from fetch output.
 
 ## Step 3 — Gather Data
 
-Run all four commands; store output for Step 4.
+Run all four; store output for Step 4.
 
 ```bash
-git log mr-<MR_ID> --oneline -1
-git log origin/<target-branch>..mr-<MR_ID> --oneline
-git diff origin/<target-branch>...mr-<MR_ID> --stat
-git diff origin/<target-branch>...mr-<MR_ID>
+git log <local-ref-name> --oneline -1
+git log origin/<target-branch>..<local-ref-name> --oneline
+git diff origin/<target-branch>...<local-ref-name> --stat
+git diff origin/<target-branch>...<local-ref-name>
 ```
 
 ## Step 4 — Execute Action
 
-### `review` (default) — Full PR Review
+### `review` (default) — Full Code Review
 
-Run the review, then **write the result to `.docs/pr-reviews/<MR_ID>.md`** using the template below.
-Create the `.docs/pr-reviews/` directory first if it does not exist.
+Write result to `<repo-path>/.docs/pr-reviews/<ID>.md`. Create the directory first if missing.
 
 #### Review Checklist (evaluate every item against the diff)
 
@@ -105,20 +127,21 @@ Create the `.docs/pr-reviews/` directory first if it does not exist.
 - Public APIs / complex logic commented where intent is non-obvious.
 - README / SNAPSHOT updated if setup or behaviour changed.
 
-#### Output Template (`.docs/pr-reviews/<MR_ID>.md`)
+#### Output Template (`<repo-path>/.docs/pr-reviews/<ID>.md`)
 
 ```markdown
-# PR Review — MR !<MR_ID>
+# Code Review — <Platform> !<ID>
 
 **Repo:** <repo-name>
 **Branch:** <source-branch> → <target-branch>
+**Platform:** GitHub PR / GitLab MR
 **Reviewed:** <date>
 
 ---
 
 ## Summary
 
-<one paragraph: what this MR does and why>
+<one paragraph: what this change does and why>
 
 ## Commits
 
@@ -166,10 +189,10 @@ Create the `.docs/pr-reviews/` directory first if it does not exist.
 > <one-sentence reason>
 ```
 
-After writing the file, tell the user: `Review written to .docs/pr-reviews/<MR_ID>.md`.
+After writing the file: `Review written to <repo-path>/.docs/pr-reviews/<ID>.md`.
 
 ### `summarise`
-Print a short summary (title, intent, files changed count, verdict) — no output file.
+Print short summary (title, intent, files changed count, verdict) — no output file.
 
 ### `diff`
 Print grouped file summary and full diff from Step 3 — no output file.
@@ -181,11 +204,11 @@ Print grouped file summary and full diff from Step 3 — no output file.
 
 ### `checkout`
 ```bash
-git checkout mr-<MR_ID>
+git checkout <local-ref-name>
 ```
 
 ## Constraints
-- Never fetch MR URL over HTTP.
+- Never fetch GitLab URLs over HTTP.
 - Never invent review findings not evidenced by the diff.
 - Fix only what the comment asks — no refactoring.
 - Always quote relevant diff lines when citing findings.
