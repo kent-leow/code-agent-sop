@@ -188,6 +188,21 @@
 | 🔑 **Jira auth** | `JIRA_TOKEN`, `JIRA_EMAIL`, `JIRA_BASE_URL`, `JIRA_PROJECT_KEY` in `~/.zshenv` |
 | 🎨 **Figma auth** | `FIGMA_TOKEN` in `~/.zshenv` *(only if using Figma skill without MCP)* |
 
+### Credential Setup
+
+All required env vars are listed in [`.env.example`](.env.example). Copy them into `~/.zshenv`:
+
+```bash
+# 1. Open .env.example, fill in your real values
+# 2. Append to ~/.zshenv
+cat .env.example >> ~/.zshenv   # then edit with actual values
+
+# 3. Reload shell
+source ~/.zshenv
+```
+
+> ⚠️ Never commit real tokens — `.env.example` contains only placeholders.
+
 ---
 
 <div align="center">
