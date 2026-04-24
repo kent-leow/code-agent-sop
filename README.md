@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🤖✨ Kent's Copilot Agent SOP ✨🤖
+# 🤖✨ Copilot Agent SOP ✨🤖
 
 **A production-ready collection of VS Code Copilot agents, skills, and instructions**
 *Transforming raw requirements into shipped code — fully automated* 🚀
