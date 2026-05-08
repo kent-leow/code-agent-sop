@@ -1,7 +1,7 @@
 ---
-description: "Reads, reviews, or acts on a GitHub PR or GitLab MR. Auto-detects platform from URL. Triggers: review PR, review MR, read MR, check MR, fix comment, show diff, what changed in MR/PR, pr review, code review, review merge request, fix review comment, paste of a GitHub PR URL or GitLab MR URL, or a bare number with an action."
+description: "Reads, reviews, or acts on one or more GitHub PRs / GitLab MRs. Auto-detects platform from URL. Triggers: review PR, review MR, read MR, check MR, fix comment, show diff, what changed in MR/PR, pr review, code review, review merge request, fix review comment, paste of a GitHub PR URL or GitLab MR URL, or a bare number with an action."
 tools: [read, search, edit, execute, todo]
-argument-hint: "PR/MR URL. Actions: review (default), summarise, diff, fix comment: <text>, checkout. Re-passing same URL → follow-up mode (check threads, resolve or insist, approve if all clear)."
+argument-hint: "One or more PR/MR URLs (space- or newline-separated). Actions: review (default), summarise, diff, fix comment: <text>, checkout. Re-passing same URL → follow-up mode (check threads, resolve or insist, approve if all clear)."
 ---
 
 ## Globals
@@ -13,21 +13,21 @@ argument-hint: "PR/MR URL. Actions: review (default), summarise, diff, fix comme
 | Repo root | `/Users/a2456813/Development/IdeaProjects/` | `/Users/a2456813/Development/` |
 | Auth note | TechPass — **never use fetch_webpage** | HTTPS/SSH as configured |
 
-Output file: `<repo-path>/.docs/pr-reviews/<ID>.md` (create dir if missing).
+No local files are created or required. All state lives on the platform.
+Load **git-apis skill** for all platform API calls.
 
 ---
 
-## Step 0 — Route: First Run or Follow-up?
+## Multi-URL Loop
 
-1. Parse URL → extract platform, ID, repo name (table in Step 1).
-2. Resolve `<repo-path>` (user-provided → default root + repo name → ask).
-3. Check: `test -f "<repo-path>/.docs/pr-reviews/<ID>.md"`
-   - **File missing** → first run → go to **Step 1**.
-   - **File exists** → follow-up → go to **Step 2** then **Step 6** (skip Steps 4–5).
+More than one URL → process each **sequentially and independently**.  
+Failure on one URL → log and continue; do not abort.
 
 ---
 
-## Step 1 — Parse URL
+## Step 0 — Parse URL + Route
+
+**Parse URL:**
 
 **GitHub** `https://github.com/<owner>/<repo>/pull/<PR_ID>`
 
@@ -47,21 +47,50 @@ Output file: `<repo-path>/.docs/pr-reviews/<ID>.md` (create dir if missing).
 | Target branch | `master` |
 | Encoded project | `<group>%2F<project>` |
 
+Resolve `<repo-path>`: user-provided → default root + repo name → ask.
+
+**Non-review actions** (execute immediately, then stop):
+
+| Action | Behaviour |
+|---|---|
+| `summarise` | Fetch threads + diff `--stat`, print short summary. No posting. |
+| `diff` | Run Step 1, print `--stat` + full diff. No posting. |
+| `fix comment: <text>` | Run Steps 1–2, find location, apply fix, confirm. No posting. |
+| `checkout` | Step 1 fetch only, then `git checkout <local-ref>`. |
+
+**Route — fetch existing agent-posted threads from the platform (one call):**
+
+Use **git-apis skill → FETCH_DISCUSSIONS**. Then filter:
+
+```bash
+# GitLab
+AGENT_THREADS=$(echo "$DISCUSSIONS" | jq '[.[] | select(
+  (.notes[0].body | test("^\\*\\*\\[(Critical|Major|Minor)\\]"))
+)]')
+# GitHub
+AGENT_THREADS=$(echo "$REVIEW_COMMENTS $ISSUE_COMMENTS" | jq -s 'add | [.[] | select(.body | test("^\\*\\*\\[(Critical|Major|Minor)\\]"))]')
+```
+
+- `AGENT_THREADS` empty → **first run** → Steps 1 → 2 → 3 → 4B
+- `AGENT_THREADS` non-empty → **follow-up** → Steps 1 → 2 → 4C → 4D
+
+Store `AGENT_THREADS` for reuse — do not fetch again.
+
 ---
 
-## Step 2 — Fetch Branch
+## Step 1 — Fetch Branch + Compute SHAs
 
 ```bash
 cd <repo-path>
 git fetch origin <target-branch>
 git fetch origin "<ref-to-fetch>:<local-ref>"
+BASE_SHA=$(git rev-parse origin/<target-branch>)
+HEAD_SHA=$(git rev-parse <local-ref>)
 ```
-
-Ambiguity warning → use SHA from fetch output.
 
 ---
 
-## Step 3 — Gather Diff Data
+## Step 2 — Gather Diff Data
 
 ```bash
 git log <local-ref> --oneline -1
@@ -70,11 +99,11 @@ git diff origin/<target-branch>...<local-ref> --stat
 git diff origin/<target-branch>...<local-ref>
 ```
 
-Store all output; used in Steps 4 and 6.
+Store all output.
 
 ---
 
-## Step 4 — Full Code Review (first run only)
+## Step 3 — Full Code Review (first run only)
 
 Evaluate every checklist item against the diff. Only raise findings evidenced by the diff.
 
@@ -91,77 +120,22 @@ Evaluate every checklist item against the diff. Only raise findings evidenced by
 | 9 | API & Contract | Breaking changes? Backwards compat or migration provided? |
 | 10 | Documentation | Complex logic commented; README/SNAPSHOT updated if needed |
 
-### Output file template
-
-```markdown
-# Code Review — <Platform> !<ID>
-
-**Repo:** <repo-name>  **Branch:** <source> → <target>  **Reviewed:** <date>
-
-## Summary
-<one paragraph>
-
-## Commits
-<git log oneline>
-
-## Files Changed
-| Layer | File | Change |
-|---|---|---|
-
-## Review Findings
-
-### Critical (must fix)
-### Major (should fix)
-### Minor (nice to fix)
-### Positive Observations
-
-## Checklist
-| Area | Status | Notes |
-|---|---|---|
-| Purpose & Scope | ✅/⚠️/❌ | |
-| Correctness | ✅/⚠️/❌ | |
-| Security | ✅/⚠️/❌ | |
-| Error Handling | ✅/⚠️/❌ | |
-| Test Coverage | ✅/⚠️/❌ | |
-| Code Quality | ✅/⚠️/❌ | |
-| Performance | ✅/⚠️/❌ | |
-| Observability | ✅/⚠️/❌ | |
-| API & Contract | ✅/⚠️/❌ | |
-| Documentation | ✅/⚠️/❌ | |
-
-## Verdict
-**`Approve` / `Request Changes` / `Needs Discussion`**
-> <one-sentence reason>
-```
-
-After writing → proceed to **Step 5**.
-
-### Other actions
-
-| Action | Behaviour |
-|---|---|
-| `summarise` | Print title, intent, files changed count, verdict. No file. |
-| `diff` | Print `--stat` + full diff. No file. |
-| `fix comment: <text>` | Find location in diff/codebase, apply fix, confirm change. No file. |
-| `checkout` | `git checkout <local-ref>` |
+Print review findings to the user (Critical / Major / Minor / Positive Observations) — no local file written.
 
 ---
 
-## Step 5 — Post Inline Comments (first run only)
+## Step 4B — Post Inline Comments (first run only)
 
-Get SHAs:
-```bash
-BASE_SHA=$(git rev-parse origin/<target-branch>)
-HEAD_SHA=$(git rev-parse <local-ref>)
-```
+Build `$POSTED_TITLES` from `$AGENT_THREADS` (already fetched in Step 0). For each finding:
 
-For each Critical/Major/Minor finding:
-1. Map to file + line from diff (`+++ b/<file>`, `new_line`). If unmappable → general comment.
-2. Post using the template below.
-3. Log HTTP status; warn on non-2xx but continue.
-4. Report: `N inline + M general comments posted`.
+1. Derive title: `**[<Severity>] <Short title>**`.
+2. **If title exists in `$POSTED_TITLES` → skip silently.**
+3. Map to file + line from diff (`+++ b/<file>`, `new_line`). Unmappable → general comment.
+4. Post. On success add title to `$POSTED_TITLES`. Warn on non-2xx but continue.
 
-**Comment body format:**
+Report: `N inline + M general posted, K skipped (already posted)`.
+
+**Comment body:**
 ```
 **[Critical|Major|Minor] <Short title>**
 
@@ -170,145 +144,56 @@ For each Critical/Major/Minor finding:
 **Fix:** <one-liner or short code block>
 ```
 
-### GitLab — inline discussion
-```bash
-curl -s -X POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "Content-Type: application/json" \
-  "https://sgts.gitlab-dedicated.com/api/v4/projects/<encoded-project>/merge_requests/<MR_ID>/discussions" \
-  -d '{
-    "body": "<comment>",
-    "position": {
-      "position_type": "text",
-      "base_sha": "'"$BASE_SHA"'", "start_sha": "'"$BASE_SHA"'", "head_sha": "'"$HEAD_SHA"'",
-      "old_path": "<file>", "new_path": "<file>", "new_line": <N>
-    }
-  }'
-# Line range: replace "new_line": <N> with "line_range": {"start":{"type":"new","new_line":<S>},"end":{"type":"new","new_line":<E>}}
-```
-
-### GitLab — general comment
-```bash
-curl -s -X POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "Content-Type: application/json" \
-  "https://sgts.gitlab-dedicated.com/api/v4/projects/<encoded-project>/merge_requests/<MR_ID>/notes" \
-  -d '{"body": "<comment>"}'
-```
-
-### GitHub — inline comment
-```bash
-curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/json" \
-  "https://api.github.com/repos/<owner>/<repo>/pulls/<PR_ID>/comments" \
-  -d '{"body":"<comment>","commit_id":"'"$HEAD_SHA"'","path":"<file>","line":<N>,"side":"RIGHT"}'
-# Line range: add "start_line": <S>, "start_side": "RIGHT"
-```
-
-### GitHub — general comment
-```bash
-curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/json" \
-  "https://api.github.com/repos/<owner>/<repo>/issues/<PR_ID>/comments" \
-  -d '{"body": "<comment>"}'
-```
+Post via **git-apis skill → POST_INLINE** (mappable) or **POST_GENERAL** (unmappable).
 
 ---
 
-## Step 6 — Follow-up Mode
+## Step 4C — Evaluate Threads (follow-up only)
 
-Run Steps 2–3 first (refresh diff; author may have pushed new commits).
+Use `$AGENT_THREADS` from Step 0 — **do not fetch again**. Skip threads already resolved on the platform.
 
-### 6a — Fetch open threads
+**Pre-check per thread before evaluating:**
 
-**GitLab:**
-```bash
-curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-  "https://sgts.gitlab-dedicated.com/api/v4/projects/<encoded-project>/merge_requests/<MR_ID>/discussions?per_page=100" \
-  | jq '[.[] | select(.resolved != true) | {id:.id, notes:[.notes[]|{id:.id,author:.author.username,body:.body,resolved:.resolved}]}]'
-```
+| Condition | Action |
+|---|---|
+| No author reply AND relevant file/line unchanged in latest diff | **Skip silently** — await author |
+| Author replied OR relevant line changed | **Proceed** |
 
-**GitHub:**
-```bash
-curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-  "https://api.github.com/repos/<owner>/<repo>/pulls/<PR_ID>/comments" \
-  | jq '[.[]|{id:.id,user:.user.login,body:.body,path:.path,line:.line,in_reply_to_id:.in_reply_to_id}]'
-```
-
-Only process threads whose **first note** matches the pattern `**[Critical|Major|Minor]` (posted by this agent).
-
-### 6b — Evaluate each open thread
-
-Check in order:
+**Evaluation (for threads that pass pre-check):**
 
 | Check | Condition | Action |
 |---|---|---|
-| 1 | Already resolved on platform | Skip |
-| 2 | Latest diff shows issue fixed | **RESOLVED** — reply + resolve thread |
-| 3 | Author replied with valid justification | **ACCEPTED** — reply + resolve thread |
-| 4 | Neither | **UNRESOLVED** — insistence reply, leave open |
+| 1 | Latest diff shows issue fixed | **RESOLVED** — reply + resolve thread |
+| 2 | Author replied with valid justification | **ACCEPTED** — reply only, leave open |
+| 3 | Author replied but issue unaddressed | **UNRESOLVED** — insistence reply, leave open |
 
 **RESOLVED reply:** `✅ All good — fix applied. Thanks!`
-*(Add a minor caution if something small remains, e.g. `✅ LGTM — fixed. Minor: consider extracting this in a follow-up.`)*
 
 **ACCEPTED reply:** `✅ Understood — reasonable trade-off, proceeding.` *(tailor to context)*
 
-**UNRESOLVED reply format** (polite, firm):
+**UNRESOLVED reply:**
 ```
 **Still open: <Short title>**
 
-Thanks for the update! This still needs attention — <1 sentence restating the issue, referencing the specific line/block>.
+Thanks for the response! The concern still stands — <1 sentence restating issue + specific line/block>.
 
 Could you take another look? Specifically: <exact ask or one-liner fix>.
 
-Happy to discuss if there's a different approach — just drop a note and I'll re-evaluate. 🙏
+Happy to discuss a different approach — just drop a note and I'll re-evaluate. 🙏
 ```
 
-### 6c — Resolve thread
+Reply via **git-apis skill → REPLY**.
 
-**GitLab:**
-```bash
-curl -s -X PUT -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "Content-Type: application/json" \
-  "https://sgts.gitlab-dedicated.com/api/v4/projects/<encoded-project>/merge_requests/<MR_ID>/discussions/<discussion_id>" \
-  -d '{"resolved": true}'
-```
+**Resolve thread (RESOLVED only):** use **git-apis skill → RESOLVE**.
 
-**GitHub** (GraphQL):
-```bash
-curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/json" \
-  "https://api.github.com/graphql" \
-  -d '{"query":"mutation{resolveReviewThread(input:{threadId:\"<node_id>\"}){thread{isResolved}}}"}'
-```
-If node ID unavailable → post reply `"✅ Resolved."` and note limitation.
-
-### 6d — Approve or block
-
-**All threads resolved:**
-
-GitLab:
-```bash
-curl -s -X POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-  "https://sgts.gitlab-dedicated.com/api/v4/projects/<encoded-project>/merge_requests/<MR_ID>/approve"
-```
-
-GitHub:
-```bash
-curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/json" \
-  "https://api.github.com/repos/<owner>/<repo>/pulls/<PR_ID>/reviews" \
-  -d '{"commit_id":"'"$HEAD_SHA"'","event":"APPROVE","body":"All threads addressed. LGTM! ✅"}'
-```
-
-Post general comment: `✅ Follow-up complete — all threads resolved. Approved! 🎉`
-
-**Any thread still open → do not approve.** Post: `🔄 Follow-up complete — <N> thread(s) still need attention before approval. See inline comments.`
-
-### 6e — Update review file
-
-Append to `<repo-path>/.docs/pr-reviews/<ID>.md`:
-```markdown
 ---
-## Follow-up — <date>
 
-| Thread | Concern | Outcome |
-|---|---|---|
-| <id> | <short description> | ✅ Resolved / ✅ Accepted / 🔄 Still open |
+## Step 4D — Approve or Block (follow-up only)
 
-**Verdict:** Approved ✅ / Pending 🔄 (<N> outstanding)
-```
+**All agent threads resolved:** use **git-apis skill → APPROVE**, then **POST_GENERAL**: `✅ Follow-up complete — all threads resolved. Approved! 🎉`
+
+**Any thread still open → do not approve.** Post:
+`🔄 Follow-up complete — <N> thread(s) still need attention, <M> awaiting author response.`
 
 ---
 
@@ -316,10 +201,11 @@ Append to `<repo-path>/.docs/pr-reviews/<ID>.md`:
 
 - Never fetch GitLab URLs over HTTP.
 - Never invent findings not evidenced by the diff.
-- Never post duplicate comments — check existing threads before posting.
-- Inline comments: title + 1–2 sentences + fix only. No verbosity.
+- Fetch platform comments **once in Step 0**; reuse in all subsequent steps.
+- No duplicate comments — skip any finding whose title already exists in `$POSTED_TITLES`.
+- Inline comments: title + 1–2 sentences + fix only.
 - Checklist items with no changed code → mark ✅ N/A.
 - Follow-up: only process threads with `**[Critical|Major|Minor]` prefix.
+- Follow-up: never post to an idle thread (no author reply + line unchanged) — skip silently.
 - Follow-up: never approve if any Critical or Major thread is still open.
-- Follow-up: insistence must acknowledge author effort before restating the concern.
-- fix-comment action: fix only what is asked — no refactoring.
+- No local files created or read at any point.
