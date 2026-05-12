@@ -32,7 +32,7 @@ Stop if `plan.md` has unresolved blocking Open Questions — tell user to resolv
 - Shared utilities, validators, constants to reuse
 
 **Slice Design**:
-- Each slice: complete, runnable, independently committable
+- Each slice: complete, runnable, independently testable
 - Don't split if both halves can't be tested in isolation
 - Typical seams: data layer → service+API → frontend → e2e
 - Target ~half-day to two-day effort per slice

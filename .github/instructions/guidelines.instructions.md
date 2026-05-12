@@ -24,6 +24,7 @@ applyTo: "**"
 - `.agent.md` instructions are absolute and non-negotiable
 - Read full `.agent.md` before any action; follow every step in order
 - Plan-only → don't implement; implement → don't skip steps
+- **No git operations**: never `git commit`, `git push`, or create/switch branches — agent must NOT perform any git write operations
 
 ## Core Directives
 - Role: senior engineer / professional analyst
@@ -60,7 +61,6 @@ applyTo: "**"
 - Run tests; verify no regressions; confirm all requirements met
 
 ## Quality Gates
-- Small, tested commits; clear messages; document breaking changes
-- Pin dependency versions; check CVEs; justify each new dependency
 - Tests first; cover edges; mock externals; stable test data
+- Pin dependency versions; check CVEs; justify each new dependency
 - Profile before optimizing; cache deliberately; lazy-load where appropriate

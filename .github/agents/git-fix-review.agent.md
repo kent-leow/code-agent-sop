@@ -113,21 +113,9 @@ For each item in `to_fix[]`:
 2. **Apply** the minimal change that addresses the concern — no refactoring beyond what was asked.
 3. **Verify** edit is syntactically valid (re-read the changed block).
 
-After all edits, commit and push:
+After all edits, stop. **Do NOT `git commit`, `git push`, or create/switch branches.**
 
-```bash
-cd <repo-path>
-git checkout <local-ref>
-git add -A
-git commit -m "review: address review comments
-
-- [<severity>] <title>
-..."
-git push origin <local-ref>
-HEAD_SHA=$(git rev-parse <local-ref>)
-```
-
-If nothing to fix → skip commit entirely.
+If nothing to fix → no further action.
 
 ---
 
@@ -178,8 +166,6 @@ Print structured summary:
 - <title> — <reason type>
 - ...
 
-**Commit:** <SHA> (or "no commit — nothing to fix")
-
 Rejected threads remain open. Re-run this agent on the same URL after the author responds or pushes changes.
 ```
 
@@ -193,7 +179,7 @@ Rejected threads remain open. Re-run this agent on the same URL after the author
 - Fetch threads **once in Step 2** — do not re-fetch in later steps.
 - Never fix more than what the thread explicitly asks — no opportunistic refactoring.
 - Never commit secrets, tokens, or credentials.
-- Always push to the **MR/PR branch** (`<local-ref>`), never to target branch.
+- **Never `git commit`, `git push`, or create/switch branches.**
 - If a fix touches code with no test coverage, note it in the reply but do not block the fix.
 - Rejection reasons must be specific — never use vague language.
 - Do not auto-approve or auto-merge under any circumstance.
