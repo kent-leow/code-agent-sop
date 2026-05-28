@@ -18,11 +18,13 @@
       "Bash(bash /Users/a2456813/Development/IdeaProjects/.github/skills/figma-design-context/scripts/get-page-full.sh --file-key UrWR45pUBR2wOkyl589CLG --page-id 4259:40578 --depth 5 --output /tmp/claude/ot-modal-detail.json)",
       "Read(//tmp/claude/**)",
       "Bash(python3 -c ' *)",
-      "WebFetch(domain:sgts.gitlab-dedicated.com)"
+      "WebFetch(domain:sgts.gitlab-dedicated.com)",
+      "Bash(rm /Users/a2456813/Development/IdeaProjects/.claude/commands/sync-github.md)"
     ],
     "additionalDirectories": [
       "/Users/a2456813/Development/IdeaProjects/.claude",
-      "/Users/a2456813/Development/IdeaProjects/.claude/skills/figma-design-context"
+      "/Users/a2456813/Development/IdeaProjects/.claude/skills/figma-design-context",
+      "/Users/a2456813/Development/IdeaProjects/.claude/commands"
     ]
   }
 }
