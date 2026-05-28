@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm /Users/a2456813/Development/IdeaProjects/.claude/skills/execute-task.md /Users/a2456813/Development/IdeaProjects/.claude/skills/fix-task.md /Users/a2456813/Development/IdeaProjects/.claude/skills/fix-vulnerabilities.md /Users/a2456813/Development/IdeaProjects/.claude/skills/generate-plan.md /Users/a2456813/Development/IdeaProjects/.claude/skills/generate-task.md /Users/a2456813/Development/IdeaProjects/.claude/skills/git-fix-review.md /Users/a2456813/Development/IdeaProjects/.claude/skills/git-review.md /Users/a2456813/Development/IdeaProjects/.claude/skills/investigate.md /Users/a2456813/Development/IdeaProjects/.claude/skills/snapshot-sync.md)",
+      "Bash(rmdir /Users/a2456813/Development/IdeaProjects/.claude/skills)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(mv /Users/a2456813/Development/IdeaProjects/.claude/CLAUDE.MD /Users/a2456813/Development/IdeaProjects/.claude/CLAUDE.md && echo \"renamed\")",
+      "WebFetch(domain:sgtechstack.atlassian.net)",
+      "Bash(mkdir -p /Users/a2456813/Development/IdeaProjects/.claude/skills/figma-design-context/scripts /Users/a2456813/Development/IdeaProjects/.claude/skills/fix-vulnerabilities /Users/a2456813/Development/IdeaProjects/.claude/skills/git-apis /Users/a2456813/Development/IdeaProjects/.claude/skills/jira-ticket/references /Users/a2456813/Development/IdeaProjects/.claude/skills/jira-ticket/scripts)",
+      "Bash(cp /Users/a2456813/Development/IdeaProjects/.github/skills/figma-design-context/SKILL.md /Users/a2456813/Development/IdeaProjects/.claude/skills/figma-design-context/SKILL.md)",
+      "Bash(cp /Users/a2456813/Development/IdeaProjects/.github/skills/figma-design-context/scripts/*.sh /Users/a2456813/Development/IdeaProjects/.claude/skills/figma-design-context/scripts/)",
+      "Bash(cp /Users/a2456813/Development/IdeaProjects/.github/skills/fix-vulnerabilities/SKILL.md /Users/a2456813/Development/IdeaProjects/.claude/skills/fix-vulnerabilities/SKILL.md)",
+      "Bash(cp /Users/a2456813/Development/IdeaProjects/.github/skills/git-apis/SKILL.md /Users/a2456813/Development/IdeaProjects/.claude/skills/git-apis/SKILL.md)",
+      "Bash(cp /Users/a2456813/Development/IdeaProjects/.github/skills/jira-ticket/SKILL.md /Users/a2456813/Development/IdeaProjects/.claude/skills/jira-ticket/SKILL.md)",
+      "WebFetch(domain:api.figma.com)",
+      "Bash(mkdir -p /Users/a2456813/Development/IdeaProjects/.docs/spike-ot-refine/figma)",
+      "Bash(bash /Users/a2456813/Development/IdeaProjects/.github/skills/figma-design-context/scripts/get-metadata.sh --file-key UrWR45pUBR2wOkyl589CLG)",
+      "Bash(bash /Users/a2456813/Development/IdeaProjects/.github/skills/figma-design-context/scripts/get-page-full.sh --file-key UrWR45pUBR2wOkyl589CLG --page-id 4259:40578 --depth 5 --output /tmp/claude/ot-modal-detail.json)",
+      "Read(//tmp/claude/**)",
+      "Bash(python3 -c ' *)",
+      "WebFetch(domain:sgts.gitlab-dedicated.com)"
+    ],
+    "additionalDirectories": [
+      "/Users/a2456813/Development/IdeaProjects/.claude",
+      "/Users/a2456813/Development/IdeaProjects/.claude/skills/figma-design-context"
+    ]
+  }
+}
