@@ -55,23 +55,24 @@ For each task in dependency order:
 
 ## Phase 5 — Git Workflow
 
-1. **Ticket** — read `jira.json`; extract `ticket` (e.g. `GOBIZWKST2-123`). If absent, ask user.
-2. **Branch** — name: `GOBIZWKST2-{TICKET_NUM}-{kebab-task-title}` where task-slug is kebab-case of the `task-NNN.md` title.  
-   → skill: BRANCH_SETUP (`REPO_DIR`, `BRANCH`)
-3. **Commit** — `feat({repo-name}): {task title} [GOBIZWKST2-{TICKET_NUM}]\n\nImplemented:\n- {file1}\n- {file2}`  
+1. **Branch** — pattern: `GOBIZWKST2-{TICKET}-{kebab-task-title}` (slug = kebab-case of `task-NNN.md` title).  
+   → skill: BRANCH_SETUP (`REPO_DIR`, `BRANCH_PATTERN`)  
+   Skill resolves `TICKET_NUM` from `jira.json` → current branch → **asks user if not found**. Outputs `TICKET_NUM`, `BRANCH`, `DEFAULT_BRANCH`.
+2. **Commit** — `feat({repo-name}): {task title} [GOBIZWKST2-{TICKET_NUM}]\n\nImplemented:\n- {file1}\n- {file2}`  
    → skill: COMMIT (`REPO_DIR`, `COMMIT_MSG`)  
    Store `COMMITTED`.
-4. **Push** — → skill: PUSH (`REPO_DIR`, `BRANCH`)
-5. **MR** — Title: `[GOBIZWKST2-{TICKET_NUM}] {task title}`. Body: list of implemented files + Done When checklist.  
+3. **Push** — → skill: PUSH (`REPO_DIR`, `BRANCH`)
+4. **MR** — Title: `[GOBIZWKST2-{TICKET_NUM}] {task title}`. Body: list of implemented files + Done When checklist.  
    → skill: ENSURE_MR (`ENCODED`, `BRANCH`, `DEFAULT_BRANCH`, `MR_TITLE`, `MR_BODY`)  
    Store `MR_IID`, `MR_URL`.
-6. **Poll pipeline** → skill: POLL_PIPELINE (`ENCODED`, `MR_IID`, `COMMITTED`)
+5. **Poll pipeline** → skill: POLL_PIPELINE (`ENCODED`, `MR_IID`, `COMMITTED`)  
+   **Run to completion autonomously — do not pause or ask the user at any point.**
 
-   **ON_SUCCESS hook:**  
-   → skill: FETCH_OPEN_THREADS → evaluate each thread (FIX/REJECT using same rules as `git-fix-review`) → apply fixes → skill: COMMIT → skill: PUSH → skill: POST_THREAD_REPLIES → skill: RESOLVE_THREADS
+   **ON_SUCCESS hook (execute inline, immediately):**  
+   → skill: FETCH_OPEN_THREADS → evaluate each thread (FIX/REJECT using same rules as `git-fix-review`) → apply fixes → skill: COMMIT → skill: PUSH → skill: POST_THREAD_REPLIES → skill: RESOLVE_THREADS → done.
 
-   **ON_FAILURE hook:**  
-   Inspect build/test logs → fix compilation or test failures → skill: COMMIT → skill: PUSH → reset `POLL=0`
+   **ON_FAILURE hook (execute inline, immediately):**  
+   Inspect CI logs → fix compilation/test failures → skill: COMMIT → skill: PUSH → reset `POLL=0; CONSECUTIVE_FAILURES=0` → continue loop.
 
 ---
 
@@ -109,3 +110,4 @@ Next:        task-<NNN+1>.md  (or "No further slices.")
 - Never skip test tasks
 - Don't renumber/restructure slices unless explicitly instructed
 - Touch only affected lines in sibling files
+- **Once Phase 5 starts, run the full git workflow (commit → push → MR → poll → hooks) to completion without pausing to ask the user. Only stop at a terminal exit condition.**

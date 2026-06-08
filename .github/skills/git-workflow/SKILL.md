@@ -35,26 +35,46 @@ echo "GitHub token: $([ -n "${GITHUB_TOKEN}" ] && echo OK || echo MISSING)"
 
 ---
 
-### BRANCH_SETUP — checkout default, pull, create or switch to feature branch
+### BRANCH_SETUP — resolve ticket, checkout default, pull, create or switch to feature branch
 
-**Inputs:** `REPO_DIR` (absolute path), `BRANCH` (full branch name)  
-**Outputs:** `DEFAULT_BRANCH`, active branch set to `BRANCH`
+**Inputs:** `REPO_DIR` (absolute path), `BRANCH_PATTERN` (name template with `{TICKET}` placeholder — see conventions below)  
+**Outputs:** `TICKET_NUM`, `BRANCH`, `DEFAULT_BRANCH`, active branch set to `BRANCH`
+
+#### Step 1 — Resolve ticket number
+
+Try sources in order; stop at first hit:
+
+1. **Caller-supplied** — if the invoking agent already has `TICKET_NUM`, use it directly.
+2. **`jira.json`** — if the task folder contains `jira.json`, read `.ticket` (e.g. `GOBIZWKST2-123`); extract the numeric part.
+3. **Current branch** — parse `GOBIZWKST2-(\d+)` from the active branch name:
+   ```bash
+   TICKET_NUM=$(/usr/bin/git rev-parse --abbrev-ref HEAD 2>/dev/null \
+     | grep -oE 'GOBIZWKST2-[0-9]+' | grep -oE '[0-9]+' || true)
+   ```
+4. **Ask** — if still empty, **stop and ask the user**:
+   > What is the GOBIZWKST2 ticket number? (digits only, e.g. `456`)
+
+   Do not guess or proceed until the user provides a value.
+
+Construct `BRANCH` by substituting `{TICKET}` in `BRANCH_PATTERN` with `GOBIZWKST2-${TICKET_NUM}`.
+
+#### Step 2 — Checkout and sync
 
 ```bash
 cd "${REPO_DIR}"
 
-# 1. Detect default branch
+# Detect default branch
 DEFAULT_BRANCH=$(/usr/bin/git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
   | sed 's|refs/remotes/origin/||' || echo "master")
 
-# 2. Sync default branch
+# Sync default branch
 /usr/bin/git checkout "${DEFAULT_BRANCH}"
 /usr/bin/git pull origin "${DEFAULT_BRANCH}"
 
-# 3. Fetch remote refs
+# Fetch remote refs
 /usr/bin/git fetch origin
 
-# 4. Create or switch to feature branch
+# Create or switch to feature branch
 if /usr/bin/git branch -a | grep -qE "(remotes/origin/|^  )${BRANCH}(\s|$)"; then
   /usr/bin/git checkout "${BRANCH}"
   /usr/bin/git pull origin "${BRANCH}" 2>/dev/null || true   # ok if no remote yet
@@ -66,12 +86,12 @@ echo "Active branch: ${BRANCH}"
 
 **Branch naming conventions:**
 
-| Context | Pattern |
+| Context | `BRANCH_PATTERN` |
 |---|---|
 | Vulnerability fixes | `GOBIZWKST2-{TICKET}-Fix-Vulnerability-{YYYYMMDD}` |
 | Task implementation | `GOBIZWKST2-{TICKET}-{kebab-task-title}` |
 | Post-implementation fix | reuse the task branch (checkout if exists, else create) |
-| Review-fix workflow | branch already exists — skip BRANCH_SETUP; use FETCH_BRANCH instead |
+| Review-fix workflow | branch already exists — skip BRANCH_SETUP; use `FETCH_BRANCH` instead |
 
 **Detect current branch (review-fix mode):**
 ```bash
@@ -360,6 +380,8 @@ Only resolve threads in `to_fix[]`. Leave `to_reject[]` threads open for author 
 **Inputs:** `ENCODED`, `MR_IID`, `COMMITTED`  
 **Skip entirely** if `COMMITTED=false`.
 
+> **Autonomy rule:** Once polling starts, run the full loop to completion without pausing or asking the user. Apply all fixes, commits, and pushes automatically. Only stop at a terminal exit condition.
+
 #### Adaptive schedule
 
 ```
@@ -407,23 +429,26 @@ while [ ${POLL} -lt ${MAX_POLLS} ]; do
     success)
       CONSECUTIVE_FAILURES=0
       echo "Pipeline passed."
-      # ► Execute caller's ON_SUCCESS hook (defined below by each agent)
+      # Execute ON_SUCCESS hook immediately — do not pause
+      # See per-agent ON_SUCCESS table below; run all steps inline without asking the user
       break
       ;;
     failed|canceled)
       CONSECUTIVE_FAILURES=$(( CONSECUTIVE_FAILURES + 1 ))
       echo "Pipeline ${PIPELINE_STATUS} (consecutive: ${CONSECUTIVE_FAILURES}) — ${PIPELINE_URL}"
-      [ ${CONSECUTIVE_FAILURES} -ge 3 ] && { echo "BLOCKED: 3 consecutive failures."; break; }
-      # ► Execute caller's ON_FAILURE hook (defined below by each agent)
-      # After applying fixes → COMMIT → PUSH → reset:
-      # POLL=0; CONSECUTIVE_FAILURES=0
+      if [ ${CONSECUTIVE_FAILURES} -ge 3 ]; then
+        echo "BLOCKED: 3 consecutive failures — stopping loop. Report to user."
+        break
+      fi
+      # Execute ON_FAILURE hook immediately — do not pause or ask the user
+      # Apply all fixes inline; then COMMIT → PUSH → reset POLL=0; CONSECUTIVE_FAILURES=0
       ;;
     running|pending|created|waiting_for_resource|preparing)
       echo "Pipeline still ${PIPELINE_STATUS}. Continuing..."
       ;;
     skipped|manual)
       echo "Pipeline ${PIPELINE_STATUS}."
-      # ► Execute caller's ON_SUCCESS hook (treat as success for domain checks)
+      # Treat as success — execute ON_SUCCESS hook immediately without asking
       break
       ;;
     *)
@@ -432,33 +457,35 @@ while [ ${POLL} -lt ${MAX_POLLS} ]; do
   esac
 done
 
-[ ${POLL} -ge ${MAX_POLLS} ] && echo "TIMEOUT: exceeded ${MAX_POLLS} polls — manual check required."
+[ ${POLL} -ge ${MAX_POLLS} ] && echo "TIMEOUT: exceeded ${MAX_POLLS} polls — stopping loop. Report to user."
 ```
 
-#### ON_SUCCESS hook — caller defines
+#### ON_SUCCESS hook — execute immediately, inline, without pausing
 
 | Agent | ON_SUCCESS action |
 |---|---|
-| `git-fix-review` | → RESOLVE_THREADS for all `to_fix[]` items |
-| `fix-vulnerabilities` | Re-fetch MR-scoped vulns; if count=0 → done; else diff & fix → COMMIT → PUSH → reset POLL |
-| `execute-task` / `fix-task` | → FETCH_OPEN_THREADS → evaluate → fix → COMMIT → PUSH → POST_THREAD_REPLIES → RESOLVE_THREADS |
+| `git-fix-review` | RESOLVE_THREADS for all `to_fix[]` items → done |
+| `fix-vulnerabilities` | Re-fetch MR-scoped vulns; if count=0 → done; else diff & fix → COMMIT → PUSH → `POLL=0; CONSECUTIVE_FAILURES=0` → continue loop |
+| `execute-task` / `fix-task` | FETCH_OPEN_THREADS → evaluate all threads → apply fixes → COMMIT → PUSH → POST_THREAD_REPLIES → RESOLVE_THREADS → done |
 
-#### ON_FAILURE hook — caller defines
+#### ON_FAILURE hook — execute immediately, inline, without pausing
 
 | Agent | ON_FAILURE action |
 |---|---|
-| `git-fix-review` | Re-fetch ALL_THREADS → re-evaluate (Steps 3→4→5) → COMMIT → PUSH → reset POLL |
-| `fix-vulnerabilities` | Re-fetch MR-scoped vulns → fix remaining (Step 4) → COMMIT → PUSH → reset POLL |
-| `execute-task` / `fix-task` | Inspect build/test logs → fix compilation or test failures → COMMIT → PUSH → reset POLL |
+| `git-fix-review` | Re-fetch ALL_THREADS → re-evaluate (Steps 3→4) → COMMIT → PUSH → POST_THREAD_REPLIES → `POLL=0; CONSECUTIVE_FAILURES=0` → continue loop |
+| `fix-vulnerabilities` | Re-fetch MR-scoped vulns → diff → fix remaining (Step 4) → COMMIT → PUSH → `POLL=0; CONSECUTIVE_FAILURES=0` → continue loop |
+| `execute-task` / `fix-task` | Inspect CI logs → fix compilation/test failures → COMMIT → PUSH → `POLL=0; CONSECUTIVE_FAILURES=0` → continue loop |
 
-#### Exit conditions (any → break loop)
+#### Exit conditions (any → break loop and report to user)
 
 | Condition | Result |
 |---|---|
 | Pipeline `success` AND all domain checks pass | ✅ Done |
 | All remaining items `DEFERRED` / `SKIPPED` / `REJECTED` | ✅ Done (nothing left to fix) |
-| `CONSECUTIVE_FAILURES >= 3` | 🚫 `BLOCKED` |
-| `POLL >= MAX_POLLS` | ⏱ `TIMEOUT` |
+| `CONSECUTIVE_FAILURES >= 3` | 🚫 `BLOCKED` — report failure summary; do not ask user what to do |
+| `POLL >= MAX_POLLS` | ⏱ `TIMEOUT` — report what was attempted; do not ask user what to do |
+
+**Never pause between hook execution steps to ask the user for permission or confirmation.**
 
 ---
 
@@ -528,3 +555,4 @@ Reference operations by name in agent steps:
 - Post thread replies before starting pipeline wait — never after
 - Resolve only `to_fix[]` threads — leave `to_reject[]` open
 - If a fix touches code with no test coverage, note it in the reply but do not block the fix
+- **Run the full workflow to completion without pausing to ask the user. Never request confirmation mid-loop. Only surface control to the user on terminal exit conditions (BLOCKED, TIMEOUT) or at the final summary.**

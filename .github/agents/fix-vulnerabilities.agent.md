@@ -120,8 +120,8 @@ PIPELINE_STATUS=$(echo "${PIPELINE}" | /usr/bin/jq -r '.status')
 
 ## Step 1 — Per-repo: checkout, pull, create branch
 
-→ **skill: BRANCH_SETUP** (`REPO_DIR = ${WORKSPACE}/{repo-name}`, `BRANCH = GOBIZWKST2-${TICKET_NUM}-Fix-Vulnerability-${DATE}`)  
-Outputs: `DEFAULT_BRANCH`, active branch set to `BRANCH`.
+→ **skill: BRANCH_SETUP** (`REPO_DIR = ${WORKSPACE}/{repo-name}`, `BRANCH_PATTERN = GOBIZWKST2-{TICKET}-Fix-Vulnerability-${DATE}`)  
+Skill resolves `TICKET_NUM` from Step 0c (already collected) → current branch → **asks user if not found**. Outputs `TICKET_NUM`, `BRANCH`, `DEFAULT_BRANCH`.
 
 ---
 
@@ -318,13 +318,14 @@ After the MR exists and the branch is pushed, enter a watch loop for each repo.
 > **MR-scoped vulnerability source** (mandatory once MR exists) — see **git-workflow skill → MR-scoped vulnerability source** section for preferred (pipeline-scoped findings) and fallback (job artifact download) approaches.  
 > Do **not** use `/merge_requests/{iid}/vulnerability_findings` — returns 404 on this instance.
 
-→ **skill: POLL_PIPELINE** (`ENCODED`, `MR_IID`, `COMMITTED`)
+→ **skill: POLL_PIPELINE** (`ENCODED`, `MR_IID`, `COMMITTED`)  
+**Run to completion autonomously — do not pause or ask the user at any point.**
 
-**ON_SUCCESS hook:**  
-Fetch MR-scoped vulns (see skill note). If `MR_VULN_COUNT == 0` → done (break). Else diff against findings file → fix remaining (Step 4) → skill: COMMIT → skill: PUSH → reset `POLL=0`.
+**ON_SUCCESS hook (execute inline, immediately):**  
+Fetch MR-scoped vulns (see skill note). If `MR_VULN_COUNT == 0` → done. Else diff against findings file → fix remaining (Step 4) → skill: COMMIT → skill: PUSH → reset `POLL=0; CONSECUTIVE_FAILURES=0` → continue loop.
 
-**ON_FAILURE hook:**  
-Same as ON_SUCCESS — fetch MR-scoped vulns → diff → fix → skill: COMMIT → skill: PUSH → reset `POLL=0`.
+**ON_FAILURE hook (execute inline, immediately):**  
+Same as ON_SUCCESS — fetch MR-scoped vulns → diff → fix → skill: COMMIT → skill: PUSH → reset `POLL=0; CONSECUTIVE_FAILURES=0` → continue loop.
 
 **Exit conditions (from skill):**
 - `success` AND `MR_VULN_COUNT == 0` → ✅ done

@@ -67,23 +67,24 @@ Append to `## Changelog`: `- YYYY-MM-DD: FIX-001 — <summary>`. Mark `todo` com
 
 ## Phase 5 — Git Workflow
 
-1. **Ticket** — read `jira.json`; extract `ticket` (e.g. `GOBIZWKST2-123`). If absent, ask user.
-2. **Branch** — reuse the existing task branch if present; otherwise create `GOBIZWKST2-{TICKET_NUM}-{kebab-task-title}`.  
-   → skill: BRANCH_SETUP (`REPO_DIR`, `BRANCH`)
-3. **Commit** — `fix({repo-name}): {fix summary} [GOBIZWKST2-{TICKET_NUM}]\n\nFixes:\n- FIX-001: {desc}\n- FIX-002: {desc}`  
+1. **Branch** — reuse existing task branch if present; otherwise pattern `GOBIZWKST2-{TICKET}-{kebab-task-title}`.  
+   → skill: BRANCH_SETUP (`REPO_DIR`, `BRANCH_PATTERN`)  
+   Skill resolves `TICKET_NUM` from `jira.json` → current branch → **asks user if not found**. Outputs `TICKET_NUM`, `BRANCH`, `DEFAULT_BRANCH`.
+2. **Commit** — `fix({repo-name}): {fix summary} [GOBIZWKST2-{TICKET_NUM}]\n\nFixes:\n- FIX-001: {desc}\n- FIX-002: {desc}`  
    → skill: COMMIT (`REPO_DIR`, `COMMIT_MSG`)  
    Store `COMMITTED`.
-4. **Push** → skill: PUSH (`REPO_DIR`, `BRANCH`)
-5. **MR** — Title: `[GOBIZWKST2-{TICKET_NUM}] {fix summary}`. Body: list of fixes + files changed.  
+3. **Push** → skill: PUSH (`REPO_DIR`, `BRANCH`)
+4. **MR** — Title: `[GOBIZWKST2-{TICKET_NUM}] {fix summary}`. Body: list of fixes + files changed.  
    → skill: ENSURE_MR (`ENCODED`, `BRANCH`, `DEFAULT_BRANCH`, `MR_TITLE`, `MR_BODY`)  
    Store `MR_IID`, `MR_URL`.
-6. **Poll pipeline** → skill: POLL_PIPELINE (`ENCODED`, `MR_IID`, `COMMITTED`)
+5. **Poll pipeline** → skill: POLL_PIPELINE (`ENCODED`, `MR_IID`, `COMMITTED`)  
+   **Run to completion autonomously — do not pause or ask the user at any point.**
 
-   **ON_SUCCESS hook:**  
-   → skill: FETCH_OPEN_THREADS → evaluate each thread (FIX/REJECT using same rules as `git-fix-review`) → apply fixes → skill: COMMIT → skill: PUSH → skill: POST_THREAD_REPLIES → skill: RESOLVE_THREADS
+   **ON_SUCCESS hook (execute inline, immediately):**  
+   → skill: FETCH_OPEN_THREADS → evaluate each thread (FIX/REJECT using same rules as `git-fix-review`) → apply fixes → skill: COMMIT → skill: PUSH → skill: POST_THREAD_REPLIES → skill: RESOLVE_THREADS → done.
 
-   **ON_FAILURE hook:**  
-   Inspect build/test logs → fix compilation or test failures → skill: COMMIT → skill: PUSH → reset `POLL=0`
+   **ON_FAILURE hook (execute inline, immediately):**  
+   Inspect CI logs → fix compilation/test failures → skill: COMMIT → skill: PUSH → reset `POLL=0; CONSECUTIVE_FAILURES=0` → continue loop.
 
 ---
 
@@ -110,3 +111,4 @@ Append to `## Changelog`: `- YYYY-MM-DD: FIX-001 — <summary>`. Mark `todo` com
 - Don't create files other than `fix-{datetime}.md` unless fix requires a new test/config entry
 - Don't modify `plan.md` unless AC gap confirmed
 - Don't renumber/restructure task files
+- **Once Phase 5 starts, run the full git workflow (commit → push → MR → poll → hooks) to completion without pausing to ask the user. Only stop at a terminal exit condition.**

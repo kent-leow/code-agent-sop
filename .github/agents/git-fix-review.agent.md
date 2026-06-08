@@ -124,13 +124,14 @@ If `COMMITTED=false` → skip push and proceed directly to Step 5c.
 > Skip this step if `COMMITTED=false` from Step 5a.
 
 → **skill: POLL_PIPELINE** (`ENCODED`, `MR_IID`, `COMMITTED`)  
-Use first-interval **120 s** (review-only pipeline — no dependency scanning).
+Use first-interval **120 s** (review-only pipeline — no dependency scanning).  
+**Run to completion autonomously — do not pause or ask the user at any point.**
 
-**ON_SUCCESS hook:**  
-→ skill: RESOLVE_THREADS — resolve all threads in `to_fix[]`.
+**ON_SUCCESS hook (execute inline, immediately):**  
+→ skill: RESOLVE_THREADS — resolve all threads in `to_fix[]` → done.
 
-**ON_FAILURE hook:**  
-Re-fetch ALL_THREADS → re-evaluate (Steps 3→4) → skill: COMMIT → skill: PUSH → skill: POST_THREAD_REPLIES → reset `POLL=0`.
+**ON_FAILURE hook (execute inline, immediately):**  
+Re-fetch ALL_THREADS → re-evaluate (Steps 3→4) → skill: COMMIT → skill: PUSH → skill: POST_THREAD_REPLIES → reset `POLL=0; CONSECUTIVE_FAILURES=0` → continue loop.
 
 ### 6b — Re-fix loop (pipeline failed)
 
@@ -183,3 +184,4 @@ Do not auto-approve or auto-merge under any circumstance.
 - Rejection reasons must be specific — never use vague language.
 - Do not auto-approve or auto-merge under any circumstance.
 - Max poll iterations: 20 per pipeline run.
+- **Once the workflow starts, run to completion without pausing to ask the user. Only stop at a terminal exit condition (BLOCKED, TIMEOUT, or all items resolved).**
