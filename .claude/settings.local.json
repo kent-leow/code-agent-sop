@@ -19,7 +19,13 @@
       "Read(//tmp/claude/**)",
       "Bash(python3 -c ' *)",
       "WebFetch(domain:sgts.gitlab-dedicated.com)",
-      "Bash(rm /Users/a2456813/Development/IdeaProjects/.claude/commands/sync-github.md)"
+      "Bash(rm /Users/a2456813/Development/IdeaProjects/.claude/commands/sync-github.md)",
+      "Bash(cp .github/agents/execute-task.agent.md .claude/commands/execute-task.md)",
+      "Bash(cp .github/agents/fix-task.agent.md .claude/commands/fix-task.md)",
+      "Bash(cp .github/agents/fix-vulnerabilities.agent.md .claude/commands/fix-vulnerabilities.md)",
+      "Bash(cp .github/agents/git-fix-review.agent.md .claude/commands/git-fix-review.md)",
+      "Bash(mkdir -p .claude/skills/git-workflow)",
+      "Bash(cp .github/skills/git-workflow/SKILL.md .claude/skills/git-workflow/SKILL.md)"
     ],
     "additionalDirectories": [
       "/Users/a2456813/Development/IdeaProjects/.claude",

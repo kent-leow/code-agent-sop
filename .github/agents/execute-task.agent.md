@@ -6,6 +6,11 @@ argument-hint: "Provide the path to task-NNN.md (e.g. .docs/create-form-and-appl
 
 **Input**: `task-NNN.md` path. **Output**: all tasks implemented, tests passing, all checkboxes marked.
 
+Load **git-workflow skill** for all branch/commit/push/MR/pipeline/thread operations.
+---
+
+**Input**: `task-NNN.md` path. **Output**: all tasks implemented, tests passing, all checkboxes marked.
+
 ## Phase 1 — Pre-flight
 
 1. Read: `task-NNN.md`, sibling `plan.md`, all sibling `task-*.md`, `jira.json` (note sub-task key).
@@ -46,7 +51,31 @@ For each task in dependency order:
 2. Each **Done When**: satisfied → `[x]` + `<!-- verified YYYY-MM-DD -->`; blocked → `[ ]` + `<!-- blocked: <reason> -->`.
 3. Re-scan siblings — confirm no stale cross-references.
 
-## Completion Prompt
+---
+
+## Phase 5 — Git Workflow
+
+1. **Ticket** — read `jira.json`; extract `ticket` (e.g. `GOBIZWKST2-123`). If absent, ask user.
+2. **Branch** — name: `GOBIZWKST2-{TICKET_NUM}-{kebab-task-title}` where task-slug is kebab-case of the `task-NNN.md` title.  
+   → skill: BRANCH_SETUP (`REPO_DIR`, `BRANCH`)
+3. **Commit** — `feat({repo-name}): {task title} [GOBIZWKST2-{TICKET_NUM}]\n\nImplemented:\n- {file1}\n- {file2}`  
+   → skill: COMMIT (`REPO_DIR`, `COMMIT_MSG`)  
+   Store `COMMITTED`.
+4. **Push** — → skill: PUSH (`REPO_DIR`, `BRANCH`)
+5. **MR** — Title: `[GOBIZWKST2-{TICKET_NUM}] {task title}`. Body: list of implemented files + Done When checklist.  
+   → skill: ENSURE_MR (`ENCODED`, `BRANCH`, `DEFAULT_BRANCH`, `MR_TITLE`, `MR_BODY`)  
+   Store `MR_IID`, `MR_URL`.
+6. **Poll pipeline** → skill: POLL_PIPELINE (`ENCODED`, `MR_IID`, `COMMITTED`)
+
+   **ON_SUCCESS hook:**  
+   → skill: FETCH_OPEN_THREADS → evaluate each thread (FIX/REJECT using same rules as `git-fix-review`) → apply fixes → skill: COMMIT → skill: PUSH → skill: POST_THREAD_REPLIES → skill: RESOLVE_THREADS
+
+   **ON_FAILURE hook:**  
+   Inspect build/test logs → fix compilation or test failures → skill: COMMIT → skill: PUSH → reset `POLL=0`
+
+---
+
+## Phase 6 — Completion Prompt
 
 > ✅ Task NNN complete.
 > **A** — Update Jira Sub-task SP &nbsp; **B** — Further changes &nbsp; **C** — Skip
@@ -61,6 +90,8 @@ Implemented: <file paths>
 Tests:       <test file paths>
 Done When:   ✅ <condition> / ⚠️ <condition — reason>
 Siblings:    task-NNN.md — <what changed>
+MR:          <MR_URL>  [created|existing]
+Pipeline:    <success|failed|timeout>
 Next:        task-<NNN+1>.md  (or "No further slices.")
 ```
 

@@ -1,16 +1,12 @@
 ---
 name: fix-vulnerabilities
-description: Use when fixing GitLab security vulnerabilities in GOBIZ repos
-metadata:
-  category: security
-  tier: advanced
-  status: active
-  invocation: user-initiated
+description: "Fetch and report GitLab security vulnerabilities (critical/high/medium/low) for GOBIZ repos. Requires GITLAB_TOKEN with read_api scope."
+argument-hint: '<gitlab-mr-url | repo-name>'
 ---
 
-# Fix Vulnerabilities — Fetch All Vulnerability Details
+# fix-vulnerabilities
 
-Pull all vulnerability findings (critical, high, medium, low) from a GitLab project via MR URL or repo selection. No git operations, no commits — output is a structured vulnerability report only.
+Fetch all vulnerability findings (critical–low) from GitLab. No git ops, no commits — structured report only.
 
 ---
 

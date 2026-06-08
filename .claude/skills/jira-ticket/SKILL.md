@@ -1,10 +1,10 @@
 ---
 name: jira-ticket
-description: 'Create and retrieve Jira issues via the Jira REST API. Use for: filing new tickets, creating sub-tasks, updating story points, retrieving issue comments. Requires JIRA_TOKEN (API token), JIRA_BASE_URL, JIRA_PROJECT_KEY, and JIRA_EMAIL. Handles: main ticket creation, sub-task creation, story point updates, comment retrieval, input validation.'
+description: "Create/retrieve Jira issues via REST API: tickets, sub-tasks, story points, comments. Requires JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL."
 argument-hint: '<title> [description] [story_points] [parent_key]'
 ---
 
-# Jira Ticket Creation
+# jira-ticket
 
 ## Prerequisites
 

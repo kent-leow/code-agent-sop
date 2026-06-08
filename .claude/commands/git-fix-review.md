@@ -13,8 +13,9 @@ argument-hint: "One or more PR/MR URLs (space- or newline-separated). Fetches ev
 | Repo root | `/Users/a2456813/Development/IdeaProjects/` | `/Users/a2456813/Development/` |
 | Auth note | TechPass — **never use fetch_webpage** | HTTPS/SSH as configured |
 
-Fully independent — no prior agent run required.
-Load **git-apis skill** for all platform API calls.
+Fully independent — no prior agent run required.  
+Load **git-apis skill** for all platform API calls.  
+Load **git-workflow skill** for all branch/commit/push/MR/pipeline/thread operations.
 
 ---
 
@@ -56,32 +57,12 @@ Store diff and `CURRENT_BRANCH` — used for code context in Step 3 and push in 
 
 ## Step 2 — Fetch Open Review Threads
 
-Use **git-apis skill → FETCH_DISCUSSIONS**. Then filter open threads:
+→ **skill: FETCH_OPEN_THREADS** (`ENCODED`, `MR_IID`)  
+Outputs: `INLINE_THREADS[]`, `GENERAL_THREADS[]`, `ALL_THREADS[]`.
 
-```bash
-# GitLab
-OPEN_THREADS=$(echo "$DISCUSSIONS" | jq '[.[] | select(.resolved != true) | {
-  id: .id,
-  first_note_id: .notes[0].id,
-  author: .notes[0].author.username,
-  body: .notes[0].body,
-  file: .notes[0].position.new_path,
-  line: .notes[0].position.new_line,
-  replies: [.notes[1:][]]
-}]')
-# GitHub
-OPEN_THREADS=$(echo "$REVIEW_COMMENTS" | jq '[.[] | select(.in_reply_to_id == null) | {
-  id: .id,
-  node_id: .node_id,
-  author: .user.login,
-  body: .body,
-  file: .path,
-  line: .line,
-  replies: []
-}]')
-```
+Evaluate both inline and general/prelude threads with the same FIX/REJECT rules in Step 3.
 
-If `OPEN_THREADS` is empty → print `No open review threads found on <Platform> !<ID>.` and stop.
+If `ALL_THREADS` is empty → print `No open review threads found on <Platform> !<ID>.` and stop.
 
 ---
 
@@ -119,149 +100,50 @@ If nothing to fix → skip to Step 5b (post responses only).
 
 ---
 
-## Step 5 — Commit & Push
+## Step 5 — Commit, Push & Reply
 
 ### 5a — Commit
 
-Only if there are staged/unstaged changes from Step 4:
-
-```bash
-cd <repo-path>
-git add -A
-# Verify something is staged before committing
-git diff --cached --quiet || git commit -m "fix: address review comments
-
-$(echo "$to_fix" | sed 's/^/- /')"
-```
-
-Build the commit message body from `to_fix[]` thread summaries (file:line — concern title).
+→ **skill: COMMIT** (`REPO_DIR`, `COMMIT_MSG`)  
+Commit message: `fix: address review comments\n\n- <file>:<line> — <concern title>\n- ...` (one line per `to_fix[]` item).  
+Store output `COMMITTED`.
 
 ### 5b — Push
 
-```bash
-git push origin "${CURRENT_BRANCH}"
-```
-
-If nothing was committed (nothing to fix) → skip push; proceed to Step 5c.
+If `COMMITTED=false` → skip push and proceed directly to Step 5c.  
+→ **skill: PUSH** (`REPO_DIR`, `CURRENT_BRANCH`)
 
 ### 5c — Post Thread Responses (before pipeline wait)
 
-**For each FIXED thread:**
-
-```
-✅ **Fixed** — <one sentence: what changed and where>.
-```
-
-**For each REJECTED thread:**
-
-```
-⛔ **Not applying — <Short reason title>**
-
-<1–2 sentences explaining why this change was not made.>
-
-**Reason:** <out of scope / reviewer misread / would break contract / style preference / needs author clarification>
-
-<If actionable — suggest next step.>
-```
-
-Post all replies via **git-apis skill → REPLY** before waiting for the pipeline.
+→ **skill: POST_THREAD_REPLIES** — post replies for every thread in `to_fix[]` and `to_reject[]`.
 
 ---
 
 ## Step 6 — Poll Pipeline Until Success
 
-> Skip this step if nothing was committed in Step 5a.
+> Skip this step if `COMMITTED=false` from Step 5a.
 
-### 6a — Adaptive polling schedule
+→ **skill: POLL_PIPELINE** (`ENCODED`, `MR_IID`, `COMMITTED`)  
+Use first-interval **120 s** (review-only pipeline — no dependency scanning).
 
-Use decreasing intervals — longer early, shorter later:
+**ON_SUCCESS hook:**  
+→ skill: RESOLVE_THREADS — resolve all threads in `to_fix[]`.
 
-```
-Poll #  Wait before polling
-  1     120 s   (2 min  — give CI time to initialise)
-  2      90 s   (1.5 min)
-  3      60 s   (1 min)
-  4      45 s
-  5+     30 s   (keep tight once nearly done)
-```
-
-```bash
-INTERVALS=(120 90 60 45 30)
-POLL=0
-MAX_POLLS=20
-
-while [ $POLL -lt $MAX_POLLS ]; do
-  IDX=$(( POLL < ${#INTERVALS[@]} ? POLL : $(( ${#INTERVALS[@]} - 1 )) ))
-  WAIT=${INTERVALS[$IDX]}
-  echo "[<platform> !<ID>] Poll #$(( POLL + 1 )) — waiting ${WAIT}s..."
-  sleep ${WAIT}
-  POLL=$(( POLL + 1 ))
-
-  # GitLab — fetch latest pipeline for the MR
-  PIPELINE=$(/usr/bin/curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-    "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/merge_requests/${MR_IID}/pipelines" \
-    | /usr/bin/jq '.[0]')
-  # GitHub — fetch latest check suite / status
-  # Use git-apis skill → FETCH_PIPELINE_STATUS
-
-  PIPELINE_STATUS=$(echo "${PIPELINE}" | /usr/bin/jq -r '.status')
-  PIPELINE_URL=$(echo "${PIPELINE}" | /usr/bin/jq -r '.web_url')
-  echo "[<platform> !<ID>] Pipeline: ${PIPELINE_STATUS}  (${PIPELINE_URL})"
-
-  case "${PIPELINE_STATUS}" in
-    success)
-      echo "Pipeline passed — resolving fixed threads."
-      break
-      ;;
-    failed|canceled)
-      echo "Pipeline ${PIPELINE_STATUS}. Check logs: ${PIPELINE_URL}"
-      # Re-fetch open threads; if new failures introduced → evaluate & fix (Step 3→4→5)
-      # then reset POLL=0 for fresh poll cycle
-      break
-      ;;
-    running|pending|created|waiting_for_resource|preparing)
-      echo "Pipeline still ${PIPELINE_STATUS}. Continuing to poll..."
-      ;;
-    *)
-      echo "Unknown pipeline status '${PIPELINE_STATUS}'. Continuing to poll."
-      ;;
-  esac
-done
-
-[ $POLL -ge $MAX_POLLS ] && echo "TIMEOUT: exceeded ${MAX_POLLS} polls — manual check required."
-```
+**ON_FAILURE hook:**  
+Re-fetch ALL_THREADS → re-evaluate (Steps 3→4) → skill: COMMIT → skill: PUSH → skill: POST_THREAD_REPLIES → reset `POLL=0`.
 
 ### 6b — Re-fix loop (pipeline failed)
 
-If pipeline `failed`/`canceled`:
-1. Re-fetch open threads (Step 2 logic).
-2. Evaluate new/remaining concerns (Step 3).
-3. Apply fixes (Step 4) → commit + push (Step 5a–5b) → reset `POLL=0` → continue polling.
-
-Stop re-fix attempts if:
-- All remaining threads are `REJECTED` or already `DEFERRED`
-- 3 consecutive `failed` pipelines with no new fixable threads → log `BLOCKED` and stop
+Stop re-fix attempts when:
+- All remaining threads are `REJECTED` or `DEFERRED` — nothing left to fix
+- 3 consecutive failed pipelines → log `BLOCKED` and stop
 
 ---
 
 ## Step 7 — Resolve Fixed Threads
 
-After pipeline reaches `success`:
-
-For each thread in `to_fix[]` that was fixed and replied to:
-
-```bash
-# GitLab — resolve the discussion
-/usr/bin/curl -s -X PUT -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-  "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/merge_requests/${MR_IID}/discussions/${THREAD_ID}?resolved=true"
-```
-
-```bash
-# GitHub — mark review comment as resolved (via GraphQL minimizeComment or dismiss review)
-# Use git-apis skill → RESOLVE_THREAD
-```
-
-Only resolve threads that were **fixed** — leave rejected threads open.
+→ **skill: RESOLVE_THREADS** — resolves all threads in `to_fix[]` after pipeline reaches `success`.  
+Leave `to_reject[]` threads open for author follow-up.
 
 ---
 

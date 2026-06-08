@@ -1,7 +1,11 @@
-# git-apis Skill
+---
+name: git-apis
+description: "Shared GitLab + GitHub REST API operations: fetch discussions, post inline/general comments, reply, resolve threads, approve MR/PR."
+---
 
-Shared Git platform API operations for GitLab and GitHub.  
-Load this skill whenever an agent needs to call platform APIs.
+# git-apis
+
+Shared platform API operations for GitLab and GitHub. Load when an agent needs raw platform API calls.
 
 ---
 

@@ -1,12 +1,12 @@
 ---
 name: figma-design-context
-description: 'Extract full Figma design context via REST API (no MCP required). Use for: fetching layout/spacing/typography/color specs; capturing UI flow (prototype interactions + connector arrows); discovering pages, frames, components, variables, and comments; implementing UI from a Figma design. Requires FIGMA_TOKEN in ~/.zshenv. Handles: URL parsing, metadata discovery, screenshot download, full node spec extraction, UI flow graph extraction, design token summarisation.'
+description: "Extract Figma design context via REST API (no MCP): layout, typography, colors, UI flow, components, variables, comments. Requires FIGMA_TOKEN in ~/.zshenv."
 argument-hint: '<figma-url-or-file-key> [--node-id <nodeId>]'
 ---
 
-# Figma Design Context (No MCP)
+# figma-design-context
 
-Replaces `mcp_com_figma_mcp_get_metadata`, `mcp_com_figma_mcp_get_screenshot`, `mcp_com_figma_mcp_get_design_context` using Figma REST API directly.
+Replaces Figma MCP tools (`get_metadata`, `get_screenshot`, `get_design_context`) using Figma REST API directly.
 
 ## Prerequisites
 
