@@ -1,19 +1,8 @@
 # Code Agent SOP
 
-Pipeline for transforming raw requirements into production code — plan → tasks → implement → fix.
+A general-purpose, platform-agnostic collection of AI coding agent instructions that transform raw requirements into production code through a structured pipeline.
 
-## Quick Start
-
-| Requirement | Setup |
-|---|---|
-| VS Code + GitHub Copilot | [Extension](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot) |
-| Jira | `JIRA_TOKEN`, `JIRA_EMAIL`, `JIRA_BASE_URL`, `JIRA_PROJECT_KEY` in `~/.zshenv` |
-| Figma | `FIGMA_TOKEN` in `~/.zshenv` (only for Figma skill without MCP) |
-| GitLab | `GITLAB_TOKEN` in `~/.zshenv` (for git-review, fix-vulnerabilities) |
-
-```bash
-cat .env.example >> ~/.zshenv  # fill real values, then: source ~/.zshenv
-```
+Works with any codebase — no specific CI/CD, issue tracker, or design tool required.
 
 ## Pipeline
 
@@ -27,40 +16,32 @@ Raw Requirements
 
 Each stage produces artefacts in `.docs/<feature>/`. Nothing advances until prior stage is complete.
 
-## Agents
+## Quick Start
 
-Invoke with `@<agent-name>` in Copilot Chat.
+1. Copy the `general/` folder into your project root (rename to `.github/` for Copilot or `.qwen/` for Qwen)
+2. Invoke agents via `@<agent-name>` in your IDE's AI chat
+
+No tokens or credentials required for the core pipeline. Optional integrations (Jira, Figma, GitLab) are available in the extended variant — see [Extended Variant](#extended-variant).
+
+## Agents
 
 | Agent | Purpose | Triggers |
 |---|---|---|
 | `generate-plan` | Raw requirements → structured `plan.md` with AC | plan, I need, create feature |
 | `generate-task` | `plan.md` → vertical-slice `task-NNN.md` files | generate tasks, break down plan |
-| `execute-task` | Implement `task-NNN.md` end-to-end (code + tests + git) | execute task, implement, code this |
+| `execute-task` | Implement `task-NNN.md` end-to-end (code + tests) | execute task, implement, code this |
 | `fix-task` | Apply fixes from review comments / bugs / failing tests | fix, bug, review comment, regression |
 | `investigate` | Root-cause analysis + evidence-based report | investigate, why is, root cause, debug |
-| `git-review` | Review/summarise/act on GitHub PR or GitLab MR | review PR, review MR, code review |
-| `git-fix-review` | Fix open review threads, commit, push, poll pipeline | fix review comments, address review |
 | `snapshot-sync` | Create/update `SNAPSHOT.md` for repo orientation | snapshot, update snapshot |
 | `spike-plan` | Technical spike document from `plan.md` uncertainties | spike, feasibility, de-risk |
-| `fix-vulnerabilities` | Fetch + fix GitLab security vulnerabilities | fix vulnerabilities, CVE fix |
-
-## Skills
-
-Loaded on demand by agents or invoked directly.
-
-| Skill | Purpose |
-|---|---|
-| `figma-design-context` | Fetch layout, typography, colours from Figma REST API |
-| `jira-ticket` | Create stories, sub-tasks, update SP via Jira API |
-| `git-workflow` | Branch → commit → push → MR → pipeline polling |
-| `git-apis` | Shared GitLab + GitHub REST API primitives |
-| `fix-vulnerabilities` | Fetch vulnerability findings from GitLab |
 
 ## Instructions
 
 | File | Scope |
 |---|---|
-| [`guidelines.instructions.md`](.github/instructions/guidelines.instructions.md) | Core principles — grounding, anti-hallucination, SOLID, quality gates |
+| `instructions/guidelines.instructions.md` | Core principles — grounding, anti-hallucination, SOLID, quality gates |
+
+Applied automatically to every interaction. Enforces concise communication, no hallucination, and code quality standards.
 
 ## Step Prefix Format
 
@@ -76,30 +57,42 @@ All agent files use a prefix-based step format for machine-readability:
 | `STORE:` | Save value for later |
 | `STOP:` | Halt with reason |
 
+This format reduces token waste and makes agent instructions unambiguous for LLMs to parse.
+
 ## File Structure
 
 ```
-.github/
-├── agents/              # Agent instruction files (.agent.md)
-├── instructions/        # Always-on Copilot instructions
-└── skills/              # Reusable capability modules
+general/
+├── .github/
+│   ├── agents/              # Agent instruction files (.agent.md)
+│   ├── instructions/        # Always-on guidelines
+│   └── copilot-instructions.md
+└── .qwen/
+    └── commands/qc/         # Same agents in Qwen format
 
-.docs/
-└── <feature>/           # Per-feature artefacts
-    ├── plan.md          # Stage 1: requirements + AC
-    ├── jira.json        # Jira story/sub-task keys
-    ├── task-NNN.md      # Stage 2: vertical slices
-    ├── fix-{dt}.md      # Stage 4: fix logs
-    └── figma/           # Cached Figma assets
+.docs/                       # Created per-feature by agents
+└── <feature>/
+    ├── plan.md              # Requirements + AC
+    ├── task-NNN.md          # Vertical slices
+    └── fix-{dt}.md          # Fix logs
 ```
 
-## Variants
+## Extended Variant
 
-| Folder | Purpose |
+The root `.github/` and `.qwen/` folders contain an extended version with:
+
+| Extra | Purpose |
 |---|---|
-| `general/` | Platform-agnostic baseline (no git-review, fix-vulnerabilities, no skills) |
-| `.qwen/` | Qwen-compatible format (same content, `.qwen/skills/` paths) |
+| `git-review` | Review/summarise/act on GitHub PR or GitLab MR |
+| `git-fix-review` | Fix open review threads, commit, push, poll pipeline |
+| `fix-vulnerabilities` | Fetch + fix GitLab security vulnerabilities |
+| `figma-design-context` skill | Fetch design context from Figma REST API |
+| `jira-ticket` skill | Create/update Jira stories and sub-tasks |
+| `git-workflow` skill | Branch → commit → push → MR → pipeline polling |
+| `git-apis` skill | Shared GitLab + GitHub REST API primitives |
+
+Requires tokens in `~/.zshenv` — see `.env.example` for the full list.
 
 ## Workflow Details
 
-See [.docs-workflow-README.md](.docs-workflow-README.md) for full pipeline documentation.
+See [.docs-workflow-README.md](.docs-workflow-README.md) for the full pipeline documentation.
