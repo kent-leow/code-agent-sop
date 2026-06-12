@@ -64,3 +64,35 @@ applyTo: "**"
 - Tests first; cover edges; mock externals; stable test data
 - Pin dependency versions; check CVEs; justify each new dependency
 - Profile before optimizing; cache deliberately; lazy-load where appropriate
+
+## Authoring Standards (Agents & Skills)
+
+All `.agent.md` and `SKILL.md` files must follow these conventions:
+
+### Structure
+- Frontmatter: `description`, `tools`, `argument-hint`
+- One-line **Input → Output** summary
+- Phases numbered: `## Phase N — Title`
+- Steps use prefix format — no prose paragraphs
+
+### Step Prefixes
+
+| Prefix | Meaning |
+|--------|---------|
+| `DO:` | Execute action |
+| `IF:` | Conditional (→ action) |
+| `LOOP:` | Iterate collection |
+| `CALL:` | Invoke skill(params) → outputs |
+| `EMIT:` | Output to user/file |
+| `STORE:` | Save value |
+| `STOP:` | Halt with reason |
+
+### Non-code agents
+- Must NOT contain git write operations (commit/push/branch/checkout -b)
+- Read-only: search, read, analyse, emit
+
+### Style
+- Minimal tokens; no filler; tables over prose
+- `CALL:` for skill invocations — never repeat skill internals
+- Constraints section at end — short bullets
+- No duplicate logic across agents — extract to skill
