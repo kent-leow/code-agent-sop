@@ -8,29 +8,29 @@ argument-hint: '<title> [description] [story_points] [parent_key]'
 
 ## Prerequisites
 
-Check: `echo $JIRA_TOKEN $JIRA_BASE_URL $JIRA_PROJECT_KEY $JIRA_EMAIL`
+- DO: Check vars: `echo $JIRA_TOKEN $JIRA_BASE_URL $JIRA_PROJECT_KEY $JIRA_EMAIL`
+- IF: any missing → STOP: prompt user
 
 | Variable | Description |
 |---|---|
-| `JIRA_TOKEN` | Jira API token (from Atlassian account settings) |
+| `JIRA_TOKEN` | Jira API token (Atlassian account settings) |
 | `JIRA_BASE_URL` | e.g. `https://your-org.atlassian.net` |
 | `JIRA_PROJECT_KEY` | e.g. `PROJ` |
 | `JIRA_EMAIL` | Atlassian account email |
 
-Missing vars → prompt user before proceeding.
+---
 
-## Procedure
+## Steps
 
-### 1. Gather Inputs
-- **Title** (required), **Description** (recommended), **Issue type** (default: `Story`), **Story points** (optional), **Parent key** (for sub-tasks), Labels/components (optional)
+- DO: Gather inputs — Title (required), Description (recommended), Issue type (default: `Story`), Story points (optional), Parent key (for sub-tasks), Labels/components (optional)
 
-### 2. Resolve Story Points Field
+- DO: Resolve story points field
 ```bash
 bash .github/skills/jira-ticket/scripts/get-fields.sh
 ```
-Use `customfield_10274` (verified for this instance) unless script shows otherwise.
+Use `customfield_10274` (verified) unless script shows otherwise.
 
-### 3. Create Main Ticket
+- DO: Create main ticket
 ```bash
 bash .github/skills/jira-ticket/scripts/create-ticket.sh \
   --title "Your ticket title" \
@@ -38,29 +38,28 @@ bash .github/skills/jira-ticket/scripts/create-ticket.sh \
   --issue-type "Story" \
   --story-points 3
 ```
-Save the output issue key (e.g. `PROJ-123`).
+- STORE: output issue key (e.g. `PROJ-123`)
 
-### 4. Create Sub-tasks (optional)
+- IF: sub-tasks needed →
 ```bash
 bash .github/skills/jira-ticket/scripts/create-ticket.sh \
   --title "Sub-task title" --description "..." \
   --issue-type "Sub-task" --parent "PROJ-123" --story-points 1
 ```
 
-### 5. Update Story Points (optional)
+- IF: update story points →
 ```bash
 bash .github/skills/jira-ticket/scripts/update-story-points.sh \
   --issue-key "PROJ-123" --story-points 5
 ```
 
-### 6. Get Comments (optional)
+- IF: get comments →
 ```bash
 bash .github/skills/jira-ticket/scripts/get-comments.sh \
   --issue-key "GOBIZWKST2-324" [--max-results N] [--order-by created]
 ```
 
-### 7. Persist State
-Save to `.docs/<task>/jira.json`:
+- DO: Persist state to `.docs/<task>/jira.json`
 ```json
 {
   "parent": { "key": "GOBIZWKST2-123", "url": "...", "story_points": N },
@@ -68,10 +67,9 @@ Save to `.docs/<task>/jira.json`:
 }
 ```
 
-### 8. Report
-- Issue key + URL: `$JIRA_BASE_URL/browse/$ISSUE_KEY`
-- Sub-task keys/URLs (if any)
-- Final story point values
+- EMIT: Report — issue key + URL (`$JIRA_BASE_URL/browse/$ISSUE_KEY`), sub-task keys/URLs, final story points
+
+---
 
 ## Errors
 

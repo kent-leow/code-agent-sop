@@ -1,71 +1,71 @@
----
-description: "Fixes post-implementation issues raised against completed task slices: applies code fixes based on review comments, bug reports, or failing tests, then creates a new fix-{datetime}.md and updates task/plan docs. Triggers: fix, bug, review comment, regression, failing test, broken, hotfix, post-implementation, issue raised, address comment, fix feedback, patch, fix review."
----
+**Input**: folder path + `issues.md` path OR raw text → **Output**: new fix folder + file, fixes applied, docs updated.
 
-**Input**: folder path + `issues.md` path OR raw issue text. **Output**: new `fix-{datetime}.md` created; all fixes applied; docs updated.
+---
 
 ## Phase 1 — Ingest Issues
 
-1. Resolve folder — if absent, ask before proceeding.
-2. **If `issues.md` path provided** → read only that file; extract each issue as a numbered item. Do not read any other fix files.
-3. **If raw text provided** → treat each line / bullet / numbered point as a separate issue item.
-4. Skim context: `plan.md` (first 80 lines or until `## Tasks`), each `task-NNN.md` (headings + checklist lines only). **Do not read any existing `fix-*.md` files.**
+- DO: resolve folder — IF absent → ask before proceeding
+- IF: `issues.md` path → DO: read only that file; extract each issue as numbered item
+- IF: raw text → DO: treat each line/bullet as separate issue
+- DO: skim context — `plan.md` (first 80 lines), each `task-NNN.md` (headings + checklists)
+- IF: existing `fix-*.md` files → DO NOT read them
 
-## Phase 2 — Create `fix-{datetime}.md`
+## Phase 2 — Create Fix Folder & File
 
-Determine current datetime in `YYYYMMDD-HHMMSS` format. Always create a **new** file — never open or append to any existing `fix-*.md`.
-
-Create `<folder>/fix-{datetime}.md`:
+- STORE: DATETIME = `YYYYMMDD-HHMMSS`
+- STORE: NAME = short kebab-case from primary issue (max 5 words, no generic names)
+- STORE: FIX_FOLDER = `.docs/fix-{DATETIME}-{NAME}/` at workspace root
+- STORE: FIX_FILE = `FIX_FOLDER/fix-{DATETIME}.md`
+- IF: existing folder matches AND has no `fix-*.md` → reuse; else create new
+- DO: create `FIX_FILE`:
 
 ```markdown
 # Fix Log
-
 > Generated: YYYY-MM-DD HH:MM:SS
+> Source task: <original folder path>
 
 ## Issues
-
-- [ ] **FIX-001** — <one-line description>
-  _Source_: <issues.md | raw input | inferred>
-  _Files_: unknown (resolve in Phase 3)
+- [ ] **FIX-001** — <description>
+  _Source_: <origin>  _Files_: unknown
 
 ## Changelog
 ```
 
-Number items `FIX-001`, `FIX-002`, … in input order.
-
 ## Phase 3 — Fix Loop
 
-For each unchecked item in the newly created `fix-{datetime}.md`:
-1. **Locate** — `todo` in-progress. Targeted grep/glob to find relevant files; read only needed sections.
-2. **Fix** — minimal, targeted changes only.
-3. **Verify** — run narrowest test covering the change. Fix failures before continuing.
-4. **Mark done**:
-```markdown
-- [x] **FIX-001** — <description> <!-- fixed: YYYY-MM-DD -->
-  _Files_: path/to/changed/file.ext
-```
-Append to `## Changelog`: `- YYYY-MM-DD: FIX-001 — <summary>`. Mark `todo` completed.
+- LOOP: each unchecked `FIX-NNN` in `FIX_FILE`
+  - DO: targeted grep/glob to locate relevant files
+  - DO: apply minimal fix
+  - DO: run narrowest covering test
+  - IF: test fails → DO: fix before continuing
+  - EMIT: mark `[x]` + update `_Files_:` + append changelog
 
-## Phase 4 — Update Task/Plan Docs
+## Phase 4 — Update Docs
 
-**task-NNN.md** (each task whose code was touched):
-- Re-open: `- [ ]` + `<!-- re-opened: FIX-NNN YYYY-MM-DD -->`
-- Re-mark once verified: `- [x]` + `<!-- fixed: YYYY-MM-DD -->`
-- Append Changelog: `- YYYY-MM-DD: Fixed (FIX-NNN) — <summary>`
-
-**plan.md** — only if fix reveals an AC gap:
-- Add/correct violated AC row. Append Changelog. Don't change scope or unrelated rows.
-
-**Sibling task files** — if fix changes shared contract:
-- Add `> ⚠️ Contract changed — verify task-NNN.md` beneath affected task rows. Touch only those lines.
-
----
+- LOOP: each `task-NNN.md` whose code was touched
+  - DO: re-open `[ ]` + `<!-- re-opened: FIX-NNN YYYY-MM-DD -->`
+  - DO: re-mark `[x]` once verified + `<!-- fixed: YYYY-MM-DD -->`
+  - DO: append changelog
+- IF: fix reveals AC gap in `plan.md` → DO: add/correct AC row + changelog
+- IF: fix changes shared contract → DO: add `> ⚠️ Contract changed` in sibling tasks
 
 ## Phase 5 — Report
 
-> ✅ All fixes applied.
-> **fix file**: `<folder>/fix-{datetime}.md` — N items resolved
-> **Files changed**: <list>
-> **Tests**: ✅ all pass / ⚠️ <caveats>
->
-> **A** — Further changes &nbsp; **B** — Stop
+- EMIT: summary
+
+```
+✅ All fixes applied.
+Fix folder: <FIX_FOLDER> — N items resolved
+Fix file:   <FIX_FILE>
+Files:      <list>
+Tests:      ✅ / ⚠️
+```
+
+## Constraints
+
+- Read source files only as needed — no speculative reads
+- Fix only what is in current `fix-{datetime}.md` — no refactoring
+- Never mark `[x]` until test passes
+- Never read existing `fix-*.md` from previous runs
+- Don't modify `plan.md` unless AC gap confirmed
+- Don't renumber/restructure task files

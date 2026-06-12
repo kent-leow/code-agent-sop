@@ -5,9 +5,7 @@ description: "Shared GitLab + GitHub REST API operations: fetch discussions, pos
 
 # git-apis
 
-Shared platform API operations for GitLab and GitHub. Load when an agent needs raw platform API calls.
-
----
+Shared platform API operations for GitLab and GitHub.
 
 ## Auth Headers
 
@@ -18,9 +16,9 @@ Shared platform API operations for GitLab and GitHub. Load when an agent needs r
 
 ---
 
-## Operations
+## FETCH_DISCUSSIONS
 
-### FETCH_DISCUSSIONS — fetch all MR/PR discussions
+- DO: Fetch all MR/PR discussions
 
 **GitLab:**
 ```bash
@@ -38,7 +36,9 @@ ISSUE_COMMENTS=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
 
 ---
 
-### POST_INLINE — post an inline comment on a diff line
+## POST_INLINE
+
+- DO: Post inline comment on a diff line
 
 **GitLab:**
 ```bash
@@ -58,7 +58,9 @@ curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: appli
 
 ---
 
-### POST_GENERAL — post a general (non-inline) comment
+## POST_GENERAL
+
+- DO: Post general (non-inline) comment
 
 **GitLab:**
 ```bash
@@ -76,7 +78,9 @@ curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: appli
 
 ---
 
-### REPLY — reply to an existing thread
+## REPLY
+
+- DO: Reply to an existing thread
 
 **GitLab:**
 ```bash
@@ -94,7 +98,9 @@ curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: appli
 
 ---
 
-### RESOLVE — mark a thread as resolved
+## RESOLVE
+
+- DO: Mark thread as resolved
 
 **GitLab:**
 ```bash
@@ -109,11 +115,13 @@ curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: appli
   "https://api.github.com/graphql" \
   -d '{"query":"mutation{resolveReviewThread(input:{threadId:\"<node_id>\"}){thread{isResolved}}}"}'
 ```
-If node ID unavailable → use REPLY with body `"✅ Resolved."` and note limitation.
+IF: node ID unavailable → CALL: REPLY(body=`"Resolved."`) and note limitation.
 
 ---
 
-### APPROVE — approve the MR/PR
+## APPROVE
+
+- DO: Approve the MR/PR
 
 **GitLab:**
 ```bash
@@ -125,5 +133,5 @@ curl -s -X POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
 ```bash
 curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/json" \
   "https://api.github.com/repos/<owner>/<repo>/pulls/<PR_ID>/reviews" \
-  -d '{"commit_id":"'"$HEAD_SHA"'","event":"APPROVE","body":"All threads addressed. LGTM! ✅"}'
+  -d '{"commit_id":"'"$HEAD_SHA"'","event":"APPROVE","body":"All threads addressed. LGTM!"}'
 ```

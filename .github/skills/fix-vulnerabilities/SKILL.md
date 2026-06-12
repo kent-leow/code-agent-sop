@@ -6,23 +6,21 @@ argument-hint: '<gitlab-mr-url | repo-name>'
 
 # fix-vulnerabilities
 
-Fetch all vulnerability findings (critical–low) from GitLab. No git ops, no commits — structured report only.
-
----
+Fetch all vulnerability findings (critical-low) from GitLab. No git ops — structured report only.
 
 ## Sandbox Note
 
-All `curl`/`jq` commands **must** run with `dangerouslyDisableSandbox: true`.
+All `curl`/`jq` commands run with `dangerouslyDisableSandbox: true`.
 Use absolute paths: `/usr/bin/curl`, `/usr/bin/jq`, `/usr/bin/mktemp`, `/bin/rm`.
 
 ---
 
-## Prerequisite: `$GITLAB_TOKEN`
+## Prerequisite
 
+- DO: Check token
 ```bash
 echo "Token: $([ -n "$GITLAB_TOKEN" ] && echo YES || echo MISSING)"
 ```
-
 Scope needed: `read_api`. Create at `sgts.gitlab-dedicated.com → User Settings → Access Tokens`.
 
 ---
@@ -38,31 +36,18 @@ Scope needed: `read_api`. Create at `sgts.gitlab-dedicated.com → User Settings
 
 ---
 
-## Step 1: Resolve project path
+## Steps
 
-**If a GitLab MR URL is provided**, auto-extract the project path from the URL:
+- DO: Resolve project path
+  - IF: GitLab MR URL provided → extract project path from URL, URL-encode it
+    ```
+    https://sgts.gitlab-dedicated.com/<namespace>/<repo>/-/merge_requests/<id>
+    → PROJECT_PATH = URL-encode("<namespace>/<repo>")
+    ```
+  - IF: No URL → ask user to select repo from table (one question only)
+  - STOP: Do not ask about severity, Jira tickets, or branch names
 
-```
-https://sgts.gitlab-dedicated.com/<namespace>/<repo>/-/merge_requests/<id>
-→ PROJECT_PATH = URL-encode("<namespace>/<repo>")
-```
-
-Example:
-```
-https://sgts.gitlab-dedicated.com/wog/gvt/gobiz/molb-gobusiness/molb-agency-portal/molb-agency-portal-web/-/merge_requests/42
-→ PROJECT_PATH = wog%2Fgvt%2Fgobiz%2Fmolb-gobusiness%2Fmolb-agency-portal%2Fmolb-agency-portal-web
-```
-
-**If no URL is provided**, ask the user to select a repo from the table above (one question only).
-
-Do **not** ask about severity, Jira tickets, or branch names.
-
----
-
-## Step 2: Fetch all severities in one pass
-
-Fetch critical, high, medium, low together. Paginate each severity until the response array is empty.
-
+- DO: Fetch all severities in one pass (paginate until empty)
 ```bash
 tmpfile=$(/usr/bin/mktemp)
 all_results="[]"
@@ -81,13 +66,9 @@ done
 
 echo "$all_results" > "$tmpfile"
 ```
+API note: `state[]=detected` and `scope=detected` return 0 in this GitLab version. Fetch all, filter with jq.
 
-> **API note:** `state[]=detected` and `scope=detected` params return 0 in this GitLab version. Fetch all, filter with jq.
-
----
-
-## Step 3: Extract full details and output report
-
+- DO: Extract details and output report
 ```bash
 /usr/bin/jq '[.[] | select(.state == "detected") | {
   id,
@@ -113,12 +94,7 @@ echo "$all_results" > "$tmpfile"
 /bin/rm -f "$tmpfile"
 ```
 
----
-
-## Step 4: Print summary then stop
-
-Print:
-
+- EMIT: Print summary
 ```
 Vulnerability report — <repo> — <YYYY-MM-DD>
 
@@ -128,14 +104,14 @@ MEDIUM:   <N>
 LOW:      <N>
 TOTAL:    <N> detected
 
-<Full JSON output from Step 3>
+<Full JSON output>
 ```
 
-**Stop here.** Do not apply fixes, run tests, run builds, or execute any git commands.
+- STOP: Do not apply fixes, run tests, run builds, or execute any git commands.
 
 ---
 
-## Common Issues
+## Errors
 
 | Symptom | Fix |
 |---|---|

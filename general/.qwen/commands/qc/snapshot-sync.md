@@ -1,38 +1,32 @@
----
-description: "Creates SNAPSHOT.md for any repo that is missing one, or updates all existing SNAPSHOT.md files based on user-provided changes (e.g. new sections, structure changes, content corrections). Triggers: snapshot, update snapshot, create snapshot, sync snapshot, missing snapshot, regenerate snapshot."
----
-
-Manages `SNAPSHOT.md` at the root of each repo. Must NOT contain logic, endpoints, or anything that changes with normal feature work — only purpose, tech stack, key commands, source structure.
+Manages `SNAPSHOT.md` at repo root. Must NOT contain logic, endpoints, or anything that changes with normal feature work.
 
 ## Phase 1 — Discover
 
-1. List all direct subdirectories of workspace root (these are repos).
-2. For each, check if `SNAPSHOT.md` exists.
-3. Report **Missing** and **Existing** lists before proceeding.
+- DO: list all direct subdirectories of workspace root (these are repos)
+- DO: check each for `SNAPSHOT.md`
+- EMIT: Missing and Existing lists
 
 ## Phase 2 — Mode
 
 | User input | Mode |
 |---|---|
 | Blank | **Create-only** — create for missing; skip existing |
-| Content/structure change | **Update-all** — apply change to all existing; also create missing |
+| Content/structure change | **Update-all** — apply to all existing + create missing |
 
 ## Phase 3A — Create Missing
 
-For each in **Missing** list:
-1. Read `README.md` (if present) for purpose, commands, stack.
-2. Read primary build/package descriptor (`package.json`, `build.gradle`, `build.gradle.kts`, `pyproject.toml`, `pom.xml`) for stack and scripts.
-3. Do NOT read `src/` or source directories.
-4. Write `SNAPSHOT.md` using **Structure** below.
+- LOOP: each in Missing list
+  - DO: read `README.md` (if present) for purpose, commands, stack
+  - DO: read build descriptor (`package.json`, `build.gradle`, `pom.xml`, etc.)
+  - DO: write `SNAPSHOT.md` per Structure below
+  - IF: no README or build descriptor → write minimal: `Purpose: Unknown`
 
 ## Phase 3B — Update Existing
 
-> Runs only when user provides a change description.
-
-For each in **Existing** list:
-1. Read current `SNAPSHOT.md`.
-2. Apply change consistently: same position for new sections; rename everywhere; remove everywhere; content corrections only where relevant.
-3. Preserve all content not mentioned. Don't read source files unless change requires fresh data.
+- LOOP: each in Existing list
+  - DO: read current `SNAPSHOT.md`
+  - DO: apply change consistently (same position, rename/remove everywhere)
+  - DO: preserve content not mentioned
 
 ## Structure
 
@@ -40,42 +34,35 @@ For each in **Existing** list:
 # SNAPSHOT: <repo-name>
 
 ## Purpose
-1–2 sentences: what this service/library/tool does and who uses it.
+1–2 sentences: what this does and who uses it.
 
 ## Tech Stack
-- Language: <language + version>
-- Framework: <framework + version>
-- Build tool: <tool>
-- Java/Node: <version>
-- Database: <if applicable>
-- Lint: <tool>
+- Language / Framework / Build tool / Runtime / Database / Lint
 
 ## Key Commands
-| Action        | Command         |
-|---------------|------------------|
-| test          | `<command>`     |
-| lint / format | `<command>`     |
-| build         | `<command>`     |
-| run locally   | `<command>`     |
+| Action | Command |
+|--------|---------|
+| test | `<cmd>` |
+| lint | `<cmd>` |
+| build | `<cmd>` |
+| run | `<cmd>` |
 
 ## Source Structure
-\`\`\`
-<top-level directories and purpose — max 10 lines>
-\`\`\`
+<top-level dirs + purpose — max 10 lines>
 
 ## Notes
-- Credentials, inter-repo dependencies, non-obvious setup only.
-- Omit if nothing worth noting.
+- Non-obvious setup, credentials, inter-repo deps only. Omit if nothing.
 ```
 
-## Rules
-- Never include API endpoints, function names, DB schema, or business logic.
-- Never include anything that changes during normal feature work.
-- Keep every section brief — for agent orientation, not human docs.
-- No build descriptor or README → write minimal file: `Purpose: Unknown — no README or build descriptor found.`
-- Use `multi_replace_string_in_file` for same structural change across multiple files.
+## Constraints
+
+- Never include API endpoints, function names, DB schema, or business logic
+- Never include anything that changes during normal feature work
+- Keep brief — for agent orientation, not human docs
+- Do NOT read `src/` or source directories
 
 ## Done When
-- No repo missing `SNAPSHOT.md`.
-- If update requested: all existing reflect change consistently.
-- Report: how many created, updated, skipped.
+
+- No repo missing `SNAPSHOT.md`
+- IF: update requested → all existing reflect change consistently
+- EMIT: count created, updated, skipped
