@@ -122,12 +122,35 @@ Fetched: {DATE_DISPLAY} | Raw: {N} | Grouped: {G}
 - CALL: PUSH(REPO_DIR, BRANCH)
 - CALL: ENSURE_MR(ENCODED, BRANCH, DEFAULT_BRANCH, title, body) → MR_IID, MR_URL
 
-## Step 6 — Pipeline Watch Loop
+## Step 6 — Poll Until MR Clean
+
+> **Do NOT stop until MR is in best state: pipeline green AND zero vulns AND zero unresolved threads.**
 
 - CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED)
-  - ON_SUCCESS: fetch MR-scoped vulns; IF count=0 → done; else diff → fix → COMMIT → PUSH → reset → continue
-  - ON_FAILURE: same as ON_SUCCESS
-- STOP: success + 0 vulns | all DEFERRED/SKIPPED | 3 failures → BLOCKED | 20 polls → TIMEOUT
+- LOOP: until (pipeline=success AND vulns=0 AND open_threads=0) OR terminal exit
+  - ON_SUCCESS:
+    1. DO: fetch MR-scoped vulns (pipeline artifact endpoint)
+    2. IF: vuln count=0 → check threads (step 3)
+    3. IF: vuln count>0 → diff → fix → COMMIT → PUSH → reset POLL=0 → continue
+    4. CALL: FETCH_OPEN_THREADS(ENCODED, MR_IID) → ALL_THREADS
+    5. IF: ALL_THREADS=0 → MR is clean → exit loop ✅
+    6. IF: ALL_THREADS>0 → evaluate each (FIX/REJECT) → apply fixes
+    7. CALL: COMMIT → PUSH → POST_THREAD_REPLIES → RESOLVE_THREADS
+    8. DO: reset POLL=0 → continue polling
+  - ON_FAILURE:
+    1. DO: fetch MR-scoped vulns → diff → identify what broke
+    2. DO: apply fixes
+    3. CALL: COMMIT → PUSH
+    4. DO: reset POLL=0 → continue polling
+
+### Terminal Exits
+
+| Condition | Action |
+|---|---|
+| Pipeline success + 0 vulns + 0 open threads | ✅ Done — proceed to Step 7 |
+| All remaining items DEFERRED/SKIPPED | Done — nothing fixable |
+| 3 consecutive pipeline failures | BLOCKED — report and stop |
+| 20 polls reached | TIMEOUT — report and stop |
 
 ## Step 7 — Summary
 

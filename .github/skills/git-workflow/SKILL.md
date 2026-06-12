@@ -369,28 +369,32 @@ done
 
 **ON_SUCCESS hooks:**
 
+> All agents MUST check open threads after pipeline success. MR is NOT clean until pipeline=green AND open_threads=0.
+
 | Agent | Action |
 |---|---|
-| `git-fix-review` | RESOLVE_THREADS for `to_fix[]` → done |
-| `fix-vulnerabilities` | Re-fetch MR-scoped vulns; if 0 → done; else diff & fix → COMMIT → PUSH → reset → continue |
-| `execute-task` / `fix-task` | FETCH_OPEN_THREADS → evaluate → fix → COMMIT → PUSH → POST_THREAD_REPLIES → RESOLVE_THREADS → done |
+| `git-fix-review` | RESOLVE_THREADS → FETCH_OPEN_THREADS → if 0 → done; else evaluate → fix → COMMIT → PUSH → POST_REPLIES → RESOLVE → reset → continue |
+| `fix-vulnerabilities` | Fetch MR-scoped vulns → if >0: diff & fix → COMMIT → PUSH → reset → continue; if 0: FETCH_OPEN_THREADS → if 0 → done; else fix threads → COMMIT → PUSH → reset → continue |
+| `execute-task` / `fix-task` | FETCH_OPEN_THREADS → if 0 → done; else evaluate → fix → COMMIT → PUSH → POST_THREAD_REPLIES → RESOLVE_THREADS → reset → continue |
 
 **ON_FAILURE hooks:**
 
 | Agent | Action |
 |---|---|
-| `git-fix-review` | Re-fetch ALL_THREADS → re-evaluate → COMMIT → PUSH → POST_THREAD_REPLIES → reset → continue |
+| `git-fix-review` | Re-fetch ALL_THREADS → re-evaluate + inspect CI → fix → COMMIT → PUSH → POST_THREAD_REPLIES → reset → continue |
 | `fix-vulnerabilities` | Re-fetch MR-scoped vulns → diff → fix → COMMIT → PUSH → reset → continue |
 | `execute-task` / `fix-task` | Inspect CI logs → fix → COMMIT → PUSH → reset → continue |
 
-**Exit conditions:**
+**MR Completion Criteria (all agents):**
 
 | Condition | Result |
 |---|---|
-| Pipeline `success` AND domain checks pass | Done |
-| All remaining items DEFERRED/SKIPPED/REJECTED | Done |
+| Pipeline `success` AND 0 open threads (+ 0 vulns for fix-vulnerabilities) | ✅ Done |
+| All remaining items DEFERRED/SKIPPED/REJECTED | Done — nothing actionable |
 | `CONSECUTIVE_FAILURES >= 3` | BLOCKED — report and stop |
 | `POLL >= MAX_POLLS` | TIMEOUT — report and stop |
+
+> **Do NOT stop before MR is in best state.** Keep polling and fixing until completion criteria met or terminal exit.
 
 ---
 

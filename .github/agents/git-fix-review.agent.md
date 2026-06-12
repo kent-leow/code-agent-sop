@@ -31,17 +31,20 @@ Autonomous — never pause to ask user once started.
 
 - DO: resolve repo-path: user-provided → default root + repo name → ask
 
-## Step 1 — Fetch Branch + Diff
+## Step 1 — Fetch Branch + Pull Latest
 
 ```bash
 cd <repo-path>
 git fetch origin <target-branch>
 git fetch origin "<ref>:<local-ref>"
+git checkout "<local-ref>"
+git pull origin "<local-ref>"
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 git diff origin/<target-branch>...<local-ref>
 ```
 
 - STORE: diff, CURRENT_BRANCH
+- This ensures we have the latest commits on the MR branch before making changes
 
 ## Step 2 — Fetch Open Threads
 
@@ -78,13 +81,33 @@ git diff origin/<target-branch>...<local-ref>
 - IF: COMMITTED → CALL: PUSH(REPO_DIR, CURRENT_BRANCH)
 - CALL: POST_THREAD_REPLIES for all to_fix[] and to_reject[]
 
-## Step 6 — Poll Pipeline
+## Step 6 — Poll Until MR Clean
 
-- IF: COMMITTED=false → skip
+> **Do NOT stop until MR is in best state: pipeline green AND zero unresolved threads.**
+
+- IF: COMMITTED=false → skip to Step 7
 - CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED) — first-interval 120s
-  - ON_SUCCESS: CALL: RESOLVE_THREADS for all to_fix[]
-  - ON_FAILURE: re-fetch → re-evaluate → fix → COMMIT → PUSH → POST_REPLIES → reset POLL=0 → continue
-- STOP conditions: 3 consecutive failures → BLOCKED; 20 polls → TIMEOUT
+- LOOP: until (pipeline=success AND open_threads=0) OR terminal exit
+  - ON_SUCCESS:
+    1. CALL: RESOLVE_THREADS for all to_fix[]
+    2. CALL: FETCH_OPEN_THREADS(ENCODED, MR_IID) → ALL_THREADS (re-check for new threads from prelude/teammates)
+    3. IF: ALL_THREADS=0 → MR is clean → exit loop ✅
+    4. IF: ALL_THREADS>0 → evaluate each (FIX/REJECT) → apply fixes
+    5. CALL: COMMIT → PUSH → POST_THREAD_REPLIES → RESOLVE_THREADS
+    6. DO: reset POLL=0 → continue polling (fixes may break pipeline)
+  - ON_FAILURE:
+    1. DO: re-fetch ALL_THREADS → re-evaluate → identify CI failures
+    2. DO: apply fixes
+    3. CALL: COMMIT → PUSH → POST_THREAD_REPLIES
+    4. DO: reset POLL=0 → continue polling
+
+### Terminal Exits
+
+| Condition | Action |
+|---|---|
+| Pipeline success + 0 open threads | ✅ Done — proceed to Step 7 |
+| 3 consecutive pipeline failures | BLOCKED — report and stop |
+| 20 polls reached | TIMEOUT — report and stop |
 
 ## Step 7 — Final Summary
 

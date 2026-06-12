@@ -65,13 +65,40 @@ Autonomous — never pause to ask user once started.
 
 ## Phase 5 — Git Workflow
 
+> **Do NOT stop until MR is in best state: pipeline green AND zero unresolved threads.**
+
+### 5a — Branch & Push
+
 - CALL: BRANCH_SETUP(REPO_DIR, `GOBIZWKST2-{TICKET}-{kebab-task-title}`) → TICKET_NUM, BRANCH, DEFAULT_BRANCH
+  - This pulls latest main/master, fetches origin, creates/checks out feature branch
 - CALL: COMMIT(REPO_DIR, `feat({repo}): {title} [GOBIZWKST2-{TICKET_NUM}]\n\nImplemented:\n- {files}`) → COMMITTED
 - CALL: PUSH(REPO_DIR, BRANCH)
 - CALL: ENSURE_MR(ENCODED, BRANCH, DEFAULT_BRANCH, `[GOBIZWKST2-{TICKET_NUM}] {title}`, body) → MR_IID, MR_URL
+
+### 5b — Poll Until MR Clean
+
 - CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED)
-  - ON_SUCCESS: CALL: FETCH_OPEN_THREADS → evaluate (FIX/REJECT) → apply → COMMIT → PUSH → POST_THREAD_REPLIES → RESOLVE_THREADS
-  - ON_FAILURE: inspect CI logs → fix → COMMIT → PUSH → reset POLL=0 → continue
+- LOOP: until (pipeline=success AND open_threads=0) OR terminal exit
+  - ON_SUCCESS:
+    1. CALL: FETCH_OPEN_THREADS(ENCODED, MR_IID) → ALL_THREADS
+    2. IF: ALL_THREADS=0 → MR is clean → exit loop ✅
+    3. IF: ALL_THREADS>0 → evaluate each (FIX/REJECT)
+    4. DO: apply fixes
+    5. CALL: COMMIT → PUSH → POST_THREAD_REPLIES → RESOLVE_THREADS
+    6. DO: reset POLL=0 → continue polling (fixes may break pipeline)
+  - ON_FAILURE:
+    1. DO: inspect CI logs → identify failing jobs/tests
+    2. DO: apply fixes
+    3. CALL: COMMIT → PUSH
+    4. DO: reset POLL=0 → continue polling
+
+### 5c — Terminal Exits
+
+| Condition | Action |
+|---|---|
+| Pipeline success + 0 open threads | ✅ Done — proceed to Phase 6 |
+| 3 consecutive pipeline failures | BLOCKED — report and stop |
+| 20 polls reached | TIMEOUT — report and stop |
 
 ## Phase 6 — Completion
 
