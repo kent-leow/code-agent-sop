@@ -84,7 +84,23 @@ One sentence: what this slice delivers and how to verify.
 | Done When covers goal | Aligned |
 | No duplicates | Same file not listed twice |
 
-- EMIT: jira-prompt (A: create/update sub-tasks | B: edit | C: skip)
+- EMIT: jira-prompt (A: create/update jira cards | B: edit | C: skip)
+
+## Jira Prompt
+
+> ✅ Task(s) saved in `.docs/<folder>/`
+> **A** — Create / update Jira Cards &nbsp; **B** — Further edits &nbsp; **C** — Skip
+
+- **A** — Load `.github/skills/jira-ticket/SKILL.md`. For each task file:
+  1. Read `jira.json`.
+  2. Count task checkboxes → raw SP (1 per task, min 1) → round to nearest Fibonacci.
+  3. `tasks[filename].key` exists → update title, description, SP; no entry → create Story (same level, no parent).
+  4. Write non-technical Jira description from **Goal** + **Done When** only — business language, no file paths, no code, no layer names. Format: one-paragraph summary then AC bullets mirroring each Done When item.
+  5. Write/update `jira.json`: `"tasks": { "task-001.md": { "key": "PROJ-124", "url": "...", "story_points": 2 } }`
+  6. Reply with card URLs.
+  - Missing env vars → `⚠️ Jira skipped — set JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL`
+- **B** — Apply; re-present prompt.
+- **C** — Stop.
 
 ## Constraints
 
