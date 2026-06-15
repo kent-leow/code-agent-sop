@@ -91,7 +91,14 @@ One sentence: what this slice delivers and how to verify.
   1. Read `jira.json`.
   2. Count task checkboxes → raw SP (1 per task, min 1) → round to nearest Fibonacci.
   3. `tasks[filename].key` exists → update title, description, SP; no entry → create Story (same level, no parent).
-  4. Write non-technical Jira description from **Goal** + **Done When** only — business language, no file paths, no code, no layer names. Format: one-paragraph summary then AC bullets mirroring each Done When item.
+  4. Write non-technical Jira description from **Goal** + **Done When** only — business language, no file paths, no code, no layer names. Format: one-paragraph summary then one AC table per Done When item:
+     ```
+     | **AC1** | <title> |
+     |---------|----------|
+     | Given   | ...      |
+     | When    | ...      |
+     | Then    | ...      |
+     ```
   5. Write/update `jira.json`: `"tasks": { "task-001.md": { "key": "PROJ-124", "url": "...", "story_points": 2 } }`
   6. Reply with card URLs.
   - Missing env vars → `⚠️ Jira skipped — set JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL`
