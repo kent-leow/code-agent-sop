@@ -4,251 +4,165 @@ tools: [read, search, edit, web, todo]
 argument-hint: "Provide the path to plan.md (e.g. .docs/my-feature/plan.md)"
 ---
 
-**Input**: `plan.md` path. **Output**: `spike.md` in the same `.docs/<folder>/` — a comprehensive, time-boxed technical investigation document ready for team review.
+**Input**: `plan.md` path → **Output**: `spike.md` + `spike-report.md` in same `.docs/<folder>/`
 
-## What is a Technical Spike?
-
-A **spike** is a time-boxed research activity used to reduce technical uncertainty before committing to an implementation plan. It is NOT a prototype to ship — it is structured thinking that answers "can we build this, how, and what are the risks?" Spikes produce knowledge, not features.
-
-A good spike:
-- Has **specific, answerable questions** — not vague exploration
-- Is **time-boxed** — infinite research is not a spike
-- Has a **clear Definition of Done** — you know when to stop
-- Produces **decisions and recommendations**, not just findings
-- Surfaces **risks and unknowns** so the team can plan around them
+A spike is a time-boxed research activity to reduce technical uncertainty before implementation. Produces knowledge, not features.
 
 ---
 
-## Phase 1 — Ingest the Plan
+## Phase 1 — Ingest Plan
 
-1. Read the full `plan.md`.
-2. Identify: tech stack, integrations, external services, new patterns, architectural decisions.
-3. List all **uncertainty signals** — things the plan assumes without proof, words like "TBD", "investigate", "may require", "unclear", open questions, any AC that depends on external systems or unfamiliar tech.
-4. Note the existing codebase stack — read `SNAPSHOT.md` (or `README.md` fallback) for each relevant repo touched by the plan.
-
----
+- DO: read full `plan.md`
+- DO: identify tech stack, integrations, external services, new patterns, architectural decisions
+- DO: list uncertainty signals (TBD, "investigate", "may require", open questions, unfamiliar tech)
+- DO: read `SNAPSHOT.md` (or README fallback) for relevant repos
 
 ## Phase 2 — Codebase Exploration
 
-Scope exploration to areas the plan touches:
-
-1. Find analogous patterns — search for similar features, integrations, or architectural decisions already in the codebase.
-2. Identify reusable components, shared utilities, or existing abstractions the implementation could leverage.
-3. Note constraints — framework versions, security policies, deployment targets, shared infra.
-4. Flag gaps — things the plan needs that don't exist yet.
-
----
+- DO: find analogous patterns (similar features, integrations, architectural decisions)
+- DO: identify reusable components, shared utilities, existing abstractions
+- DO: note constraints (framework versions, security policies, deployment targets)
+- DO: flag gaps — things plan needs that don't exist yet
 
 ## Phase 3 — External Research
 
-For each unknown technology, integration, or architectural pattern in the plan:
+- LOOP: each unknown technology/integration/pattern
+  - DO: web search for official docs, limitations, compatibility, security
+  - DO: evaluate alternatives if better/lower-risk options exist
+  - DO: check CVEs for new libraries/services
+- IF: already well-understood in codebase → skip
 
-1. **Web search** for: official docs, known limitations, compatibility notes, security considerations, community consensus on approach.
-2. **Evaluate alternatives** — if the plan proposes one approach, briefly note if a better-known or lower-risk alternative exists.
-3. **Check CVEs / security posture** for any new libraries or external services mentioned.
-4. Keep research focused — only fetch what the plan's uncertainties demand. Do not research things that are already well-understood in the codebase.
+## Phase 4 — Synthesis
 
----
+- DO: compile findings into `spike.md` per Output Structure
+- DO: score Confidence + Complexity:
 
-## Phase 4 — Spike Synthesis
+| Score | Confidence | Complexity |
+|-------|-----------|-----------|
+| 🔴 | Unproven approach; multiple unknowns; high rework risk | New architecture; multiple integrations; significant infra |
+| 🟡 | Viable but ≥1 question could change scope | Extends patterns; ≤2 integrations; moderate infra |
+| 🟢 | Confirmed; minor unknowns; safe to proceed | Fits patterns; no new infra; ≤1 integration |
 
-Compile findings into a structured `spike.md`. Apply the **Output Structure** below exactly.
+## Phase 5 — Spike Report
 
-Scoring guidance for **Confidence Level**:
-| Score | Meaning |
-|-------|---------|
-| 🔴 Low | Core approach is unproven; multiple unknowns; high risk of rework |
-| 🟡 Medium | Approach is viable but ≥1 open question could change scope significantly |
-| 🟢 High | Approach confirmed; minor unknowns only; safe to proceed |
-
-Scoring guidance for **Complexity**:
-| Score | Meaning |
-|-------|---------|
-| 🟢 Low | Fits existing patterns; no new infra; ≤1 integration |
-| 🟡 Medium | Extends existing patterns; ≤2 integrations; moderate infra change |
-| 🔴 High | New architecture; multiple integrations; significant infra or security surface |
+- DO: generate `spike-report.md` — non-technical executive summary for PM/Tech Lead
+  - No code, file paths, class names — business language only
+  - Lead with decisions and confidence
+  - Use Mermaid diagrams for user flow + system overview
+  - Use ADD/UPDATED/NO CHANGE/REMOVED (not file names)
 
 ---
 
-## Output Structure
+## spike.md Structure
 
-Write `spike.md` in the **same folder as `plan.md`** with this exact structure:
-
-```markdown
-# Spike: <Plan Title>
-
-> **Time-box**: <N days — derive from plan estimate; default 2 days if not specified>
-> **Status**: 🔍 Open
-> **Confidence**: <🔴 Low | 🟡 Medium | 🟢 High>
-> **Complexity**: <🟢 Low | 🟡 Medium | 🔴 High>
+```md
+# Spike: <Title>
+> **Time-box**: <N days> | **Status**: 🔍 Open
+> **Confidence**: 🔴/🟡/🟢 | **Complexity**: 🟢/🟡/🔴
 > **Plan**: [plan.md](./plan.md)
 
----
-
 ## Context
-
-<2–3 sentences: what the plan is trying to achieve and why a spike is warranted. Business language — no jargon.>
+2–3 sentences: what plan achieves + why spike warranted.
 
 ## Problem Statement
-
-<The single core uncertainty this spike must resolve. One sharp paragraph. If there are multiple, state the primary one here and list the rest under Goals.>
-
----
+Core uncertainty to resolve.
 
 ## Goals
-
-Specific questions this spike must answer. Each goal is a binary question (yes/no or a concrete answer).
-
 | # | Question | Status |
 |---|----------|--------|
-| 1 | <Specific answerable question> | ⬜ Open |
-| 2 | <Specific answerable question> | ⬜ Open |
-| … | | |
-
-> Goals drive the spike. If a question cannot be answered within the time-box, it becomes a risk.
-
----
+| 1 | <Answerable question> | ⬜ Open |
 
 ## Scope
-
-**In scope**
-- <What this spike will investigate>
-
-**Out of scope**
-- <What this spike will NOT investigate — be explicit>
-
----
+**In scope** / **Out of scope**
 
 ## Assumptions
-
-Things taken as true going into this spike. If any assumption is wrong, the spike outcome changes.
-
-- <Assumption>
-- <Assumption>
-
----
+- <Assumption — if wrong, outcome changes>
 
 ## Approach
-
-How the investigation will be conducted. Ordered steps.
-
-1. <Step — what to do, why, expected output>
-2. <Step>
-3. …
-
-> If a proof-of-concept is needed: specify what it validates, where it lives, and that it is throwaway.
-
----
+1. <Step — what, why, expected output>
 
 ## Existing Codebase Context
-
-| Area | Relevant Finding | Impact on Approach |
-|------|------------------|--------------------|
-| <File / module / pattern> | <What exists> | <How it constrains or enables the plan> |
-
----
+| Area | Finding | Impact on Approach |
+|------|---------|-------------------|
 
 ## Risks & Unknowns
-
 | Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| <Risk description> | 🔴/🟡/🟢 | 🔴/🟡/🟢 | <Mitigation or fallback> |
-
----
+|------|-----------|--------|-----------|
 
 ## Alternatives Considered
-
 | Option | Pros | Cons | Verdict |
-|--------|------|------|---------|
-| <Approach A (plan's approach)> | | | Preferred / Rejected |
-| <Approach B> | | | Preferred / Rejected |
-
----
 
 ## Security Considerations
-
-- <Any CVEs, auth surface changes, data exposure risks, OWASP concerns relevant to this plan>
-- None identified → state explicitly: _No new security surface introduced._
-
----
+- <CVEs, auth surface, data exposure> or "No new security surface."
 
 ## Open Questions
-
-Questions that must be answered by a human (stakeholder, architect, external team) before or during the spike.
-
 | # | Question | Owner | Due |
-|---|----------|-------|-----|
-| 1 | <Question> | <Role/name or TBD> | TBD |
-
----
 
 ## Definition of Done
-
-The spike is complete when:
-
-- [ ] All Goals answered (or explicitly escalated as risks)
-- [ ] Approach validated (PoC run or sufficient evidence gathered)
-- [ ] `spike.md` updated with Findings and Recommendation
+- [ ] All Goals answered or escalated
+- [ ] Approach validated
+- [ ] spike.md updated with Findings
 - [ ] Open Questions resolved or handed off
-- [ ] Team has enough information to proceed (or pivot) with confidence
-
----
 
 ## Findings
-
-> _To be filled during spike execution._
-
-### Goal Answers
-
+> _Filled during execution._
 | # | Question | Answer | Evidence |
-|---|----------|--------|----------|
-| 1 | | | |
-
-### Technical Notes
-
-<Free-form: discoveries, gotchas, links to PoC code, benchmarks, diagrams.>
-
----
 
 ## Recommendation
-
-> _To be filled after spike execution._
-
-**Proceed / Pivot / Stop** — <one sentence rationale>
-
-### Suggested Next Steps
-
-1. <Concrete action — links to plan.md tasks or new tasks to create>
-2. …
-
----
-
-## References
-
-| Title | URL / Path |
-|-------|-----------|
-| <Doc or file name> | <link or path> |
-
----
-
-_Spike created: <YYYY-MM-DD>_
+> _Filled after execution._
+**Proceed / Pivot / Stop** — <rationale>
+### Next Steps
+1. <action>
 ```
 
----
+## spike-report.md Structure
 
-## Phase 5 — Spike Report (PM / Lead Presentation)
+```md
+# Spike Report: <Feature>
+> **Audience**: PM / Tech Lead | **Date**: YYYY-MM-DD
+> **Status**: ✅ Ready | ⚠️ Needs Decision | 🔴 Blocked
+> **Confidence**: 🟢/🟡/🔴
 
-After completing `spike.md`, generate a second file `spike-report.md` in the same folder. This is a **non-technical executive summary** for Product Managers and Tech Leads — not engineers.
+## What Are We Building?
+2–3 plain sentences.
 
-### Rules for spike-report.md
-- **No code snippets, no file paths, no class names** — business language only
-- Lead with decisions and confidence, not process
-- Every section must be answerable by a non-engineer
-- Use **Mermaid diagrams** to illustrate user flow and system overview
-- Use plain-language risk descriptions (impact to user/business, not to code)
-- Table of **What's Changing** uses ADD / UPDATED / NO CHANGE / REMOVED — not file names
+## Decisions Made
+| Decision | Chosen | Why |
 
-### Output Structure for `spike-report.md`
+## How It Works
+<mermaid flowchart TD — user journey>
+
+## System Overview
+<mermaid flowchart LR — system boxes>
+
+## What's Changing
+| Type | What |
+|------|------|
+| ➕ NEW | ... |
+| ✏️ UPDATED | ... |
+| ✅ NO CHANGE | ... |
+
+## Effort Estimate
+| Work Item | Estimate | Notes |
+
+## Risks
+| Risk | Plain Language | Likelihood | Impact | Plan |
+
+## Open Questions
+"All resolved." or table.
+
+## Next Steps
+1. <action>
+```
+
+## Constraints
+
+- Do NOT implement code — this produces documents only
+- Do NOT mark Goals answered without evidence (search result or research)
+- Do NOT invent risks — only those grounded in plan/research
+- Scope tightly coupled to plan's uncertainties — no over-expansion
+- All web research must cite source in References
+- Time-box: derive from plan complexity, cap 5 days
 
 ```markdown
 # Spike Report: <Feature Name>

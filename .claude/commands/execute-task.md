@@ -4,108 +4,127 @@ tools: [read, search, edit, execute, todo, agent, com.figma.mcp/mcp/*]
 argument-hint: "Provide the path to task-NNN.md (e.g. .docs/create-form-and-application/task-002.md)"
 ---
 
-**Input**: `task-NNN.md` path. **Output**: all tasks implemented, tests passing, all checkboxes marked.
+**Input**: `task-NNN.md` path → **Output**: all tasks implemented, tests pass, checkboxes marked.
 
-Load **git-workflow skill** for all branch/commit/push/MR/pipeline/thread operations.
+Load **git-workflow skill** for branch/commit/push/MR/pipeline/thread ops.
+Autonomous — never pause to ask user once started.
+
+## Prefix Legend
+
+| Prefix | Meaning |
+|--------|---------|
+| `DO:` | Execute action |
+| `IF:` | Conditional (→ action) |
+| `LOOP:` | Iterate collection |
+| `CALL:` | Invoke skill(params) → outputs |
+| `EMIT:` | Output to user/file |
+| `STORE:` | Save value |
+| `STOP:` | Halt with reason |
+
 ---
-
-**Input**: `task-NNN.md` path. **Output**: all tasks implemented, tests passing, all checkboxes marked.
 
 ## Phase 1 — Pre-flight
 
-1. Read: `task-NNN.md`, sibling `plan.md`, all sibling `task-*.md`, `jira.json` (note sub-task key).
-2. **Prerequisites**: any `[ ]` remain → stop, report which task/items are open.
-3. **Sync siblings** (touch only affected lines):
+- DO: read `task-NNN.md`, sibling `plan.md`, all `task-*.md`, `jira.json`
+- IF: any `[ ]` in prerequisites → STOP: report open items
+- DO: sync siblings (touch only affected lines):
 
 | Situation | Action |
 |---|---|
-| Another task references a file you'll implement | Add `> ⚠️ Implemented in task-NNN.md — verify contract` beneath it |
+| Another task references file you'll implement | Add `> ⚠️ Implemented in task-NNN — verify contract` |
 | Earlier Done When now satisfied | Mark `[x]` + `<!-- verified YYYY-MM-DD -->` |
 | Later prerequisite points here | Confirm name matches; correct if not |
-| Changed file missing Changelog entry | Append `- YYYY-MM-DD: <summary>` to `## Changelog` |
+| Changed file missing Changelog | Append `- YYYY-MM-DD: <summary>` |
 
 ## Phase 2 — Exploration
 
-1. Read every file listed in `task-NNN.md` in full.
-2. For each **new** file: find 2–3 analogues for naming/structure/import conventions.
-3. Identify reusable utilities, constants, base classes, test helpers, fixtures.
-4. Impl order: entity → repository → service → controller → frontend → test.
-5. **Figma** (UI): cache at `figma/<nodeId>.{json,png,md}` relative to plan folder.
-   - Hit → read `figma/<nodeId>.md` + `view_image`.
-   - Miss → try MCP (`get_design_context` + `get_screenshot`) → save → `view_image`. MCP unavailable → load `.github/skills/figma-design-context/SKILL.md` → save → `view_image`.
+- DO: read every file listed in `task-NNN.md` in full
+- DO: for each new file → find 2–3 analogues for conventions
+- DO: identify reusable utilities, constants, base classes, test helpers
+- STORE: impl order = entity → repository → service → controller → frontend → test
+- IF: Figma URL → CALL: figma-cache(nodeId, plan-folder) → read md + view_image
 
 ## Phase 3 — Implementation
 
-For each task in dependency order:
-1. Write production code — match conventions: naming, structure, imports, error handling, auth guards, logging. UI: verify layout/spacing/colour vs Figma before marking done.
-2. Mark `[x]` in `task-NNN.md` immediately after saving.
-3. Write/update test — mirror adjacent test structure; happy path minimum; add edge cases only where patterns already exist. Reuse test utilities.
-4. Run tests; fix all failures before next task.
-5. Mark test `[x]`.
-
-> Only create/modify files listed in `task-NNN.md`.
+- LOOP: each task in dependency order
+  - DO: write production code — match conventions (naming, imports, error handling, auth, logging)
+  - IF: UI task → verify layout/spacing/colour vs Figma before marking
+  - DO: mark `[x]` in `task-NNN.md`
+  - DO: write/update test — mirror adjacent test structure; happy path min; reuse test utilities
+  - DO: run tests; fix all failures before next
+  - DO: mark test `[x]`
+- IF: file not listed in `task-NNN.md` → STOP: do not create/modify
 
 ## Phase 4 — Verification
 
-1. Run full test suite for every affected module; fix regressions.
-2. Each **Done When**: satisfied → `[x]` + `<!-- verified YYYY-MM-DD -->`; blocked → `[ ]` + `<!-- blocked: <reason> -->`.
-3. Re-scan siblings — confirm no stale cross-references.
-
----
+- DO: run full test suite for affected modules; fix regressions
+- LOOP: each Done When item
+  - IF: satisfied → mark `[x]` + `<!-- verified YYYY-MM-DD -->`
+  - IF: blocked → mark `[ ]` + `<!-- blocked: <reason> -->`
+- DO: re-scan siblings for stale cross-references
 
 ## Phase 5 — Git Workflow
 
-1. **Ticket** — read `jira.json`; extract `ticket` (e.g. `GOBIZWKST2-123`). If absent, ask user.
-2. **Branch** — name: `GOBIZWKST2-{TICKET_NUM}-{kebab-task-title}` where task-slug is kebab-case of the `task-NNN.md` title.  
-   → skill: BRANCH_SETUP (`REPO_DIR`, `BRANCH`)
-3. **Commit** — `feat({repo-name}): {task title} [GOBIZWKST2-{TICKET_NUM}]\n\nImplemented:\n- {file1}\n- {file2}`  
-   → skill: COMMIT (`REPO_DIR`, `COMMIT_MSG`)  
-   Store `COMMITTED`.
-4. **Push** — → skill: PUSH (`REPO_DIR`, `BRANCH`)
-5. **MR** — Title: `[GOBIZWKST2-{TICKET_NUM}] {task title}`. Body: list of implemented files + Done When checklist.  
-   → skill: ENSURE_MR (`ENCODED`, `BRANCH`, `DEFAULT_BRANCH`, `MR_TITLE`, `MR_BODY`)  
-   Store `MR_IID`, `MR_URL`.
-6. **Poll pipeline** → skill: POLL_PIPELINE (`ENCODED`, `MR_IID`, `COMMITTED`)
+> **Do NOT stop until MR is in best state: pipeline green AND zero unresolved threads.**
 
-   **ON_SUCCESS hook:**  
-   → skill: FETCH_OPEN_THREADS → evaluate each thread (FIX/REJECT using same rules as `git-fix-review`) → apply fixes → skill: COMMIT → skill: PUSH → skill: POST_THREAD_REPLIES → skill: RESOLVE_THREADS
+### 5a — Branch & Push
 
-   **ON_FAILURE hook:**  
-   Inspect build/test logs → fix compilation or test failures → skill: COMMIT → skill: PUSH → reset `POLL=0`
+- CALL: BRANCH_SETUP(REPO_DIR, `GOBIZWKST2-{TICKET}-{kebab-task-title}`) → TICKET_NUM, BRANCH, DEFAULT_BRANCH
+  - This pulls latest main/master, fetches origin, creates/checks out feature branch
+- CALL: COMMIT(REPO_DIR, `feat({repo}): {title} [GOBIZWKST2-{TICKET_NUM}]\n\nImplemented:\n- {files}`) → COMMITTED
+- CALL: PUSH(REPO_DIR, BRANCH)
+- CALL: ENSURE_MR(ENCODED, BRANCH, DEFAULT_BRANCH, `[GOBIZWKST2-{TICKET_NUM}] {title}`, body) → MR_IID, MR_URL
 
----
+### 5b — Poll Until MR Clean
 
-## Phase 6 — Completion Prompt
+- CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED)
+- LOOP: until (pipeline=success AND open_threads=0) OR terminal exit
+  - ON_SUCCESS:
+    1. CALL: FETCH_OPEN_THREADS(ENCODED, MR_IID) → ALL_THREADS
+    2. IF: ALL_THREADS=0 → MR is clean → exit loop ✅
+    3. IF: ALL_THREADS>0 → evaluate each (FIX/REJECT)
+    4. DO: apply fixes
+    5. CALL: COMMIT → PUSH → POST_THREAD_REPLIES → RESOLVE_THREADS
+    6. DO: reset POLL=0 → continue polling (fixes may break pipeline)
+  - ON_FAILURE:
+    1. DO: inspect CI logs → identify failing jobs/tests
+    2. DO: apply fixes
+    3. CALL: COMMIT → PUSH
+    4. DO: reset POLL=0 → continue polling
 
-> ✅ Task NNN complete.
-> **A** — Update Jira Sub-task SP &nbsp; **B** — Further changes &nbsp; **C** — Skip
+### 5c — Terminal Exits
 
-- **A** — Load `.github/skills/jira-ticket/SKILL.md`. Read `jira.json`; find entry for this file. Count task checkboxes (1 SP each, min 1). Update only if differs from stored `story_points`. Save `jira.json`. Missing config → `⚠️ Jira skipped — set JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL`
-- **B** — Apply; re-present prompt.
-- **C** — Stop.
+| Condition | Action |
+|---|---|
+| Pipeline success + 0 open threads | ✅ Done — proceed to Phase 6 |
+| 3 consecutive pipeline failures | BLOCKED — report and stop |
+| 20 polls reached | TIMEOUT — report and stop |
+
+## Phase 6 — Completion
+
+- EMIT: jira-prompt (A: update sub-task SP | B: further changes | C: skip)
+  - IF: A → CALL: jira-ticket skill; count checkboxes as SP; update if differs
+- EMIT: summary
 
 ```
 ✅ Task NNN complete.
-Implemented: <file paths>
-Tests:       <test file paths>
-Done When:   ✅ <condition> / ⚠️ <condition — reason>
-Siblings:    task-NNN.md — <what changed>
-MR:          <MR_URL>  [created|existing]
-Pipeline:    <success|failed|timeout>
-Next:        task-<NNN+1>.md  (or "No further slices.")
+Implemented: <paths>
+Tests:       <test paths>
+Done When:   ✅ / ⚠️
+Siblings:    task-NNN — <changes>
+MR:          <MR_URL>
+Pipeline:    <status>
+Next:        task-<NNN+1>.md
 ```
 
-## Code Quality
+## Constraints
+
+- Implement only what `task-NNN.md` lists
+- Search codebase before asking user
+- Never mark done until code written + tests pass
+- Never skip test tasks
 - No dead code, unused imports, placeholder implementations
 - Explicit errors — no silent failures
-- No magic values — use existing constants/enums; define new only when none exist
-- Validate at system boundaries using existing validation framework
-- No stack traces, internal IDs, or sensitive data in API responses
-
-## Constraints
-- Implement only what is listed in `task-NNN.md`
-- Search codebase before asking user when ambiguous
-- Never mark done until code written and tests pass
-- Never skip test tasks
-- Don't renumber/restructure slices unless explicitly instructed
-- Touch only affected lines in sibling files
+- No magic values — use existing constants/enums
+- Validate at system boundaries
+- No secrets/stack traces in API responses

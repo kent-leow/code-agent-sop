@@ -5,45 +5,50 @@ argument-hint: "Describe the query or problem. Optionally provide relevant file 
 ---
 
 ## Constraints
-- Every claim must cite a file, log line, code path, or terminal output — no assumptions without evidence.
-- Only run read-safe commands (reads, searches, log tails, test runs, build checks). Ask before writes/destructive ops.
-- Flowchart is required output alongside `report.md`.
+
+- Every claim must cite file, log line, code path, or terminal output — no assumptions
+- Only run read-safe commands (reads, searches, log tails, test runs). Ask before writes/destructive ops
+- Flowchart is required output alongside `report.md`
 
 ## Workflow
 
 ### 1. Understand
-Parse: **What** (symptom/question) · **When** (timeframe/trigger) · **Where** (service/component/repo) · **Impact** (who/what affected). Missing critical context → ask up to 3 targeted questions first.
+
+- DO: parse **What** (symptom) · **When** (trigger) · **Where** (service/component) · **Impact** (who affected)
+- IF: missing critical context → DO: ask up to 3 targeted questions
 
 ### 2. Plan
-Use `todo` to create investigation plan with specific, testable hypotheses. Each needs a clear verification step.
+
+- DO: create investigation plan via `todo` with testable hypotheses + verification steps
 
 ### 3. Gather Evidence
-- Search code/config with `search`; read files, logs, schemas with `read`
-- Run safe diagnostics with `execute` (`grep`, `curl`, test runs, build checks)
-- Update `todo` as findings confirm/rule out each hypothesis
+
+- DO: search code/config; read files, logs, schemas
+- DO: run safe diagnostics (grep, curl, test runs, build checks)
+- DO: update `todo` as findings confirm/rule out hypotheses
 
 ### 4. Root Cause
-Synthesise all evidence. State root cause explicitly. Multiple causes → rank by likelihood and impact. Undetermined → state known, unknown, and why.
+
+- DO: synthesise evidence → state root cause explicitly
+- IF: multiple causes → rank by likelihood + impact
+- IF: undetermined → state known, unknown, and why
 
 ### 5. Solutions
-Per root cause:
-- **Immediate mitigation** — quick action to stop the bleeding
-- **Permanent fix** — code/config/process change
-- **Trade-offs** — risk, complexity, side effects
+
+- LOOP: each root cause
+  - EMIT: immediate mitigation, permanent fix, trade-offs (risk, complexity, side effects)
 
 ### 6. Write Outputs
-Derive kebab-case folder name from topic. Check `.docs/` for existing related folder first. Create both in `.docs/<folder-name>/`:
 
-**`report.md`**:
+- STORE: folder = `.docs/<kebab-topic>/` (check existing folders first)
+- DO: write `report.md`:
+
 ```markdown
 # Investigation: <title>
-**Date**: YYYY-MM-DD | **Query from**: <source> | **Status**: In Progress | Root Cause Found | Resolved
+**Date**: YYYY-MM-DD | **Query from**: <source> | **Status**: <status>
 
 ## Summary
 One paragraph: what happened, why, what to do.
-
-## Context
-Background needed to understand investigation.
 
 ## Evidence
 | # | Finding | Source | Supports / Rules Out |
@@ -52,27 +57,18 @@ Background needed to understand investigation.
 ## Root Cause
 Clear statement with evidence references.
 
-## Timeline (if applicable)
-- `HH:MM` — event
-
 ## Solutions
 ### Option 1: <name> ⭐ Recommended
 - **Action**: ... **Effort**: ... **Risk**: ...
 
 ## Open Questions
 - [ ] ...
-
-## References
-- Files examined: ... Commands run: ...
 ```
 
-**`flowchart.mmd`**: Mermaid `flowchart TD` tracing root cause path — trigger → components → root cause → symptom.
-- Nodes map to real components/services/functions from investigation
-- Root cause: `fill:#ff4444,color:#fff` · Symptom: `fill:#ffaa00,color:#000` · Proposed fix: `fill:#22aa44`
-- Max ~15 nodes; use subgraphs if needed
+- DO: write `flowchart.mmd` — Mermaid `flowchart TD`: trigger → components → root cause → symptom
+  - Root cause: `fill:#ff4444,color:#fff` · Symptom: `fill:#ffaa00` · Fix: `fill:#22aa44`
+  - Max ~15 nodes
 
 ### 7. Summarise
-- One-line root cause verdict
-- Paths to `report.md` and `flowchart.mmd`
-- Top recommended solution
-- Open questions needing user input
+
+- EMIT: one-line verdict + paths to outputs + top recommendation + open questions

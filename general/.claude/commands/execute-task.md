@@ -4,69 +4,66 @@ tools: [read, search, edit, execute, todo, agent]
 argument-hint: "Provide the path to task-NNN.md (e.g. .docs/create-form-and-application/task-002.md)"
 ---
 
-**Input**: `task-NNN.md` path. **Output**: all tasks implemented, tests passing, all checkboxes marked.
+**Input**: `task-NNN.md` path → **Output**: all tasks implemented, tests pass, checkboxes marked.
 
 ## Phase 1 — Pre-flight
 
-1. Read: `task-NNN.md`, sibling `plan.md`, all sibling `task-*.md`.
-2. **Prerequisites**: any `[ ]` remain → stop, report which task/items are open.
-3. **Sync siblings** (touch only affected lines):
+- DO: read `task-NNN.md`, sibling `plan.md`, all `task-*.md`
+- IF: any `[ ]` in prerequisites → STOP: report open items
+- DO: sync siblings (touch only affected lines):
 
 | Situation | Action |
 |---|---|
-| Another task references a file you'll implement | Add `> ⚠️ Implemented in task-NNN.md — verify contract` beneath it |
+| Another task references file you'll implement | Add `> ⚠️ Implemented in task-NNN — verify contract` |
 | Earlier Done When now satisfied | Mark `[x]` + `<!-- verified YYYY-MM-DD -->` |
 | Later prerequisite points here | Confirm name matches; correct if not |
-| Changed file missing Changelog entry | Append `- YYYY-MM-DD: <summary>` to `## Changelog` |
+| Changed file missing Changelog | Append `- YYYY-MM-DD: <summary>` |
 
 ## Phase 2 — Exploration
 
-1. Read every file listed in `task-NNN.md` in full.
-2. For each **new** file: find 2–3 analogues for naming/structure/import conventions.
-3. Identify reusable utilities, constants, base classes, test helpers, fixtures.
-4. Impl order: entity → repository → service → controller → frontend → test.
+- DO: read every file listed in `task-NNN.md` in full
+- DO: for each new file → find 2–3 analogues for conventions
+- DO: identify reusable utilities, constants, base classes, test helpers
+- STORE: impl order = entity → repository → service → controller → frontend → test
 
 ## Phase 3 — Implementation
 
-For each task in dependency order:
-1. Write production code — match conventions: naming, structure, imports, error handling, auth guards, logging.
-2. Mark `[x]` in `task-NNN.md` immediately after saving.
-3. Write/update test — mirror adjacent test structure; happy path minimum; add edge cases only where patterns already exist. Reuse test utilities.
-4. Run tests; fix all failures before next task.
-5. Mark test `[x]`.
-
-> Only create/modify files listed in `task-NNN.md`.
+- LOOP: each task in dependency order
+  - DO: write production code — match conventions (naming, imports, error handling, auth, logging)
+  - DO: mark `[x]` in `task-NNN.md`
+  - DO: write/update test — mirror adjacent structure; happy path min; reuse test utilities
+  - DO: run tests; fix all failures before next
+  - DO: mark test `[x]`
+- IF: file not listed in `task-NNN.md` → STOP: do not create/modify
 
 ## Phase 4 — Verification
 
-1. Run full test suite for every affected module; fix regressions.
-2. Each **Done When**: satisfied → `[x]` + `<!-- verified YYYY-MM-DD -->`; blocked → `[ ]` + `<!-- blocked: <reason> -->`.
-3. Re-scan siblings — confirm no stale cross-references.
-
----
+- DO: run full test suite for affected modules; fix regressions
+- LOOP: each Done When item
+  - IF: satisfied → mark `[x]` + `<!-- verified YYYY-MM-DD -->`
+  - IF: blocked → mark `[ ]` + `<!-- blocked: <reason> -->`
+- DO: re-scan siblings for stale cross-references
 
 ## Phase 5 — Completion
 
+- EMIT: summary
+
 ```
 ✅ Task NNN complete.
-Implemented: <file paths>
-Tests:       <test file paths>
-Done When:   ✅ <condition> / ⚠️ <condition — reason>
-Siblings:    task-NNN.md — <what changed>
-Next:        task-<NNN+1>.md  (or "No further slices.")
+Implemented: <paths>
+Tests:       <test paths>
+Done When:   ✅ / ⚠️
+Siblings:    task-NNN — <changes>
+Next:        task-<NNN+1>.md
 ```
 
-## Code Quality
+## Constraints
+
+- Implement only what `task-NNN.md` lists
+- Search codebase before asking user
+- Never mark done until code written + tests pass
+- Never skip test tasks
 - No dead code, unused imports, placeholder implementations
 - Explicit errors — no silent failures
-- No magic values — use existing constants/enums; define new only when none exist
-- Validate at system boundaries using existing validation framework
-- No stack traces, internal IDs, or sensitive data in API responses
-
-## Constraints
-- Implement only what is listed in `task-NNN.md`
-- Search codebase before asking user when ambiguous
-- Never mark done until code written and tests pass
-- Never skip test tasks
-- Don't renumber/restructure slices unless explicitly instructed
-- Touch only affected lines in sibling files
+- No magic values — use existing constants/enums
+- Validate at system boundaries
