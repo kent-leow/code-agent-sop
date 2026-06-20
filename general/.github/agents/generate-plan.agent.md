@@ -29,6 +29,7 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 - DO: append `## Changelog`: `- YYYY-MM-DD: <summary>`; recompute estimate
 - DO: run Readiness Check
 - IF: `task-NNN.md` files exist → DO: run Task Cascade
+- EMIT: `✅ Plan ready. Path: <path>` or `⚠️ Plan has gaps: [criteria]`
 
 ### Readiness Check
 

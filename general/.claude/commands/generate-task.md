@@ -22,7 +22,6 @@ argument-hint: "Generate: provide path to plan.md. Refine: provide path to task-
   - Target ~half-day to two-day effort per slice
 - LOOP: each slice → DO: write `task-NNN.md` per Template
 - EMIT: `Generated <N> task(s) in .docs/<folder>/: task-001 — <summary>`
-- EMIT: jira-prompt (A: create sub-tasks | B: edit | C: skip)
 
 ### Template
 
@@ -79,31 +78,6 @@ One sentence: what this slice delivers and how to verify.
 | Prerequisites accurate | Listed prior tasks exist |
 | Done When covers goal | Aligned |
 | No duplicates | Same file not listed twice |
-
-- EMIT: jira-prompt (A: create/update jira cards | B: edit | C: skip)
-
-## Jira Prompt
-
-> ✅ Task(s) saved in `.docs/<folder>/`
-> **A** — Create / update Jira Cards &nbsp; **B** — Further edits &nbsp; **C** — Skip
-
-- **A** — Load `.github/skills/jira-ticket/SKILL.md`. For each task file:
-  1. Read `jira.json`.
-  2. Count task checkboxes → raw SP (1 per task, min 1) → round to nearest Fibonacci.
-  3. `tasks[filename].key` exists → update title, description, SP; no entry → create Story (same level, no parent).
-  4. Write non-technical Jira description from **Goal** + **Done When** only — business language, no file paths, no code, no layer names. Format: one-paragraph summary then one AC table per Done When item:
-     ```
-     | **AC1** | <title> |
-     |---------|----------|
-     | Given   | ...      |
-     | When    | ...      |
-     | Then    | ...      |
-     ```
-  5. Write/update `jira.json`: `"tasks": { "task-001.md": { "key": "PROJ-124", "url": "...", "story_points": 2 } }`
-  6. Reply with card URLs.
-  - Missing env vars → `⚠️ Jira skipped — set JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL`
-- **B** — Apply; re-present prompt.
-- **C** — Stop.
 
 ## Constraints
 
