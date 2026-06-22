@@ -4,7 +4,11 @@ tools: [read, edit, search]
 argument-hint: "[--dry-run] to preview changes without writing"
 ---
 
-Syncs `.github/` content to multiple providers. Root keeps integrations; general/monorepo are integration-free.
+Syncs `.github/` content to multiple providers.
+
+- **Root** = standalone repo template (all agents + skills incl. git)
+- **Monorepo** = monorepo template (all agents + skills incl. git)
+- **General** = integration-free template (no git agents/skills)
 
 ## Providers
 
@@ -12,38 +16,38 @@ Syncs `.github/` content to multiple providers. Root keeps integrations; general
 |---|---|---|---|
 | **root-claude** | `.github/agents/*.agent.md` | `.claude/commands/*.md` | Strip `.agent`; all agents |
 | **root-claude** | `.github/instructions/*.instructions.md` | `.claude/CLAUDE.md` | Inline with markers |
-| **general-github** | `.github/agents/*.agent.md` | `general/.github/agents/*.agent.md` | Verbatim; exclude integrations |
+| **general-github** | `.github/agents/*.agent.md` | `general/.github/agents/*.agent.md` | Verbatim; exclude git agents |
 | **general-github** | `.github/instructions/*.instructions.md` | `general/.github/instructions/*.instructions.md` | Verbatim |
-| **general-claude** | `.github/agents/*.agent.md` | `general/.claude/commands/*.md` | Strip `.agent`; exclude integrations |
+| **general-claude** | `.github/agents/*.agent.md` | `general/.claude/commands/*.md` | Strip `.agent`; exclude git agents |
 | **general-claude** | `.github/instructions/*.instructions.md` | `general/.claude/CLAUDE.md` | Inline with markers |
-| **monorepo-github** | `.github/agents/*.agent.md` | `monorepo/.github/agents/*.agent.md` | Verbatim; exclude integrations |
+| **monorepo-github** | `.github/agents/*.agent.md` | `monorepo/.github/agents/*.agent.md` | Verbatim; all agents |
+| **monorepo-github** | `.github/skills/*/SKILL.md` | `monorepo/.github/skills/*/SKILL.md` | Verbatim; all skills |
 | **monorepo-github** | `.github/instructions/*.instructions.md` | `monorepo/.github/instructions/*.instructions.md` | Merge monorepo context |
-| **monorepo-claude** | `.github/agents/*.agent.md` | `monorepo/.claude/commands/*.md` | Strip `.agent`; exclude integrations |
+| **monorepo-claude** | `.github/agents/*.agent.md` | `monorepo/.claude/commands/*.md` | Strip `.agent`; all agents |
 | **monorepo-claude** | `.github/instructions/*.instructions.md` | `monorepo/.claude/CLAUDE.md` | Inline with markers + monorepo context |
 
-## Integration Agents (excluded from general/monorepo sync)
+## Git Agents (excluded from general only)
 
+- `fix-vulnerabilities.agent.md`
 - `git-fix-review.agent.md`
 - `git-review.agent.md`
 
-> **Note:** `fix-vulnerabilities.agent.md` in monorepo version is a separate, monorepo-specific agent — NOT synced from root.
+## Git Skills (synced to monorepo only)
 
-## Monorepo-Specific Agents
-
-The monorepo version includes its own `fix-vulnerabilities.agent.md` designed for monorepo workspace structure:
-- References `monorepo/apps/**` and `monorepo/jobs/**` paths
-- Uses `monorepo/skills/gitlab-mr-automation/SKILL.md`
-- Runs `python -m tooling.dev.local_security_scan` from monorepo
+- `git-apis/SKILL.md`
+- `git-workflow/SKILL.md`
+- `gitlab-mr-automation/SKILL.md`
 
 ## Monorepo Context (appended to monorepo version)
 
-The monorepo version includes additional context for workspace navigation when the monorepo is a sibling folder.
+The monorepo version includes additional context for workspace navigation when the monorepo is a sibling folder. Preserve monorepo-specific sections when syncing base instructions.
 
 ## Phase 1 — Discover
 
 - DO: list `.github/agents/*.agent.md`
 - DO: list `.github/instructions/*.instructions.md`
-- STORE: `agents[]`, `instructions[]`, `integration_agents[]`
+- DO: list `.github/skills/*/SKILL.md`
+- STORE: `agents[]`, `instructions[]`, `skills[]`, `git_agents[]`
 
 ## Phase 2 — Sync root-claude
 
@@ -73,7 +77,7 @@ The monorepo version includes additional context for workspace navigation when t
 
 ### 3.1 — Agents
 
-- LOOP: each agent NOT in `integration_agents[]`
+- LOOP: each agent NOT in `git_agents[]`
   - Target: `general/.github/agents/<name>.agent.md`
   - IF: target missing or differs → write → mark ADDED/UPDATED
   - ELSE: mark OK
@@ -89,7 +93,7 @@ The monorepo version includes additional context for workspace navigation when t
 
 ### 4.1 — Agents → Commands
 
-- LOOP: each agent NOT in `integration_agents[]`
+- LOOP: each agent NOT in `git_agents[]`
   - Target: `general/.claude/commands/<name>.md`
   - IF: target missing or differs → write → mark ADDED/UPDATED
   - ELSE: mark OK
@@ -101,23 +105,30 @@ The monorepo version includes additional context for workspace navigation when t
 
 ## Phase 5 — Sync monorepo-github
 
-### 5.1 — Agents
+### 5.1 — Agents (all agents)
 
-- LOOP: each agent NOT in `integration_agents[]`
+- LOOP: each agent in `agents[]`
   - Target: `monorepo/.github/agents/<name>.agent.md`
   - IF: target missing or differs → write → mark ADDED/UPDATED
   - ELSE: mark OK
 
-### 5.2 — Instructions
+### 5.2 — Skills (all git skills)
+
+- LOOP: each skill in `skills[]`
+  - Target: `monorepo/.github/skills/<skill-name>/SKILL.md`
+  - IF: target missing or differs → write → mark ADDED/UPDATED
+  - ELSE: mark OK
+
+### 5.3 — Instructions
 
 - DO: monorepo instructions have additional context section — preserve it
 - IF: monorepo guidelines differs (excluding monorepo context) → update base + keep context
 
 ## Phase 6 — Sync monorepo-claude
 
-### 6.1 — Agents → Commands
+### 6.1 — Agents → Commands (all agents)
 
-- LOOP: each agent NOT in `integration_agents[]`
+- LOOP: each agent in `agents[]`
   - Target: `monorepo/.claude/commands/<name>.md`
   - IF: target missing or differs → write → mark ADDED/UPDATED
   - ELSE: mark OK
@@ -130,8 +141,9 @@ The monorepo version includes additional context for workspace navigation when t
 ## Phase 7 — Detect Orphans
 
 - DO: list `.claude/commands/` files without `.github/agents/` source
-- DO: list `general/.claude/commands/` files without non-integration source
-- DO: list `monorepo/.claude/commands/` files without non-integration source
+- DO: list `general/.claude/commands/` files without non-git agent source
+- DO: list `monorepo/.claude/commands/` files without agent source
+- DO: list `monorepo/.github/skills/` folders without `.github/skills/` source
 - Exclude: `broadcast-sync.md` (this agent's command form)
 - EMIT: orphan list (do not delete)
 
@@ -139,15 +151,15 @@ The monorepo version includes additional context for workspace navigation when t
 
 ```
 Broadcast complete
-───────────────────────────────────────────────────
-Provider          Commands    Instructions
-───────────────────────────────────────────────────
-root-claude       X/Y/Z       X/Y/Z
-general-github    X/Y/Z       X/Y/Z
-general-claude    X/Y/Z       X/Y/Z
-monorepo-github   X/Y/Z       X/Y/Z
-monorepo-claude   X/Y/Z       X/Y/Z
-───────────────────────────────────────────────────
+─────────────────────────────────────────────────────
+Provider          Agents      Skills      Instructions
+─────────────────────────────────────────────────────
+root-claude       X/Y/Z       -           X/Y/Z
+general-github    X/Y/Z       -           X/Y/Z
+general-claude    X/Y/Z       -           X/Y/Z
+monorepo-github   X/Y/Z       X/Y/Z       X/Y/Z
+monorepo-claude   X/Y/Z       -           X/Y/Z
+─────────────────────────────────────────────────────
 Orphans: N
 ```
 
@@ -160,6 +172,6 @@ If `--dry-run`: prefix writes with `[DRY RUN]`, do not write files.
 - Never delete files — only add or update
 - Never modify `.claude/settings.local.json`
 - Byte-for-byte comparison (no whitespace normalization)
-- Integration agents never go to general/monorepo providers
+- Git agents excluded from general only; monorepo gets all agents + skills
 - `broadcast-sync.md` excluded from orphan detection
 - Preserve monorepo-specific context sections when syncing
