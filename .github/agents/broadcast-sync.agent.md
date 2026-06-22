@@ -32,11 +32,14 @@ Syncs `.github/` content to multiple providers.
 - `git-fix-review.agent.md`
 - `git-review.agent.md`
 
-## Git Skills (synced to monorepo only)
+## Skills (synced to monorepo)
 
+- `figma-design-context/SKILL.md` (+ scripts/)
+- `fix-vulnerabilities/SKILL.md`
 - `git-apis/SKILL.md`
 - `git-workflow/SKILL.md`
 - `gitlab-mr-automation/SKILL.md`
+- `jira-ticket/SKILL.md`
 
 ## Monorepo Context (appended to monorepo version)
 
