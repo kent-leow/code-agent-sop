@@ -21,11 +21,19 @@ Syncs `.github/` content to multiple providers. Root keeps integrations; general
 | **monorepo-claude** | `.github/agents/*.agent.md` | `monorepo/.claude/commands/*.md` | Strip `.agent`; exclude integrations |
 | **monorepo-claude** | `.github/instructions/*.instructions.md` | `monorepo/.claude/CLAUDE.md` | Inline with markers + monorepo context |
 
-## Integration Agents (excluded from general/monorepo)
+## Integration Agents (excluded from general/monorepo sync)
 
-- `fix-vulnerabilities.agent.md`
 - `git-fix-review.agent.md`
 - `git-review.agent.md`
+
+> **Note:** `fix-vulnerabilities.agent.md` in monorepo version is a separate, monorepo-specific agent — NOT synced from root.
+
+## Monorepo-Specific Agents
+
+The monorepo version includes its own `fix-vulnerabilities.agent.md` designed for monorepo workspace structure:
+- References `monorepo/apps/**` and `monorepo/jobs/**` paths
+- Uses `monorepo/skills/gitlab-mr-automation/SKILL.md`
+- Runs `python -m tooling.dev.local_security_scan` from monorepo
 
 ## Monorepo Context (appended to monorepo version)
 
