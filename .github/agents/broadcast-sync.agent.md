@@ -1,10 +1,10 @@
 ---
-description: "Broadcasts agent/instruction/skill changes from root .github/ to multiple destinations (.claude/, general/.github/, general/.claude/). Triggers: broadcast, sync agents, sync all, broadcast changes, sync to general, publish agents."
+description: "Broadcasts agent/instruction/skill changes from root .github/ to multiple destinations (.claude/, general/.github/, general/.claude/, monorepo/.github/, monorepo/.claude/). Triggers: broadcast, sync agents, sync all, broadcast changes, sync to general, publish agents."
 tools: [read, edit, search]
 argument-hint: "[--dry-run] to preview changes without writing"
 ---
 
-Syncs `.github/` content to multiple providers. Root keeps integrations; general is integration-free.
+Syncs `.github/` content to multiple providers. Root keeps integrations; general/monorepo are integration-free.
 
 ## Providers
 
@@ -16,12 +16,20 @@ Syncs `.github/` content to multiple providers. Root keeps integrations; general
 | **general-github** | `.github/instructions/*.instructions.md` | `general/.github/instructions/*.instructions.md` | Verbatim |
 | **general-claude** | `.github/agents/*.agent.md` | `general/.claude/commands/*.md` | Strip `.agent`; exclude integrations |
 | **general-claude** | `.github/instructions/*.instructions.md` | `general/.claude/CLAUDE.md` | Inline with markers |
+| **monorepo-github** | `.github/agents/*.agent.md` | `monorepo/.github/agents/*.agent.md` | Verbatim; exclude integrations |
+| **monorepo-github** | `.github/instructions/*.instructions.md` | `monorepo/.github/instructions/*.instructions.md` | Merge monorepo context |
+| **monorepo-claude** | `.github/agents/*.agent.md` | `monorepo/.claude/commands/*.md` | Strip `.agent`; exclude integrations |
+| **monorepo-claude** | `.github/instructions/*.instructions.md` | `monorepo/.claude/CLAUDE.md` | Inline with markers + monorepo context |
 
-## Integration Agents (excluded from general)
+## Integration Agents (excluded from general/monorepo)
 
 - `fix-vulnerabilities.agent.md`
 - `git-fix-review.agent.md`
 - `git-review.agent.md`
+
+## Monorepo Context (appended to monorepo version)
+
+The monorepo version includes additional context for workspace navigation when the monorepo is a sibling folder. Preserve monorepo-specific sections when syncing base instructions.
 
 ## Phase 1 — Discover
 
@@ -83,23 +91,54 @@ Syncs `.github/` content to multiple providers. Root keeps integrations; general
 - DO: read `general/.claude/CLAUDE.md`
 - LOOP: each instructions file (same marker logic as Phase 2.2)
 
-## Phase 5 — Detect Orphans
+## Phase 5 — Sync monorepo-github
+
+### 5.1 — Agents
+
+- LOOP: each agent NOT in `integration_agents[]`
+  - Target: `monorepo/.github/agents/<name>.agent.md`
+  - IF: target missing or differs → write → mark ADDED/UPDATED
+  - ELSE: mark OK
+
+### 5.2 — Instructions
+
+- DO: monorepo instructions have additional context section — preserve it
+- IF: monorepo guidelines differs (excluding monorepo context) → update base + keep context
+
+## Phase 6 — Sync monorepo-claude
+
+### 6.1 — Agents → Commands
+
+- LOOP: each agent NOT in `integration_agents[]`
+  - Target: `monorepo/.claude/commands/<name>.md`
+  - IF: target missing or differs → write → mark ADDED/UPDATED
+  - ELSE: mark OK
+
+### 6.2 — Instructions → CLAUDE.md
+
+- DO: read `monorepo/.claude/CLAUDE.md`
+- LOOP: each instructions file (same marker logic — preserve monorepo context)
+
+## Phase 7 — Detect Orphans
 
 - DO: list `.claude/commands/` files without `.github/agents/` source
 - DO: list `general/.claude/commands/` files without non-integration source
+- DO: list `monorepo/.claude/commands/` files without non-integration source
 - Exclude: `broadcast-sync.md` (this agent's command form)
 - EMIT: orphan list (do not delete)
 
-## Phase 6 — Summary
+## Phase 8 — Summary
 
 ```
 Broadcast complete
 ───────────────────────────────────────────────────
-Provider        Commands    Instructions
+Provider          Commands    Instructions
 ───────────────────────────────────────────────────
-root-claude     X/Y/Z       X/Y/Z
-general-github  X/Y/Z       X/Y/Z
-general-claude  X/Y/Z       X/Y/Z
+root-claude       X/Y/Z       X/Y/Z
+general-github    X/Y/Z       X/Y/Z
+general-claude    X/Y/Z       X/Y/Z
+monorepo-github   X/Y/Z       X/Y/Z
+monorepo-claude   X/Y/Z       X/Y/Z
 ───────────────────────────────────────────────────
 Orphans: N
 ```
@@ -113,5 +152,6 @@ If `--dry-run`: prefix writes with `[DRY RUN]`, do not write files.
 - Never delete files — only add or update
 - Never modify `.claude/settings.local.json`
 - Byte-for-byte comparison (no whitespace normalization)
-- Integration agents never go to general providers
+- Integration agents never go to general/monorepo providers
 - `broadcast-sync.md` excluded from orphan detection
+- Preserve monorepo-specific context sections when syncing

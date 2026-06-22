@@ -29,7 +29,7 @@ Syncs `.github/` content to multiple providers. Root keeps integrations; general
 
 ## Monorepo Context (appended to monorepo version)
 
-The monorepo version includes additional context for workspace navigation when the monorepo is a sibling folder. Preserve monorepo-specific sections when syncing base instructions.
+The monorepo version includes additional context for workspace navigation when the monorepo is a sibling folder.
 
 ## Phase 1 — Discover
 

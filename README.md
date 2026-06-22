@@ -16,12 +16,44 @@ Raw Requirements
 
 Each stage produces artefacts in `.docs/<feature>/`. Nothing advances until prior stage is complete.
 
-## Quick Start
+## Versions
 
-1. Copy the `general/` folder into your project root (rename to `.github/` for Copilot or `.qwen/` for Qwen)
-2. Invoke agents via `@<agent-name>` in your IDE's AI chat
+| Version | Folder | Use Case |
+|---|---|---|
+| **root** | `.github/`, `.claude/` | Extended variant with integrations (GitLab, GitHub, Jira, Figma) |
+| **general** | `general/` | Integration-free, for any codebase |
+| **monorepo** | `monorepo/` | For workspaces with monorepo as sibling (reads monorepo context) |
 
-No tokens or credentials required for the core pipeline. Optional integrations (Jira, Figma, GitLab) are available in the extended variant — see [Extended Variant](#extended-variant).
+### Quick Start
+
+**General version** (most repos):
+```
+cp -r general/.github your-repo/.github
+cp -r general/.claude your-repo/.claude  # optional, for Claude Code
+```
+
+**Monorepo workspace version** (when monorepo is a sibling folder):
+```
+# In a workspace like:
+# workspace/
+# ├── monorepo/
+# └── other-project/
+
+# Copy to workspace root:
+cp -r monorepo/.github workspace/.github
+cp -r monorepo/.claude workspace/.claude
+
+# The agent will read monorepo/AGENTS.md and monorepo/skills/ automatically
+```
+
+**Extended version** (with integrations):
+```
+cp -r .github your-repo/.github
+cp -r .claude your-repo/.claude
+# Requires tokens in ~/.zshenv — see .env.example
+```
+
+Invoke agents via `@<agent-name>` in your IDE's AI chat.
 
 ## Agents
 
@@ -62,13 +94,29 @@ This format reduces token waste and makes agent instructions unambiguous for LLM
 ## File Structure
 
 ```
-general/
+.github/                     # Extended variant (root)
+├── agents/                  # All agents including integrations
+├── instructions/            # Always-on guidelines
+├── skills/                  # Git, Jira, Figma skills
+└── copilot-instructions.md
+
+.claude/                     # Claude Code integration (root)
+├── commands/                # Agents as Claude commands
+└── CLAUDE.md
+
+general/                     # Integration-free variant
 ├── .github/
-│   ├── agents/              # Agent instruction files (.agent.md)
-│   ├── instructions/        # Always-on guidelines
-│   └── copilot-instructions.md
-└── .qwen/
-    └── commands/qc/         # Same agents in Qwen format
+│   ├── agents/              # Core agents only
+│   └── instructions/
+└── .claude/
+    └── commands/
+
+monorepo/                    # Monorepo workspace variant
+├── .github/
+│   ├── agents/              # Core agents only
+│   └── instructions/        # Includes monorepo context section
+└── .claude/
+    └── commands/
 
 .docs/                       # Created per-feature by agents
 └── <feature>/
@@ -76,6 +124,23 @@ general/
     ├── task-NNN.md          # Vertical slices
     └── fix-{dt}.md          # Fix logs
 ```
+
+## Monorepo Workspace Context
+
+The `monorepo/` version is designed for workspaces structured like:
+
+```
+workspace/
+├── monorepo/           # Main monorepo with AGENTS.md, CLAUDE.md, skills/
+├── molb-dp-shiok-job/  # Sibling project
+└── other-project/      # Another sibling
+```
+
+When working in this setup, the agent:
+1. Applies the custom instructions from this repo
+2. Reads `monorepo/AGENTS.md` for monorepo-specific routing
+3. Uses skills from `monorepo/skills/` tree
+4. Follows service-local context when working inside monorepo services
 
 ## Extended Variant
 
