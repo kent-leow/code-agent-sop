@@ -15,7 +15,15 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 
 ## Figma
 
-- IF: Figma URL → CALL: figma-cache(nodeId, plan-folder) → fold into AC/Scope/Notes; mark `(from Figma)`
+- IF: Figma URL provided:
+  - DO: create `figma/` folder under same folder as `plan.md` (e.g., `.docs/<folder>/figma/`)
+  - DO: store all Figma cache/context files in `figma/` folder:
+    - `figma/context.json` — design spec
+    - `figma/screenshot.png` — visual reference
+    - `figma/summary.md` — parsed summary
+    - `figma/flow.json` — UI flow (if applicable)
+  - CALL: figma-design-context skill → outputs to `figma/`
+  - DO: fold extracted context into AC/Scope/Notes; mark `(from Figma)`
 - IF: no Figma URL but UI-related → EMIT: add to Open Questions: `Figma design URL needed`
 
 ## Create Mode

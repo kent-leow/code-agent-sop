@@ -1,6 +1,6 @@
 ---
 description: "Create or refine a plan.md. Auto-detects mode: no plan.md exists → create from requirements; plan.md path provided or found → refine. Triggers: plan, new task, I need, implement, design, create feature, update plan, modify requirements, refine plan, plan is ready."
-tools: [read, search, edit, execute, todo]
+tools: [read, search, edit, execute, todo, com.figma.mcp/mcp/*]
 argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md and your changes."
 ---
 
@@ -12,6 +12,19 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 |---|---|
 | No `plan.md` path AND none in matching `.docs/` folder | **Create** |
 | `plan.md` path provided OR found in `.docs/` folder | **Refine** |
+
+## Figma
+
+- IF: Figma URL provided:
+  - DO: create `figma/` folder under same folder as `plan.md` (e.g., `.docs/<folder>/figma/`)
+  - DO: store all Figma cache/context files in `figma/` folder:
+    - `figma/context.json` — design spec
+    - `figma/screenshot.png` — visual reference
+    - `figma/summary.md` — parsed summary
+    - `figma/flow.json` — UI flow (if applicable)
+  - CALL: figma-design-context skill → outputs to `figma/`
+  - DO: fold extracted context into AC/Scope/Notes; mark `(from Figma)`
+- IF: no Figma URL but UI-related → EMIT: add to Open Questions: `Figma design URL needed`
 
 ## Create Mode
 
