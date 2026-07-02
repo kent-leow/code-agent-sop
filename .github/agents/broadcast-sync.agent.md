@@ -15,15 +15,19 @@ Syncs `.github/` content to multiple providers.
 | Provider | Source | Destination | Transform |
 |---|---|---|---|
 | **root-claude** | `.github/agents/*.agent.md` | `.claude/commands/*.md` | Strip `.agent`; all agents |
+| **root-claude** | `.github/skills/*/SKILL.md` | `.claude/skills/*/SKILL.md` | Verbatim; all skills |
 | **root-claude** | `.github/instructions/*.instructions.md` | `.claude/CLAUDE.md` | Inline with markers |
 | **general-github** | `.github/agents/*.agent.md` | `general/.github/agents/*.agent.md` | Verbatim; exclude git agents |
+| **general-github** | `.github/skills/*/SKILL.md` | `general/.github/skills/*/SKILL.md` | Verbatim; exclude git skills |
 | **general-github** | `.github/instructions/*.instructions.md` | `general/.github/instructions/*.instructions.md` | Verbatim |
 | **general-claude** | `.github/agents/*.agent.md` | `general/.claude/commands/*.md` | Strip `.agent`; exclude git agents |
+| **general-claude** | `.github/skills/*/SKILL.md` | `general/.claude/skills/*/SKILL.md` | Verbatim; exclude git skills |
 | **general-claude** | `.github/instructions/*.instructions.md` | `general/.claude/CLAUDE.md` | Inline with markers |
 | **monorepo-github** | `.github/agents/*.agent.md` | `monorepo/.github/agents/*.agent.md` | Verbatim; all agents |
 | **monorepo-github** | `.github/skills/*/SKILL.md` | `monorepo/.github/skills/*/SKILL.md` | Verbatim; all skills |
 | **monorepo-github** | `.github/instructions/*.instructions.md` | `monorepo/.github/instructions/*.instructions.md` | Merge monorepo context |
 | **monorepo-claude** | `.github/agents/*.agent.md` | `monorepo/.claude/commands/*.md` | Strip `.agent`; all agents |
+| **monorepo-claude** | `.github/skills/*/SKILL.md` | `monorepo/.claude/skills/*/SKILL.md` | Verbatim; all skills |
 | **monorepo-claude** | `.github/instructions/*.instructions.md` | `monorepo/.claude/CLAUDE.md` | Inline with markers + monorepo context |
 
 ## Git Agents (excluded from general only)
@@ -32,13 +36,20 @@ Syncs `.github/` content to multiple providers.
 - `git-fix-review.agent.md`
 - `git-review.agent.md`
 
-## Skills (synced to monorepo)
+## Git Skills (excluded from general only)
 
-- `figma-design-context/SKILL.md` (+ scripts/)
 - `fix-vulnerabilities/SKILL.md`
 - `git-apis/SKILL.md`
 - `git-workflow/SKILL.md`
 - `gitlab-mr-automation/SKILL.md`
+
+## All Skills
+
+- `figma-design-context/SKILL.md` (+ scripts/)
+- `fix-vulnerabilities/SKILL.md` ← git
+- `git-apis/SKILL.md` ← git
+- `git-workflow/SKILL.md` ← git
+- `gitlab-mr-automation/SKILL.md` ← git
 - `jira-ticket/SKILL.md`
 
 ## Monorepo Context (appended to monorepo version)
@@ -50,7 +61,7 @@ The monorepo version includes additional context for workspace navigation when t
 - DO: list `.github/agents/*.agent.md`
 - DO: list `.github/instructions/*.instructions.md`
 - DO: list `.github/skills/*/SKILL.md`
-- STORE: `agents[]`, `instructions[]`, `skills[]`, `git_agents[]`
+- STORE: `agents[]`, `instructions[]`, `skills[]`, `git_agents[]`, `git_skills[]`
 
 ## Phase 2 — Sync root-claude
 
@@ -61,7 +72,14 @@ The monorepo version includes additional context for workspace navigation when t
   - IF: target missing or content differs → write → mark ADDED/UPDATED
   - ELSE: mark OK
 
-### 2.2 — Instructions → CLAUDE.md
+### 2.2 — Skills
+
+- LOOP: each skill in `skills[]`
+  - Target: `.claude/skills/<skill-name>/SKILL.md`
+  - IF: target missing or content differs → write → mark ADDED/UPDATED
+  - ELSE: mark OK
+
+### 2.3 — Instructions → CLAUDE.md
 
 - DO: read `.claude/CLAUDE.md`
 - LOOP: each instructions file
@@ -85,7 +103,14 @@ The monorepo version includes additional context for workspace navigation when t
   - IF: target missing or differs → write → mark ADDED/UPDATED
   - ELSE: mark OK
 
-### 3.2 — Instructions
+### 3.2 — Skills (non-git only)
+
+- LOOP: each skill NOT in `git_skills[]`
+  - Target: `general/.github/skills/<skill-name>/SKILL.md`
+  - IF: target missing or content differs → write → mark ADDED/UPDATED
+  - ELSE: mark OK
+
+### 3.3 — Instructions
 
 - LOOP: each instructions file
   - Target: `general/.github/instructions/<filename>`
@@ -101,10 +126,17 @@ The monorepo version includes additional context for workspace navigation when t
   - IF: target missing or differs → write → mark ADDED/UPDATED
   - ELSE: mark OK
 
-### 4.2 — Instructions → CLAUDE.md
+### 4.2 — Skills (non-git only)
+
+- LOOP: each skill NOT in `git_skills[]`
+  - Target: `general/.claude/skills/<skill-name>/SKILL.md`
+  - IF: target missing or content differs → write → mark ADDED/UPDATED
+  - ELSE: mark OK
+
+### 4.3 — Instructions → CLAUDE.md
 
 - DO: read `general/.claude/CLAUDE.md`
-- LOOP: each instructions file (same marker logic as Phase 2.2)
+- LOOP: each instructions file (same marker logic as Phase 2.3)
 
 ## Phase 5 — Sync monorepo-github
 
@@ -115,7 +147,7 @@ The monorepo version includes additional context for workspace navigation when t
   - IF: target missing or differs → write → mark ADDED/UPDATED
   - ELSE: mark OK
 
-### 5.2 — Skills (all git skills)
+### 5.2 — Skills (all skills)
 
 - LOOP: each skill in `skills[]`
   - Target: `monorepo/.github/skills/<skill-name>/SKILL.md`
@@ -136,7 +168,14 @@ The monorepo version includes additional context for workspace navigation when t
   - IF: target missing or differs → write → mark ADDED/UPDATED
   - ELSE: mark OK
 
-### 6.2 — Instructions → CLAUDE.md
+### 6.2 — Skills (all skills)
+
+- LOOP: each skill in `skills[]`
+  - Target: `monorepo/.claude/skills/<skill-name>/SKILL.md`
+  - IF: target missing or content differs → write → mark ADDED/UPDATED
+  - ELSE: mark OK
+
+### 6.3 — Instructions → CLAUDE.md
 
 - DO: read `monorepo/.claude/CLAUDE.md`
 - LOOP: each instructions file (same marker logic — preserve monorepo context)
@@ -144,9 +183,13 @@ The monorepo version includes additional context for workspace navigation when t
 ## Phase 7 — Detect Orphans
 
 - DO: list `.claude/commands/` files without `.github/agents/` source
+- DO: list `.claude/skills/` folders without `.github/skills/` source
+- DO: list `general/.github/skills/` folders without non-git skill source
 - DO: list `general/.claude/commands/` files without non-git agent source
-- DO: list `monorepo/.claude/commands/` files without agent source
+- DO: list `general/.claude/skills/` folders without non-git skill source
 - DO: list `monorepo/.github/skills/` folders without `.github/skills/` source
+- DO: list `monorepo/.claude/commands/` files without agent source
+- DO: list `monorepo/.claude/skills/` folders without `.github/skills/` source
 - Exclude: `broadcast-sync.md` (this agent's command form)
 - EMIT: orphan list (do not delete)
 
@@ -157,11 +200,11 @@ Broadcast complete
 ─────────────────────────────────────────────────────
 Provider          Agents      Skills      Instructions
 ─────────────────────────────────────────────────────
-root-claude       X/Y/Z       -           X/Y/Z
-general-github    X/Y/Z       -           X/Y/Z
-general-claude    X/Y/Z       -           X/Y/Z
+root-claude       X/Y/Z       X/Y/Z       X/Y/Z
+general-github    X/Y/Z       X/Y/Z       X/Y/Z
+general-claude    X/Y/Z       X/Y/Z       X/Y/Z
 monorepo-github   X/Y/Z       X/Y/Z       X/Y/Z
-monorepo-claude   X/Y/Z       -           X/Y/Z
+monorepo-claude   X/Y/Z       X/Y/Z       X/Y/Z
 ─────────────────────────────────────────────────────
 Orphans: N
 ```
