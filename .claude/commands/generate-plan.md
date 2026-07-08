@@ -46,6 +46,34 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 - DO: write `plan.md` per Structure below
 - EMIT: jira-prompt (A: create/update story | B: edit | C: skip)
 
+## Jira Prompt
+
+> ✅ Plan saved in `.docs/<folder>/plan.md`
+> **A** — Create / update Jira Story &nbsp; **B** — Further edits &nbsp; **C** — Skip
+
+- **A** — Load `.github/skills/jira-ticket/SKILL.md`:
+  1. Read `jira.json` (if exists).
+  2. Use SP from plan.md **Estimate** section.
+  3. `story.key` exists → update title, description, SP; no entry → create Story.
+  4. Write Jira description from **Summary**, **Scope**, and **Acceptance Criteria** as-is from `plan.md` — business language, preserve all AC tables exactly. Format:
+     ```
+     <Summary paragraph>
+
+     **In scope**: <bullet list>
+     **Out of scope**: <bullet list>
+
+     | **AC1** | <title> |
+     |---------|----------|
+     | Given   | ...      |
+     | When    | ...      |
+     | Then    | ...      |
+     ```
+  5. Write/update `jira.json`: `"story": { "key": "PROJ-123", "url": "...", "story_points": <N> }`
+  6. Reply with card URL.
+  - Missing env vars → `⚠️ Jira skipped — set JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL`
+- **B** — Apply; re-present prompt.
+- **C** — Stop.
+
 ## Refine Mode
 
 - DO: read existing `plan.md`; apply Figma if relevant
@@ -53,7 +81,7 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 - DO: append `## Changelog`: `- YYYY-MM-DD: <summary>`; recompute estimate
 - DO: run Readiness Check
 - IF: `task-NNN.md` files exist → DO: run Task Cascade
-- EMIT: jira-prompt (A: update story | B: edit | C: skip)
+- EMIT: jira-prompt (A: update story | B: edit | C: skip) — same Jira Prompt section above
 
 ### Readiness Check
 
