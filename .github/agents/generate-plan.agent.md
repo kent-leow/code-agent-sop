@@ -43,6 +43,13 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 | 5 | Significant feature | Cross-layer; auth/security; workflow change; high regression risk |
 
 > If complexity exceeds 5 SP → STOP and split into sub-cards (BE / FE / integration / spike)
+
+**SP determination — holistic, based on the whole card (never count AC rows):**
+1. **Layers touched** — FE only OR BE only → ≤2 | FE+BE or BE+DB → 3 | cross-system/auth/workflow → 5
+2. **Regression risk** — near-zero → 0.5–1 | contained → 2 | moderate → 3 | high → 5
+3. **Uncertainty** — unknown integration, design gaps, or first-time path → bump one tier up
+→ Pick the **highest** SP from the three signals above.
+
 - DO: write `plan.md` per Structure below
 - EMIT: jira-prompt (A: create/update story | B: edit | C: skip)
 
