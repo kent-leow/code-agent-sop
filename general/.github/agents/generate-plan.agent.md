@@ -32,7 +32,17 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 - DO: search codebase for affected domain context
 - DO: generate kebab-case folder name; check `.docs/` for existing related folders
 - DO: create `.docs/<folder>/` if needed
-- DO: estimate — raw SP = `(AC rows × 2) + Open Questions`, min 1 → nearest Fibonacci. Days = SP × 2
+- DO: estimate — assign SP by matching overall feature complexity to the scale below; if scope spans multiple categories, pick the highest applicable tier
+
+| SP | Category | Signal |
+|-----|---|---|
+| 0.5 | Tiny / mechanical | One file/config; no logic; near-zero regression risk |
+| 1 | Small refinement | Existing path; basic correctness + light testing |
+| 2 | Bounded enhancement | New capability in one layer; clear scope; meaningful testing |
+| 3 | Moderate feature | Multi-layer (FE + BE, BE + DB + integration); one sprint; regression checks |
+| 5 | Significant feature | Cross-layer; auth/security; workflow change; high regression risk |
+
+> If complexity exceeds 5 SP → STOP and split into sub-cards (BE / FE / integration / spike)
 - DO: write `plan.md` per Structure below
 
 ## Refine Mode
@@ -86,7 +96,7 @@ One paragraph: what + why. Business language only.
 | # | Question | Impact if unresolved |
 
 ## Estimate
-**Story Points**: <N> SP (~<N × 2> days)
+**Story Points**: <N> SP — <Category> (<one-line rationale>)
 
 ## Notes
 Relevant context, constraints, assumptions.
