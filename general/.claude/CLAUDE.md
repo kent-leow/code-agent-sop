@@ -84,19 +84,6 @@ All `.agent.md` and `SKILL.md` files must follow these conventions:
 | `STORE:` | Save value |
 | `STOP:` | Halt with reason |
 
-### Git Workflow (code-changing agents only)
-- CALL shared `git-workflow` skill — never inline git logic
-- Flow: BRANCH_SETUP (pulls latest) → code changes → COMMIT → PUSH → ENSURE_MR → POLL_PIPELINE
-- Poll loop runs until: pipeline=success AND open_threads=0
-- ON_SUCCESS: always FETCH_OPEN_THREADS before declaring done
-- ON_FAILURE: inspect → fix → COMMIT → PUSH → reset poll → continue
-- Terminal exits only: BLOCKED (3 failures) or TIMEOUT (20 polls)
-- Never stop early — MR must be in best state
-
-### Non-code agents
-- Must NOT contain git write operations (commit/push/branch/checkout -b)
-- Read-only: search, read, analyse, emit
-
 ### Style
 - Minimal tokens; no filler; tables over prose
 - `CALL:` for skill invocations — never repeat skill internals
