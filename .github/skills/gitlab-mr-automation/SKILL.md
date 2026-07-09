@@ -33,6 +33,7 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
 
 | Output | Description |
 |---|---|
+| `WORKTREE_DIR` | Isolated worktree path for this session |
 | `MR_URL` | Created/existing MR link |
 | `STATUS` | SUCCESS / BLOCKED / TIMEOUT |
 
@@ -74,29 +75,36 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
 
 4. STORE: `BRANCH` = substitute `{TICKET}` in `BRANCH_PATTERN` with `GOBIZWKST2-${TICKET_NUM}`
 
-5. DO: Checkout and sync
+5. DO: Create isolated worktree (never checkout in main repo — supports parallel sessions)
    ```bash
    cd "${REPO_DIR}"
-   DEFAULT_BRANCH=$(/usr/bin/git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
-     | sed 's|refs/remotes/origin/||' || echo "master")
-   /usr/bin/git checkout "${DEFAULT_BRANCH}"
-   /usr/bin/git pull origin "${DEFAULT_BRANCH}"
-   /usr/bin/git fetch origin
+   REPO_NAME=$(basename "${REPO_DIR}")
+   WORKTREE_DIR="${TMPDIR:-/tmp}/worktrees/${REPO_NAME}/${BRANCH}"
 
-   if /usr/bin/git branch -a | grep -qE "(remotes/origin/|^  )${BRANCH}(\s|$)"; then
-     /usr/bin/git checkout "${BRANCH}"
-     /usr/bin/git pull origin "${BRANCH}" 2>/dev/null || true
-   else
-     /usr/bin/git checkout -b "${BRANCH}"
+   # Remove stale worktree at same path (handles crashed/restarted sessions)
+   if [ -d "${WORKTREE_DIR}" ]; then
+     /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
+     rm -rf "${WORKTREE_DIR}" 2>/dev/null || true
    fi
-   echo "Active branch: ${BRANCH}"
+
+   # Create worktree — reuse existing remote branch or branch from default
+   if /usr/bin/git branch -a | grep -qE "(remotes/origin/|^  )${BRANCH}(\s|$)"; then
+     /usr/bin/git worktree add "${WORKTREE_DIR}" "${BRANCH}" 2>/dev/null || \
+       /usr/bin/git worktree add "${WORKTREE_DIR}" -b "${BRANCH}" "origin/${BRANCH}"
+     cd "${WORKTREE_DIR}" && /usr/bin/git pull origin "${BRANCH}" 2>/dev/null || true
+   else
+     /usr/bin/git worktree add -b "${BRANCH}" "${WORKTREE_DIR}" "${DEFAULT_BRANCH}"
+   fi
+
+   echo "Worktree ready: ${WORKTREE_DIR} (branch: ${BRANCH})"
    ```
+   - DO: Set `WORK_DIR="${WORKTREE_DIR}"` — all file edits happen inside `WORK_DIR`
 
 ---
 
 ## Phase 2 — Code Changes
 
-> Agent makes code changes between Phase 1 and Phase 3. This skill does NOT implement code — it orchestrates the git workflow.
+> Agent makes code changes between Phase 1 and Phase 3. All edits MUST target files inside `WORK_DIR` (the worktree), not `REPO_DIR`. This skill does NOT implement code — it orchestrates the git workflow.
 
 6. IF: No code changes made → STOP: "No changes to commit."
 
@@ -104,9 +112,9 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
 
 ## Phase 3 — Commit & Push
 
-7. DO: Commit changes
+7. DO: Commit changes (inside worktree)
    ```bash
-   cd "${REPO_DIR}"
+   cd "${WORK_DIR}"
    /usr/bin/git add -A
 
    if ! /usr/bin/git diff --cached --quiet; then
@@ -124,7 +132,7 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
 
 9. DO: Push to remote (never force-push)
    ```bash
-   cd "${REPO_DIR}"
+   cd "${WORK_DIR}"
    /usr/bin/git push origin "${BRANCH}"
    echo "Pushed: ${BRANCH}"
    ```
@@ -134,11 +142,19 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
      /usr/bin/git push origin "${BRANCH}"
      ```
 
+10\. DO: Teardown worktree
+    ```bash
+    cd "${REPO_DIR}"
+    /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
+    /usr/bin/git worktree prune
+    echo "Worktree removed: ${WORKTREE_DIR}"
+    ```
+
 ---
 
 ## Phase 4 — Merge Request
 
-10. DO: Create or find existing MR
+11. DO: Create or find existing MR
     ```bash
     EXISTING=$(/usr/bin/curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
       "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/merge_requests?state=opened&source_branch=${BRANCH}" \
@@ -172,7 +188,7 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
     fi
     ```
 
-11. EMIT: `MR ${MR_ACTION}: ${MR_URL}`
+12. EMIT: `MR ${MR_ACTION}: ${MR_URL}`
 
 ---
 
@@ -180,9 +196,9 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
 
 > Run to completion without pausing. Terminal exits: SUCCESS, BLOCKED, TIMEOUT.
 
-12. STORE: `POLL=0`, `CONSECUTIVE_FAILURES=0`, `MAX_POLLS=20`
+13. STORE: `POLL=0`, `CONSECUTIVE_FAILURES=0`, `MAX_POLLS=20`
 
-13. LOOP: while `POLL < MAX_POLLS`
+14. LOOP: while `POLL < MAX_POLLS`
     ```bash
     INTERVALS=(180 120 90 60 30)
     IDX=$(( POLL < ${#INTERVALS[@]} ? POLL : $(( ${#INTERVALS[@]} - 1 )) ))
@@ -264,20 +280,38 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
     - STOP: SUCCESS
 
 18. LOOP: each thread in `to_fix[]`
-    - DO: Apply fix (agent implements)
+    - DO: Re-create worktree for feature branch (torn down after Phase 3)
+      ```bash
+      WORKTREE_DIR="${TMPDIR:-/tmp}/worktrees/${REPO_NAME}/${BRANCH}"
+      if [ -d "${WORKTREE_DIR}" ]; then
+        /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
+        rm -rf "${WORKTREE_DIR}" 2>/dev/null || true
+      fi
+      cd "${REPO_DIR}" && /usr/bin/git worktree add "${WORKTREE_DIR}" "${BRANCH}"
+      cd "${WORKTREE_DIR}" && /usr/bin/git pull origin "${BRANCH}" 2>/dev/null || true
+      WORK_DIR="${WORKTREE_DIR}"
+      ```
+    - DO: Apply fix (agent implements inside WORK_DIR)
     - STORE: fix details for commit message
 
 19. DO: Commit fix
     ```bash
-    cd "${REPO_DIR}"
+    cd "${WORK_DIR}"
     /usr/bin/git add -A
     /usr/bin/git commit -m "fix: address review comments"
     ```
 
 20. DO: Push
     ```bash
+    cd "${WORK_DIR}"
     /usr/bin/git push origin "${BRANCH}"
     ```
+
+20a. DO: Teardown worktree
+     ```bash
+     cd "${REPO_DIR}" && /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
+     /usr/bin/git worktree prune
+     ```
 
 21. DO: Post thread replies (BEFORE resuming poll)
     - Fixed thread reply: `Fixed — <one sentence: what changed and where>.`
@@ -313,15 +347,33 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
     done
     ```
 
-25. DO: Analyze failure → apply fix (agent implements)
-
-26. DO: Commit and push fix
+25. DO: Re-create worktree for pipeline fix
     ```bash
-    cd "${REPO_DIR}"
+    WORKTREE_DIR="${TMPDIR:-/tmp}/worktrees/${REPO_NAME}/${BRANCH}"
+    if [ -d "${WORKTREE_DIR}" ]; then
+      /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
+      rm -rf "${WORKTREE_DIR}" 2>/dev/null || true
+    fi
+    cd "${REPO_DIR}" && /usr/bin/git worktree add "${WORKTREE_DIR}" "${BRANCH}"
+    cd "${WORKTREE_DIR}" && /usr/bin/git pull origin "${BRANCH}" 2>/dev/null || true
+    WORK_DIR="${WORKTREE_DIR}"
+    ```
+
+26. DO: Analyze failure → apply fix (agent implements inside WORK_DIR)
+
+27. DO: Commit and push fix
+    ```bash
+    cd "${WORK_DIR}"
     /usr/bin/git add -A
     /usr/bin/git commit -m "fix: resolve pipeline failure"
     /usr/bin/git push origin "${BRANCH}"
     ```
+
+27a. DO: Teardown worktree
+     ```bash
+     cd "${REPO_DIR}" && /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
+     /usr/bin/git worktree prune
+     ```
 
 27. STORE: `POLL=0` (keep `CONSECUTIVE_FAILURES`) → goto LOOP (step 13)
 

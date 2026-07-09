@@ -118,10 +118,13 @@ PIPELINE_STATUS=$(echo "${PIPELINE}" | /usr/bin/jq -r '.status')
 
 ---
 
-## Step 1 — Per-repo: checkout, pull, create branch
+## Step 1 — Per-repo: branch + worktree setup
 
 → **skill: BRANCH_SETUP** (`REPO_DIR = ${WORKSPACE}/{repo-name}`, `BRANCH = GOBIZWKST2-${TICKET_NUM}-Fix-Vulnerability-${DATE}`)  
-Outputs: `DEFAULT_BRANCH`, active branch set to `BRANCH`.
+Outputs: `DEFAULT_BRANCH`, branch name resolved (no checkout of feature branch).
+
+→ **skill: WORKTREE_SETUP** (`REPO_DIR`, `BRANCH`, `DEFAULT_BRANCH`)  
+Outputs: `WORKTREE_DIR`, `WORK_DIR` — all fixes MUST be applied inside `WORK_DIR`
 
 ---
 
@@ -299,7 +302,9 @@ Store `COMMITTED`. If `COMMITTED=false` → log "No new changes to push" and ski
 
 ### 5b — Push
 
-→ **skill: PUSH** (`REPO_DIR`, `BRANCH`)
+→ **skill: PUSH** (`WORK_DIR`, `BRANCH`)
+
+→ **skill: WORKTREE_TEARDOWN** (`REPO_DIR`, `WORKTREE_DIR`) — call after push
 
 ### 5c — Find or create MR
 

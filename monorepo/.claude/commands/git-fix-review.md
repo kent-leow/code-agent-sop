@@ -31,20 +31,33 @@ Autonomous — never pause to ask user once started.
 
 - DO: resolve repo-path: user-provided → default root + repo name → ask
 
-## Step 1 — Fetch Branch + Pull Latest
+## Step 1 — Worktree Setup for MR Branch
 
 ```bash
 cd <repo-path>
+REPO_NAME=$(basename "<repo-path>")
 git fetch origin <target-branch>
 git fetch origin "<ref>:<local-ref>"
-git checkout "<local-ref>"
-git pull origin "<local-ref>"
+BRANCH="<local-ref>"
+WORKTREE_DIR="${TMPDIR:-/tmp}/worktrees/${REPO_NAME}/${BRANCH}"
+
+# Remove stale worktree at same path
+if [ -d "${WORKTREE_DIR}" ]; then
+  git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
+  rm -rf "${WORKTREE_DIR}" 2>/dev/null || true
+fi
+
+git worktree add "${WORKTREE_DIR}" "${BRANCH}" 2>/dev/null || \
+  git worktree add "${WORKTREE_DIR}" -b "${BRANCH}" "origin/${BRANCH//origin\//}"
+cd "${WORKTREE_DIR}" && git pull origin "${BRANCH}" 2>/dev/null || true
+
+WORK_DIR="${WORKTREE_DIR}"
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-git diff origin/<target-branch>...<local-ref>
+git diff origin/<target-branch>..."${BRANCH}"
 ```
 
-- STORE: diff, CURRENT_BRANCH
-- This ensures we have the latest commits on the MR branch before making changes
+- STORE: diff, CURRENT_BRANCH, WORK_DIR, WORKTREE_DIR
+- All code fixes MUST be applied inside WORK_DIR (not the main repo checkout)
 
 ## Step 2 — Fetch Open Threads
 
@@ -77,8 +90,9 @@ git diff origin/<target-branch>...<local-ref>
 
 ## Step 5 — Commit, Push & Reply
 
-- CALL: COMMIT(REPO_DIR, `fix: address review comments\n\n- <file>:<line> — <title>`) → COMMITTED
-- IF: COMMITTED → CALL: PUSH(REPO_DIR, CURRENT_BRANCH)
+- CALL: COMMIT(WORK_DIR, `fix: address review comments\n\n- <file>:<line> — <title>`) → COMMITTED
+- IF: COMMITTED → CALL: PUSH(WORK_DIR, CURRENT_BRANCH)
+- IF: COMMITTED → after push, call WORKTREE_TEARDOWN(repo-path, WORKTREE_DIR)
 - CALL: POST_THREAD_REPLIES for all to_fix[] and to_reject[]
 
 ## Step 6 — Poll Until MR Clean

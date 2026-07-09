@@ -60,9 +60,13 @@ Autonomous — never pause to ask user once started.
 - IF: running/pending → wait for next poll
 - IF: MR not found → treat as first-run
 
-## Step 1 — Branch Setup (first run)
+## Step 1 — Branch + Worktree Setup (first run)
 
 - CALL: BRANCH_SETUP(REPO_DIR, BRANCH_PATTERN) → TICKET_NUM, BRANCH, DEFAULT_BRANCH
+  - Syncs default branch; does NOT checkout feature branch
+- CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORKTREE_DIR
+  - Creates isolated `$TMPDIR/worktrees/{repo}/{BRANCH}` — safe for parallel sessions
+- STORE: `WORK_DIR="${WORKTREE_DIR}"` — **all file edits during Steps 2–4 MUST target paths inside WORK_DIR**
 
 ## Step 2 — Fetch Vulnerabilities (first run only)
 
@@ -117,9 +121,10 @@ Fetched: {DATE_DISPLAY} | Raw: {N} | Grouped: {G}
 
 ## Step 5 — Commit, Push, MR
 
-- CALL: COMMIT(REPO_DIR, `[GOBIZWKST2-${TICKET_NUM}] Vulnerability Fixes - {changelog}`) → COMMITTED
+- CALL: COMMIT(WORK_DIR, `[GOBIZWKST2-${TICKET_NUM}] Vulnerability Fixes - {changelog}`) → COMMITTED
 - IF: COMMITTED=false → skip push
-- CALL: PUSH(REPO_DIR, BRANCH)
+- CALL: PUSH(WORK_DIR, BRANCH)
+- CALL: WORKTREE_TEARDOWN(REPO_DIR, WORKTREE_DIR)
 - CALL: ENSURE_MR(ENCODED, BRANCH, DEFAULT_BRANCH, title, body) → MR_IID, MR_URL
 
 ## Step 6 — Poll Until MR Clean

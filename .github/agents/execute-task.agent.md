@@ -36,6 +36,10 @@ Autonomous — never pause to ask user once started.
 | Later prerequisite points here | Confirm name matches; correct if not |
 | Changed file missing Changelog | Append `- YYYY-MM-DD: <summary>` |
 
+- CALL: BRANCH_SETUP(REPO_DIR, `GOBIZWKST2-{TICKET}-{kebab-task-title}`) → TICKET_NUM, BRANCH, DEFAULT_BRANCH
+- CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORKTREE_DIR
+- STORE: `WORK_DIR="${WORKTREE_DIR}"` — **all file edits during Phase 2–4 MUST target paths inside WORK_DIR**
+
 ## Phase 2 — Exploration
 
 - DO: read every file listed in `task-NNN.md` in full
@@ -67,12 +71,11 @@ Autonomous — never pause to ask user once started.
 
 > **Do NOT stop until MR is in best state: pipeline green AND zero unresolved threads.**
 
-### 5a — Branch & Push
+### 5a — Commit & Push (from worktree)
 
-- CALL: BRANCH_SETUP(REPO_DIR, `GOBIZWKST2-{TICKET}-{kebab-task-title}`) → TICKET_NUM, BRANCH, DEFAULT_BRANCH
-  - This pulls latest main/master, fetches origin, creates/checks out feature branch
-- CALL: COMMIT(REPO_DIR, `feat({repo}): {title} [GOBIZWKST2-{TICKET_NUM}]\n\nImplemented:\n- {files}`) → COMMITTED
-- CALL: PUSH(REPO_DIR, BRANCH)
+- CALL: COMMIT(WORK_DIR, `feat({repo}): {title} [GOBIZWKST2-{TICKET_NUM}]\n\nImplemented:\n- {files}`) → COMMITTED
+- CALL: PUSH(WORK_DIR, BRANCH)
+- CALL: WORKTREE_TEARDOWN(REPO_DIR, WORKTREE_DIR)
 - CALL: ENSURE_MR(ENCODED, BRANCH, DEFAULT_BRANCH, `[GOBIZWKST2-{TICKET_NUM}] {title}`, body) → MR_IID, MR_URL
 
 ### 5b — Poll Until MR Clean

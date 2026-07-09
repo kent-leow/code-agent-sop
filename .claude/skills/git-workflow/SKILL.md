@@ -80,13 +80,64 @@ CURRENT_BRANCH=$(/usr/bin/git rev-parse --abbrev-ref HEAD)
 
 ---
 
-### COMMIT — stage all changes and commit
+### WORKTREE_SETUP — create isolated filesystem worktree for parallel session safety
 
-**Inputs:** `REPO_DIR`, `COMMIT_MSG`  
-**Outputs:** `COMMITTED` (`true`/`false`), `COMMIT_SHA`
+**Inputs:** `REPO_DIR`, `BRANCH`, `DEFAULT_BRANCH`  
+**Outputs:** `WORKTREE_DIR`, `WORK_DIR`
+
+> Creates an isolated directory so parallel agent sessions never share a working tree. All code changes **MUST** happen in `WORK_DIR`, not `REPO_DIR`.
 
 ```bash
 cd "${REPO_DIR}"
+REPO_NAME=$(basename "${REPO_DIR}")
+WORKTREE_DIR="${TMPDIR:-/tmp}/worktrees/${REPO_NAME}/${BRANCH}"
+
+# Remove stale worktree at same path (handles crashed/restarted sessions)
+if [ -d "${WORKTREE_DIR}" ]; then
+  /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
+  rm -rf "${WORKTREE_DIR}" 2>/dev/null || true
+fi
+
+# Create worktree — reuse existing remote branch or branch from default
+if /usr/bin/git branch -a | grep -qE "(remotes/origin/|^  )${BRANCH}(\s|$)"; then
+  /usr/bin/git worktree add "${WORKTREE_DIR}" "${BRANCH}" 2>/dev/null || \
+    /usr/bin/git worktree add "${WORKTREE_DIR}" -b "${BRANCH}" "origin/${BRANCH}"
+  cd "${WORKTREE_DIR}" && /usr/bin/git pull origin "${BRANCH}" 2>/dev/null || true
+else
+  /usr/bin/git worktree add -b "${BRANCH}" "${WORKTREE_DIR}" "${DEFAULT_BRANCH}"
+fi
+
+WORK_DIR="${WORKTREE_DIR}"
+echo "Worktree ready: ${WORKTREE_DIR} (branch: ${BRANCH})"
+```
+
+- DO: All subsequent file edits, test runs, and build commands must operate inside `WORK_DIR`
+- DO: Pass `WORK_DIR` (not `REPO_DIR`) to COMMIT and PUSH
+
+---
+
+### WORKTREE_TEARDOWN — remove worktree after push
+
+**Inputs:** `REPO_DIR`, `WORKTREE_DIR`
+
+> Call after PUSH. Branch and remote tracking ref remain intact.
+
+```bash
+cd "${REPO_DIR}"
+/usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
+/usr/bin/git worktree prune
+echo "Worktree removed: ${WORKTREE_DIR}"
+```
+
+---
+
+### COMMIT — stage all changes and commit
+
+**Inputs:** `WORK_DIR` (WORKTREE_DIR or REPO_DIR), `COMMIT_MSG`  
+**Outputs:** `COMMITTED` (`true`/`false`), `COMMIT_SHA`
+
+```bash
+cd "${WORK_DIR}"
 /usr/bin/git add -A
 
 if ! /usr/bin/git diff --cached --quiet; then
@@ -114,11 +165,11 @@ fi
 
 ### PUSH — push branch to remote
 
-**Inputs:** `REPO_DIR`, `BRANCH`  
+**Inputs:** `WORK_DIR` (WORKTREE_DIR or REPO_DIR), `BRANCH`  
 **Rule:** Never force-push (`--force`).
 
 ```bash
-cd "${REPO_DIR}"
+cd "${WORK_DIR}"
 /usr/bin/git push origin "${BRANCH}"
 echo "Pushed: ${BRANCH}"
 ```
@@ -128,6 +179,8 @@ If push fails with non-fast-forward (remote has commits ahead):
 /usr/bin/git pull --rebase origin "${BRANCH}"
 /usr/bin/git push origin "${BRANCH}"
 ```
+
+- DO: After push, call **WORKTREE_TEARDOWN** to clean up the isolated worktree
 
 ---
 

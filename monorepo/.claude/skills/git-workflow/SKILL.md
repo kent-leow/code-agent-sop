@@ -44,7 +44,7 @@ echo "GitHub token: $([ -n "${GITHUB_TOKEN}" ] && echo OK || echo MISSING)"
 
 - STORE: `BRANCH` = substitute `{TICKET}` in `BRANCH_PATTERN` with `GOBIZWKST2-${TICKET_NUM}`
 
-- DO: Checkout and sync
+- DO: Sync default branch (no checkout of feature branch — WORKTREE_SETUP handles isolation)
 ```bash
 cd "${REPO_DIR}"
 DEFAULT_BRANCH=$(/usr/bin/git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null \
@@ -52,15 +52,10 @@ DEFAULT_BRANCH=$(/usr/bin/git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null 
 /usr/bin/git checkout "${DEFAULT_BRANCH}"
 /usr/bin/git pull origin "${DEFAULT_BRANCH}"
 /usr/bin/git fetch origin
-
-if /usr/bin/git branch -a | grep -qE "(remotes/origin/|^  )${BRANCH}(\s|$)"; then
-  /usr/bin/git checkout "${BRANCH}"
-  /usr/bin/git pull origin "${BRANCH}" 2>/dev/null || true
-else
-  /usr/bin/git checkout -b "${BRANCH}"
-fi
-echo "Active branch: ${BRANCH}"
+echo "Default branch synced: ${DEFAULT_BRANCH} | Target: ${BRANCH}"
 ```
+
+> After BRANCH_SETUP, call **WORKTREE_SETUP** to create an isolated working directory before touching any files.
 
 **Branch naming conventions:**
 
@@ -73,13 +68,63 @@ echo "Active branch: ${BRANCH}"
 
 ---
 
-## COMMIT
+## WORKTREE_SETUP
 
-**Inputs:** `REPO_DIR`, `COMMIT_MSG`
-**Outputs:** `COMMITTED` (true/false), `COMMIT_SHA`
+**Inputs:** `REPO_DIR`, `BRANCH`, `DEFAULT_BRANCH`
+**Outputs:** `WORKTREE_DIR`
+
+> Creates an isolated filesystem worktree so parallel agent sessions never share a working tree. All code changes **MUST** happen in `WORKTREE_DIR`, not `REPO_DIR`.
 
 ```bash
 cd "${REPO_DIR}"
+REPO_NAME=$(basename "${REPO_DIR}")
+WORKTREE_DIR="${TMPDIR:-/tmp}/worktrees/${REPO_NAME}/${BRANCH}"
+
+# Remove stale worktree at same path (handles crashed/restarted sessions)
+if [ -d "${WORKTREE_DIR}" ]; then
+  /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
+  rm -rf "${WORKTREE_DIR}" 2>/dev/null || true
+fi
+
+# Create worktree — reuse existing remote branch or branch from default
+if /usr/bin/git branch -a | grep -qE "(remotes/origin/|^  )${BRANCH}(\s|$)"; then
+  /usr/bin/git worktree add "${WORKTREE_DIR}" "${BRANCH}" 2>/dev/null || \
+    /usr/bin/git worktree add "${WORKTREE_DIR}" -b "${BRANCH}" "origin/${BRANCH}"
+  cd "${WORKTREE_DIR}" && /usr/bin/git pull origin "${BRANCH}" 2>/dev/null || true
+else
+  /usr/bin/git worktree add -b "${BRANCH}" "${WORKTREE_DIR}" "${DEFAULT_BRANCH}"
+fi
+
+echo "Worktree ready: ${WORKTREE_DIR} (branch: ${BRANCH})"
+```
+
+- DO: Set `WORK_DIR="${WORKTREE_DIR}"` — all subsequent file edits, test runs, and build commands must operate inside `WORK_DIR`
+- DO: Pass `WORK_DIR` (not `REPO_DIR`) to COMMIT and PUSH
+
+---
+
+## WORKTREE_TEARDOWN
+
+**Inputs:** `REPO_DIR`, `WORKTREE_DIR`
+
+> Call after PUSH to remove the isolated worktree. Branch and remote tracking ref remain intact.
+
+```bash
+cd "${REPO_DIR}"
+/usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
+/usr/bin/git worktree prune
+echo "Worktree removed: ${WORKTREE_DIR}"
+```
+
+---
+
+## COMMIT
+
+**Inputs:** `WORK_DIR` (WORKTREE_DIR or REPO_DIR), `COMMIT_MSG`
+**Outputs:** `COMMITTED` (true/false), `COMMIT_SHA`
+
+```bash
+cd "${WORK_DIR}"
 /usr/bin/git add -A
 
 if ! /usr/bin/git diff --cached --quiet; then
@@ -107,11 +152,11 @@ fi
 
 ## PUSH
 
-**Inputs:** `REPO_DIR`, `BRANCH`
+**Inputs:** `WORK_DIR` (WORKTREE_DIR or REPO_DIR), `BRANCH`
 **Rule:** Never force-push.
 
 ```bash
-cd "${REPO_DIR}"
+cd "${WORK_DIR}"
 /usr/bin/git push origin "${BRANCH}"
 echo "Pushed: ${BRANCH}"
 ```
@@ -121,6 +166,8 @@ echo "Pushed: ${BRANCH}"
 /usr/bin/git pull --rebase origin "${BRANCH}"
 /usr/bin/git push origin "${BRANCH}"
 ```
+
+- DO: After push, call **WORKTREE_TEARDOWN** to clean up the isolated worktree
 
 ---
 
