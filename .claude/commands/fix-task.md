@@ -47,9 +47,10 @@ Autonomous — never pause to ask user once started.
 
 - LOOP: each unchecked `FIX-NNN` in `FIX_FILE`
   - DO: targeted grep/glob to locate relevant files
-  - DO: apply minimal fix
+  - DO: apply minimal fix inside `WORK_DIR`
   - IF: Figma URL → CALL: figma-cache(nodeId, folder) → read md + view_image
-  - DO: run narrowest covering test
+  - DO: run narrowest covering test from `WORK_DIR`: `cd "${WORK_DIR}" && <test command>`
+  - IF: local service verification needed → start from `WORK_DIR` — never from `REPO_DIR`
   - IF: test fails → DO: fix before continuing
   - EMIT: mark `[x]` + update `_Files_:` + append changelog
 
@@ -81,14 +82,16 @@ Autonomous — never pause to ask user once started.
     1. CALL: FETCH_OPEN_THREADS(ENCODED, MR_IID) → ALL_THREADS
     2. IF: ALL_THREADS=0 → MR is clean → exit loop ✅
     3. IF: ALL_THREADS>0 → evaluate each (FIX/REJECT)
-    4. DO: apply fixes
-    5. CALL: COMMIT → PUSH → POST_THREAD_REPLIES → RESOLVE_THREADS
-    6. DO: reset POLL=0 → continue polling (fixes may break pipeline)
+    4. CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORK_DIR
+    5. DO: apply fixes inside WORK_DIR
+    6. CALL: COMMIT(WORK_DIR, ...) → PUSH(WORK_DIR, BRANCH) → WORKTREE_TEARDOWN(REPO_DIR, WORKTREE_DIR) → POST_THREAD_REPLIES → RESOLVE_THREADS
+    7. DO: reset POLL=0 → continue polling (fixes may break pipeline)
   - ON_FAILURE:
     1. DO: inspect CI logs → identify failing jobs/tests
-    2. DO: apply fixes
-    3. CALL: COMMIT → PUSH
-    4. DO: reset POLL=0 → continue polling
+    2. CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORK_DIR
+    3. DO: apply fixes inside WORK_DIR
+    4. CALL: COMMIT(WORK_DIR, ...) → PUSH(WORK_DIR, BRANCH) → WORKTREE_TEARDOWN(REPO_DIR, WORKTREE_DIR)
+    5. DO: reset POLL=0 → continue polling
 
 ### 5c — Terminal Exits
 

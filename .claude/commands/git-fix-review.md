@@ -83,8 +83,8 @@ git diff origin/<target-branch>..."${BRANCH}"
 ## Step 4 — Apply Fixes
 
 - LOOP: each item in to_fix[]
-  - DO: read target file at relevant lines
-  - DO: apply minimal change — no refactoring beyond what was asked
+  - DO: read target file inside WORK_DIR at relevant lines
+  - DO: apply minimal change inside WORK_DIR — no refactoring beyond what was asked
   - DO: verify syntactically valid
 - IF: nothing to fix → skip to Step 5c
 
@@ -106,14 +106,17 @@ git diff origin/<target-branch>..."${BRANCH}"
     1. CALL: RESOLVE_THREADS for all to_fix[]
     2. CALL: FETCH_OPEN_THREADS(ENCODED, MR_IID) → ALL_THREADS (re-check for new threads from prelude/teammates)
     3. IF: ALL_THREADS=0 → MR is clean → exit loop ✅
-    4. IF: ALL_THREADS>0 → evaluate each (FIX/REJECT) → apply fixes
-    5. CALL: COMMIT → PUSH → POST_THREAD_REPLIES → RESOLVE_THREADS
-    6. DO: reset POLL=0 → continue polling (fixes may break pipeline)
+    4. IF: ALL_THREADS>0 → evaluate each (FIX/REJECT)
+    5. CALL: WORKTREE_SETUP(repo-path, CURRENT_BRANCH, target-branch) → WORK_DIR
+    6. DO: apply fixes inside WORK_DIR
+    7. CALL: COMMIT(WORK_DIR, ...) → PUSH(WORK_DIR, CURRENT_BRANCH) → WORKTREE_TEARDOWN(repo-path, WORKTREE_DIR) → POST_THREAD_REPLIES → RESOLVE_THREADS
+    8. DO: reset POLL=0 → continue polling (fixes may break pipeline)
   - ON_FAILURE:
     1. DO: re-fetch ALL_THREADS → re-evaluate → identify CI failures
-    2. DO: apply fixes
-    3. CALL: COMMIT → PUSH → POST_THREAD_REPLIES
-    4. DO: reset POLL=0 → continue polling
+    2. CALL: WORKTREE_SETUP(repo-path, CURRENT_BRANCH, target-branch) → WORK_DIR
+    3. DO: apply fixes inside WORK_DIR
+    4. CALL: COMMIT(WORK_DIR, ...) → PUSH(WORK_DIR, CURRENT_BRANCH) → WORKTREE_TEARDOWN(repo-path, WORKTREE_DIR) → POST_THREAD_REPLIES
+    5. DO: reset POLL=0 → continue polling
 
 ### Terminal Exits
 

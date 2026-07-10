@@ -223,8 +223,9 @@ For each `- [ ]` item, severity order (critical → high → medium → low):
 | SAST | Code change at `file:start_line` |
 | Container Scanning | Update `FROM` in `Dockerfile` |
 
-Verify after each fix (run from the repo directory):
+Verify after each fix (run from `WORK_DIR` \u2014 **never from `REPO_DIR`**):
 ```bash
+cd "${WORK_DIR}"
 ./gradlew test && ./gradlew build   # Gradle
 yarn test && yarn build             # npm/yarn
 ```

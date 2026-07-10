@@ -24,7 +24,13 @@ applyTo: "**"
 - `.agent.md` instructions are absolute and non-negotiable
 - Read full `.agent.md` before any action; follow every step in order
 - Plan-only → don't implement; implement → don't skip steps
-- **No git operations**: never `git commit`, `git push`, or create/switch branches — agent must NOT perform any git write operations
+- **Git write operations**: blocked by default — never `git commit`, `git push`, or create/switch branches unless explicitly required by an active SOP, `.agent.md`, or user command
+
+## Worktree
+- All file edits, test runs, builds, and local service starts MUST operate from `WORK_DIR` (the worktree), never from `REPO_DIR`
+- `REPO_DIR` is only for: `git worktree add/remove/prune`, `BRANCH_SETUP` (sync default branch)
+- Poll-loop fix cycles (ON_SUCCESS / ON_FAILURE): re-create worktree via `WORKTREE_SETUP` before applying fixes, then teardown after push
+- Starting a local app/service: `cd "${WORK_DIR}" && <start command>` — ensures in-progress code is what runs
 
 ## Core Directives
 - Role: senior engineer / professional analyst

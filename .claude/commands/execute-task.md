@@ -51,17 +51,18 @@ Autonomous — never pause to ask user once started.
 ## Phase 3 — Implementation
 
 - LOOP: each task in dependency order
-  - DO: write production code — match conventions (naming, imports, error handling, auth, logging)
+  - DO: write production code inside `WORK_DIR` — match conventions (naming, imports, error handling, auth, logging)
   - IF: UI task → verify layout/spacing/colour vs Figma before marking
   - DO: mark `[x]` in `task-NNN.md`
   - DO: write/update test — mirror adjacent test structure; happy path min; reuse test utilities
-  - DO: run tests; fix all failures before next
+  - DO: run tests from `WORK_DIR`: `cd "${WORK_DIR}" && <test command>`; fix all failures before next
   - DO: mark test `[x]`
 - IF: file not listed in `task-NNN.md` → STOP: do not create/modify
 
 ## Phase 4 — Verification
 
-- DO: run full test suite for affected modules; fix regressions
+- DO: run full test suite from `WORK_DIR`: `cd "${WORK_DIR}" && <test command>`; fix regressions
+- IF: local service verification needed → start from `WORK_DIR` (e.g. `cd "${WORK_DIR}" && ./gradlew bootRun`)
 - LOOP: each Done When item
   - IF: satisfied → mark `[x]` + `<!-- verified YYYY-MM-DD -->`
   - IF: blocked → mark `[ ]` + `<!-- blocked: <reason> -->`
@@ -86,14 +87,16 @@ Autonomous — never pause to ask user once started.
     1. CALL: FETCH_OPEN_THREADS(ENCODED, MR_IID) → ALL_THREADS
     2. IF: ALL_THREADS=0 → MR is clean → exit loop ✅
     3. IF: ALL_THREADS>0 → evaluate each (FIX/REJECT)
-    4. DO: apply fixes
-    5. CALL: COMMIT → PUSH → POST_THREAD_REPLIES → RESOLVE_THREADS
-    6. DO: reset POLL=0 → continue polling (fixes may break pipeline)
+    4. CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORK_DIR
+    5. DO: apply fixes inside WORK_DIR
+    6. CALL: COMMIT(WORK_DIR, ...) → PUSH(WORK_DIR, BRANCH) → WORKTREE_TEARDOWN(REPO_DIR, WORKTREE_DIR) → POST_THREAD_REPLIES → RESOLVE_THREADS
+    7. DO: reset POLL=0 → continue polling (fixes may break pipeline)
   - ON_FAILURE:
     1. DO: inspect CI logs → identify failing jobs/tests
-    2. DO: apply fixes
-    3. CALL: COMMIT → PUSH
-    4. DO: reset POLL=0 → continue polling
+    2. CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORK_DIR
+    3. DO: apply fixes inside WORK_DIR
+    4. CALL: COMMIT(WORK_DIR, ...) → PUSH(WORK_DIR, BRANCH) → WORKTREE_TEARDOWN(REPO_DIR, WORKTREE_DIR)
+    5. DO: reset POLL=0 → continue polling
 
 ### 5c — Terminal Exits
 

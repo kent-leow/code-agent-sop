@@ -113,6 +113,11 @@ echo "Worktree ready: ${WORKTREE_DIR} (branch: ${BRANCH})"
 
 - DO: All subsequent file edits, test runs, and build commands must operate inside `WORK_DIR`
 - DO: Pass `WORK_DIR` (not `REPO_DIR`) to COMMIT and PUSH
+- DO: When starting any local app/service for verification, run from `WORK_DIR` — **never from `REPO_DIR`** — so it reflects the in-progress changes:
+  ```bash
+  cd "${WORK_DIR}"
+  # e.g. ./gradlew bootRun  |  yarn dev  |  npm start  |  ./mvnw spring-boot:run
+  ```
 
 ---
 

@@ -114,7 +114,10 @@ Fetched: {DATE_DISPLAY} | Raw: {N} | Grouped: {G}
 | SAST | Code change at `file:start_line` |
 | Container Scanning | Update `FROM` in Dockerfile |
 
-  - DO: apply fix; run verify (`./gradlew test && build` or `yarn test && build`)
+  - DO: apply fix inside `WORK_DIR`; run verify from `WORK_DIR`:
+    - Gradle: `cd "${WORK_DIR}" && ./gradlew test && ./gradlew build`
+    - npm/yarn: `cd "${WORK_DIR}" && yarn test && yarn build`
+    - (**never run verify from `REPO_DIR`**)
   - IF: build fails → revert, mark `DEFERRED: {reason}`
   - IF: false positive → mark `SKIPPED`, dismiss via GraphQL `vulnerabilitiesDismiss`
   - DO: write `fix-{NNN}.md` in OUT_DIR; check off in OUT_FILE

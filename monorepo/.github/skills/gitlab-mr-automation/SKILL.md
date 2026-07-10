@@ -105,6 +105,8 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
 ## Phase 2 — Code Changes
 
 > Agent makes code changes between Phase 1 and Phase 3. All edits MUST target files inside `WORK_DIR` (the worktree), not `REPO_DIR`. This skill does NOT implement code — it orchestrates the git workflow.
+>
+> When running local apps/services for verification: `cd "${WORK_DIR}"` first — never start from `REPO_DIR`.
 
 6. IF: No code changes made → STOP: "No changes to commit."
 
