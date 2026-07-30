@@ -6,19 +6,17 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
 
 # gitlab-mr-automation
 
-> Self-contained GitLab automation: ticket → branch → code → commit → push → MR → poll until pipeline=success AND open_threads=0.
+> Self-contained: ticket → branch → worktree → code → commit → push → MR → poll until pipeline=success AND open_threads=0.
 
 ## Globals
 
 | Variable | Value |
 |---|---|
 | GitLab host | `sgts.gitlab-dedicated.com` |
-| GitLab token | `$GITLAB_TOKEN` |
-| Absolute binaries | `/usr/bin/curl`, `/usr/bin/jq`, `/usr/bin/git` |
+| Token | `$GITLAB_TOKEN` |
+| Binaries | `/usr/bin/curl`, `/usr/bin/jq`, `/usr/bin/git` |
 | Max polls | 20 |
 | Max consecutive failures | 3 → `BLOCKED` |
-
----
 
 ## Input → Output
 
@@ -26,390 +24,139 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
 |---|---|---|
 | `REPO_DIR` | ✓ | Absolute path to repo |
 | `BRANCH_PATTERN` | ✓ | Pattern with `{TICKET}` placeholder |
-| `TICKET_NUM` | | Extracted from jira.json/branch if omitted |
-| `COMMIT_MSG` | ✓ | Initial commit message |
+| `TICKET_NUM` | | Auto-resolved if omitted |
+| `COMMIT_MSG` | ✓ | Commit message |
 | `MR_TITLE` | ✓ | Merge request title |
-| `MR_BODY` | | MR description (optional) |
 
 | Output | Description |
 |---|---|
-| `WORKTREE_DIR` | Isolated worktree path for this session |
-| `MR_URL` | Created/existing MR link |
+| `WORKTREE_DIR` | Isolated worktree path |
+| `MR_URL` | MR link |
 | `STATUS` | SUCCESS / BLOCKED / TIMEOUT |
-
-### Branch Pattern Examples
-
-| Context | Pattern |
-|---|---|
-| Task implementation | `GOBIZWKST2-{TICKET}-{kebab-task-title}` |
-| Vulnerability fixes | `GOBIZWKST2-{TICKET}-Fix-Vulnerability-{YYYYMMDD}` |
-| Hotfix | `GOBIZWKST2-{TICKET}-hotfix-{description}` |
 
 ---
 
 ## Phase 1 — Setup
 
-1. DO: Token pre-flight
-   ```bash
-   echo "GitLab token: $([ -n "${GITLAB_TOKEN}" ] && echo OK || echo MISSING)"
-   ```
-   - IF: MISSING → STOP: "Set GITLAB_TOKEN environment variable"
-
-2. DO: Resolve `ENCODED` project path
-   ```bash
-   cd "${REPO_DIR}"
-   REMOTE_URL=$(/usr/bin/git remote get-url origin)
-   PROJECT_PATH=$(echo "${REMOTE_URL}" | sed -E 's|.*gitlab[^/]*/||; s|\.git$||')
-   ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${PROJECT_PATH}', safe=''))")
-   ```
-
-3. DO: Resolve ticket number (stop at first hit)
-   1. Caller-supplied `TICKET_NUM`
-   2. `jira.json` → read `.ticket` → extract numeric part
-   3. Current branch → parse `GOBIZWKST2-(\d+)`
-      ```bash
-      TICKET_NUM=$(/usr/bin/git rev-parse --abbrev-ref HEAD 2>/dev/null \
-        | grep -oE 'GOBIZWKST2-[0-9]+' | grep -oE '[0-9]+' || true)
-      ```
-   4. IF: still empty → STOP: ask user for GOBIZWKST2 ticket number
-
-4. STORE: `BRANCH` = substitute `{TICKET}` in `BRANCH_PATTERN` with `GOBIZWKST2-${TICKET_NUM}`
-
-5. DO: Create isolated worktree (never checkout in main repo — supports parallel sessions)
-   ```bash
-   cd "${REPO_DIR}"
-   REPO_NAME=$(basename "${REPO_DIR}")
-   WORKTREE_DIR="${TMPDIR:-/tmp}/worktrees/${REPO_NAME}/${BRANCH}"
-
-   # Remove stale worktree at same path (handles crashed/restarted sessions)
-   if [ -d "${WORKTREE_DIR}" ]; then
-     /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
-     rm -rf "${WORKTREE_DIR}" 2>/dev/null || true
-   fi
-
-   # Create worktree — reuse existing remote branch or branch from default
-   if /usr/bin/git branch -a | grep -qE "(remotes/origin/|^  )${BRANCH}(\s|$)"; then
-     /usr/bin/git worktree add "${WORKTREE_DIR}" "${BRANCH}" 2>/dev/null || \
-       /usr/bin/git worktree add "${WORKTREE_DIR}" -b "${BRANCH}" "origin/${BRANCH}"
-     cd "${WORKTREE_DIR}" && /usr/bin/git pull origin "${BRANCH}" 2>/dev/null || true
-   else
-     /usr/bin/git worktree add -b "${BRANCH}" "${WORKTREE_DIR}" "${DEFAULT_BRANCH}"
-   fi
-
-   echo "Worktree ready: ${WORKTREE_DIR} (branch: ${BRANCH})"
-   ```
-   - DO: Set `WORK_DIR="${WORKTREE_DIR}"` — all file edits happen inside `WORK_DIR`
+1. Token pre-flight: `[ -n "$GITLAB_TOKEN" ] && echo OK || echo MISSING`
+2. Resolve ENCODED project path from `git remote get-url origin`
+3. Resolve ticket: caller → `jira.json` → current branch regex → ask user
+4. `BRANCH` = substitute `{TICKET}` → `GOBIZWKST2-${TICKET_NUM}`
+5. Create worktree:
+```bash
+cd "${REPO_DIR}"
+REPO_NAME=$(basename "${REPO_DIR}")
+WORKTREE_DIR="${TMPDIR:-/tmp}/worktrees/${REPO_NAME}/${BRANCH}"
+[ -d "${WORKTREE_DIR}" ] && { /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true; rm -rf "${WORKTREE_DIR}" 2>/dev/null || true; }
+if /usr/bin/git branch -a | grep -qE "(remotes/origin/|^  )${BRANCH}(\s|$)"; then
+  /usr/bin/git worktree add "${WORKTREE_DIR}" "${BRANCH}" 2>/dev/null || \
+    /usr/bin/git worktree add "${WORKTREE_DIR}" -b "${BRANCH}" "origin/${BRANCH}"
+  cd "${WORKTREE_DIR}" && /usr/bin/git pull origin "${BRANCH}" 2>/dev/null || true
+else
+  /usr/bin/git worktree add -b "${BRANCH}" "${WORKTREE_DIR}" "${DEFAULT_BRANCH}"
+fi
+WORK_DIR="${WORKTREE_DIR}"
+```
 
 ---
 
 ## Phase 2 — Code Changes
 
-> Agent makes code changes between Phase 1 and Phase 3. All edits MUST target files inside `WORK_DIR` (the worktree), not `REPO_DIR`. This skill does NOT implement code — it orchestrates the git workflow.
->
-> When running local apps/services for verification: `cd "${WORK_DIR}"` first — never start from `REPO_DIR`.
+> Agent implements between Phase 1 and 3. All edits in `WORK_DIR` only. Local services: `cd "${WORK_DIR}"` first.
 
-6. IF: No code changes made → STOP: "No changes to commit."
+IF: no changes → STOP.
 
 ---
 
 ## Phase 3 — Commit & Push
 
-7. DO: Commit changes (inside worktree)
-   ```bash
-   cd "${WORK_DIR}"
-   /usr/bin/git add -A
+```bash
+cd "${WORK_DIR}" && /usr/bin/git add -A
+if ! /usr/bin/git diff --cached --quiet; then
+  /usr/bin/git commit -m "${COMMIT_MSG}"; COMMITTED=true
+else
+  COMMITTED=false
+fi
+```
+IF: `COMMITTED=false` → STOP.
 
-   if ! /usr/bin/git diff --cached --quiet; then
-     /usr/bin/git commit -m "${COMMIT_MSG}"
-     COMMIT_SHA=$(/usr/bin/git rev-parse --short HEAD)
-     COMMITTED=true
-     echo "Committed ${COMMIT_SHA}"
-   else
-     COMMITTED=false
-     echo "Nothing to commit — working tree clean."
-   fi
-   ```
-
-8. IF: `COMMITTED=false` → STOP: "Nothing to commit — working tree clean."
-
-9. DO: Push to remote (never force-push)
-   ```bash
-   cd "${WORK_DIR}"
-   /usr/bin/git push origin "${BRANCH}"
-   echo "Pushed: ${BRANCH}"
-   ```
-   - IF: non-fast-forward failure →
-     ```bash
-     /usr/bin/git pull --rebase origin "${BRANCH}"
-     /usr/bin/git push origin "${BRANCH}"
-     ```
-
-10\. DO: Teardown worktree
-    ```bash
-    cd "${REPO_DIR}"
-    /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
-    /usr/bin/git worktree prune
-    echo "Worktree removed: ${WORKTREE_DIR}"
-    ```
+```bash
+cd "${WORK_DIR}" && /usr/bin/git push origin "${BRANCH}"
+cd "${REPO_DIR}" && /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true && /usr/bin/git worktree prune
+```
+IF: non-fast-forward → `git pull --rebase` then retry push.
 
 ---
 
 ## Phase 4 — Merge Request
 
-11. DO: Create or find existing MR
-    ```bash
-    EXISTING=$(/usr/bin/curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-      "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/merge_requests?state=opened&source_branch=${BRANCH}" \
-      | /usr/bin/jq '.[0]')
-
-    MR_IID=$(echo "${EXISTING}" | /usr/bin/jq -r '.iid // empty')
-
-    if [ -n "${MR_IID}" ] && [ "${MR_IID}" != "null" ]; then
-      MR_URL=$(echo "${EXISTING}" | /usr/bin/jq -r '.web_url')
-      MR_ACTION="existing"
-      echo "Existing MR !${MR_IID}: ${MR_URL}"
-    else
-      MR_PAYLOAD=$(python3 -c "
-    import json, sys
-    print(json.dumps({
-      'source_branch': '${BRANCH}',
-      'target_branch': '${DEFAULT_BRANCH}',
-      'title': sys.argv[1],
-      'description': sys.argv[2],
-      'remove_source_branch': True
-    }))" "${MR_TITLE}" "${MR_BODY}")
-
-      NEW_MR=$(/usr/bin/curl -s -X POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-        -H "Content-Type: application/json" \
-        "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/merge_requests" \
-        -d "${MR_PAYLOAD}")
-      MR_IID=$(echo "${NEW_MR}" | /usr/bin/jq -r '.iid')
-      MR_URL=$(echo "${NEW_MR}" | /usr/bin/jq -r '.web_url')
-      MR_ACTION="created"
-      echo "MR created !${MR_IID}: ${MR_URL}"
-    fi
-    ```
-
-12. EMIT: `MR ${MR_ACTION}: ${MR_URL}`
+```bash
+EXISTING=$(/usr/bin/curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+  "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/merge_requests?state=opened&source_branch=${BRANCH}" | /usr/bin/jq '.[0]')
+MR_IID=$(echo "$EXISTING" | /usr/bin/jq -r '.iid // empty')
+```
+IF: exists → reuse. ELSE: `POST .../merge_requests` with `source_branch`, `target_branch`, `title`, `remove_source_branch: true`.
 
 ---
 
 ## Phase 5 — Poll & Fix Loop
 
-> Run to completion without pausing. Terminal exits: SUCCESS, BLOCKED, TIMEOUT.
+Adaptive schedule: 180s → 120s → 90s → 60s → 30s. Reset `POLL=0` after each push.
 
-13. STORE: `POLL=0`, `CONSECUTIVE_FAILURES=0`, `MAX_POLLS=20`
+LOOP: while `POLL < 20`:
+- `success|skipped|manual` → **ON_SUCCESS**
+- `failed|canceled` → increment failures; ≥3 → BLOCKED; else **ON_FAILURE**
+- `running|pending|...` → continue
 
-14. LOOP: while `POLL < MAX_POLLS`
-    ```bash
-    INTERVALS=(180 120 90 60 30)
-    IDX=$(( POLL < ${#INTERVALS[@]} ? POLL : $(( ${#INTERVALS[@]} - 1 )) ))
-    WAIT=${INTERVALS[${IDX}]}
-    echo "[Poll #$(( POLL + 1 ))] Waiting ${WAIT}s — ${MR_URL}"
-    sleep ${WAIT}
-    POLL=$(( POLL + 1 ))
+### ON_SUCCESS
 
-    PIPELINE=$(/usr/bin/curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-      "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/merge_requests/${MR_IID}/pipelines" \
-      | /usr/bin/jq '.[0]')
-    PIPELINE_STATUS=$(echo "${PIPELINE}" | /usr/bin/jq -r '.status')
-    PIPELINE_URL=$(echo "${PIPELINE}" | /usr/bin/jq -r '.web_url')
-    PIPELINE_ID=$(echo "${PIPELINE}" | /usr/bin/jq -r '.id')
-    echo "Pipeline ${PIPELINE_ID}: ${PIPELINE_STATUS} — ${PIPELINE_URL}"
-    ```
-    - IF: `status=success` → goto ON_SUCCESS (Phase 6)
-    - IF: `status=failed|canceled` → `CONSECUTIVE_FAILURES++`
-      - IF: `CONSECUTIVE_FAILURES >= 3` → STOP: "BLOCKED: 3 consecutive failures"
-      - ELSE: goto ON_FAILURE (Phase 7)
-    - IF: `status=running|pending|created|waiting_for_resource|preparing` → continue loop
-    - IF: `status=skipped|manual` → goto ON_SUCCESS (Phase 6)
+1. Fetch open threads (paginate `/discussions?per_page=100`)
+   - Filter: `resolved != true AND system != true`
+   - Inline: `position != null`; General: `position == null AND author not bot`
+2. IF: 0 threads → ✅ SUCCESS
+3. Evaluate: actionable → `to_fix[]`; commentary → `to_reject[]`
+4. IF: only rejections → post replies → SUCCESS
+5. Re-create worktree → apply fixes → commit → push → teardown → post replies → resolve `to_fix[]` → reset poll
+
+### ON_FAILURE
+
+1. Fetch failed job logs: `GET .../pipelines/${PID}/jobs?scope=failed` → trace
+2. Re-create worktree → analyze + fix → commit → push → teardown → reset poll
 
 ---
 
-## Phase 6 — ON_SUCCESS
+## Phase 6 — Terminal States
 
-14. DO: Fetch open threads
-    ```bash
-    PAGE=1; RAW_DISCUSSIONS="[]"
-    while true; do
-      PAGE_DATA=$(/usr/bin/curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-        "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/merge_requests/${MR_IID}/discussions?per_page=100&page=${PAGE}")
-      COUNT=$(echo "${PAGE_DATA}" | /usr/bin/jq 'length')
-      [ "${COUNT}" -eq 0 ] && break
-      RAW_DISCUSSIONS=$(echo "${RAW_DISCUSSIONS} ${PAGE_DATA}" | /usr/bin/jq -s 'add')
-      PAGE=$(( PAGE + 1 ))
-    done
-
-    INLINE_THREADS=$(echo "${RAW_DISCUSSIONS}" | /usr/bin/jq '[
-      .[] | select(
-        .resolved != true and
-        .notes[0].system != true and
-        .notes[0].position != null
-      ) | {
-        id: .id, note_id: .notes[0].id, author: .notes[0].author.username,
-        body: .notes[0].body, file: .notes[0].position.new_path,
-        line: .notes[0].position.new_line, replies: [.notes[1:][]], type: "inline"
-      }
-    ]')
-
-    GENERAL_THREADS=$(echo "${RAW_DISCUSSIONS}" | /usr/bin/jq '[
-      .[] | select(
-        .resolved != true and
-        .notes[0].system != true and
-        .notes[0].position == null and
-        (.notes[0].author.username | test("bot|pipeline|ci|scanner|gitlab"; "i") | not)
-      ) | {
-        id: .id, note_id: .notes[0].id, author: .notes[0].author.username,
-        body: .notes[0].body, file: null, line: null, replies: [.notes[1:][]], type: "general"
-      }
-    ]')
-
-    ALL_THREADS=$(echo "${INLINE_THREADS} ${GENERAL_THREADS}" | /usr/bin/jq -s 'add // []')
-    THREAD_COUNT=$(echo "${ALL_THREADS}" | /usr/bin/jq 'length')
-    echo "Open threads: ${THREAD_COUNT}"
-    ```
-    - Note: Prelude/bot threads included — treat same as human reviewer
-
-15. IF: `THREAD_COUNT == 0` → EMIT: "✅ MR ready: pipeline green, no open threads" → STOP: SUCCESS
-
-16. DO: Evaluate each thread (human AND prelude/bot)
-    - Actionable code request → `to_fix[]`
-    - Commentary/question/out-of-scope → `to_reject[]`
-
-17. IF: `to_fix.length == 0` AND `to_reject.length > 0`:
-    - DO: Post rejection replies (see Reply section)
-    - EMIT: "✅ MR ready: pipeline green, remaining threads rejected"
-    - STOP: SUCCESS
-
-18. LOOP: each thread in `to_fix[]`
-    - DO: Re-create worktree for feature branch (torn down after Phase 3)
-      ```bash
-      WORKTREE_DIR="${TMPDIR:-/tmp}/worktrees/${REPO_NAME}/${BRANCH}"
-      if [ -d "${WORKTREE_DIR}" ]; then
-        /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
-        rm -rf "${WORKTREE_DIR}" 2>/dev/null || true
-      fi
-      cd "${REPO_DIR}" && /usr/bin/git worktree add "${WORKTREE_DIR}" "${BRANCH}"
-      cd "${WORKTREE_DIR}" && /usr/bin/git pull origin "${BRANCH}" 2>/dev/null || true
-      WORK_DIR="${WORKTREE_DIR}"
-      ```
-    - DO: Apply fix (agent implements inside WORK_DIR)
-    - STORE: fix details for commit message
-
-19. DO: Commit fix
-    ```bash
-    cd "${WORK_DIR}"
-    /usr/bin/git add -A
-    /usr/bin/git commit -m "fix: address review comments"
-    ```
-
-20. DO: Push
-    ```bash
-    cd "${WORK_DIR}"
-    /usr/bin/git push origin "${BRANCH}"
-    ```
-
-20a. DO: Teardown worktree
-     ```bash
-     cd "${REPO_DIR}" && /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
-     /usr/bin/git worktree prune
-     ```
-
-21. DO: Post thread replies (BEFORE resuming poll)
-    - Fixed thread reply: `Fixed — <one sentence: what changed and where>.`
-    - Rejected thread reply: `Not applying — <reason title>\n\n<1-2 sentences why.>\n\nReason: <out of scope | reviewer misread | would break contract | style preference | needs author clarification>`
-    ```bash
-    /usr/bin/curl -s -X POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "Content-Type: application/json" \
-      "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/merge_requests/${MR_IID}/discussions/${THREAD_ID}/notes" \
-      -d '{"body":"'"${REPLY_BODY}"'"}'
-    ```
-
-22. DO: Resolve fixed threads (only `to_fix[]`)
-    ```bash
-    /usr/bin/curl -s -X PUT -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-      "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/merge_requests/${MR_IID}/discussions/${THREAD_ID}?resolved=true" \
-      | /usr/bin/jq -r '.resolved'
-    ```
-
-23. STORE: `POLL=0`, `CONSECUTIVE_FAILURES=0` → goto LOOP (step 13)
+| Condition | Status |
+|---|---|
+| Pipeline success + 0 open threads | SUCCESS |
+| Only rejected threads remain | SUCCESS |
+| 3 consecutive pipeline failures | BLOCKED |
+| 20 polls exceeded | TIMEOUT |
 
 ---
 
-## Phase 7 — ON_FAILURE
+## Reply Templates
 
-24. DO: Fetch failed job logs
-    ```bash
-    FAILED_JOBS=$(/usr/bin/curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-      "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/pipelines/${PIPELINE_ID}/jobs?scope=failed" \
-      | /usr/bin/jq -r '.[].id')
-    for JOB_ID in ${FAILED_JOBS}; do
-      /usr/bin/curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-        "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/jobs/${JOB_ID}/trace" \
-        | tail -100
-    done
-    ```
+- **Fixed:** `Fixed — <what changed and where>.`
+- **Rejected:** `Not applying — <reason>\n\n<1-2 sentences.>\n\nReason: <out of scope | misread | would break contract | style preference | needs clarification>`
 
-25. DO: Re-create worktree for pipeline fix
-    ```bash
-    WORKTREE_DIR="${TMPDIR:-/tmp}/worktrees/${REPO_NAME}/${BRANCH}"
-    if [ -d "${WORKTREE_DIR}" ]; then
-      /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
-      rm -rf "${WORKTREE_DIR}" 2>/dev/null || true
-    fi
-    cd "${REPO_DIR}" && /usr/bin/git worktree add "${WORKTREE_DIR}" "${BRANCH}"
-    cd "${WORKTREE_DIR}" && /usr/bin/git pull origin "${BRANCH}" 2>/dev/null || true
-    WORK_DIR="${WORKTREE_DIR}"
-    ```
-
-26. DO: Analyze failure → apply fix (agent implements inside WORK_DIR)
-
-27. DO: Commit and push fix
-    ```bash
-    cd "${WORK_DIR}"
-    /usr/bin/git add -A
-    /usr/bin/git commit -m "fix: resolve pipeline failure"
-    /usr/bin/git push origin "${BRANCH}"
-    ```
-
-27a. DO: Teardown worktree
-     ```bash
-     cd "${REPO_DIR}" && /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
-     /usr/bin/git worktree prune
-     ```
-
-27. STORE: `POLL=0` (keep `CONSECUTIVE_FAILURES`) → goto LOOP (step 13)
-
----
-
-## Commit Message Templates
+## Commit Templates
 
 | Context | Template |
 |---|---|
-| Initial implementation | `feat({scope}): {task title} [GOBIZWKST2-{TICKET}]` |
+| Implementation | `feat({scope}): {title} [GOBIZWKST2-{TICKET}]` |
 | Review fix | `fix: address review comments` |
 | Pipeline fix | `fix: resolve pipeline failure` |
-| Vulnerability fix | `[GOBIZWKST2-{TICKET}] Vulnerability Fixes - {pkg}@old → new` |
-
----
-
-## Terminal States
-
-| Condition | Status | Action |
-|---|---|---|
-| Pipeline success + 0 open threads | SUCCESS | Done |
-| Pipeline success + only rejected threads | SUCCESS | Done |
-| 3 consecutive pipeline failures | BLOCKED | Stop, report |
-| 20 polls exceeded | TIMEOUT | Stop, report |
-
----
+| Vuln fix | `[GOBIZWKST2-{TICKET}] Vulnerability Fixes - {changelog}` |
 
 ## Constraints
 
-- Use absolute paths: `/usr/bin/curl`, `/usr/bin/jq`, `/usr/bin/git`
+- Absolute paths: `/usr/bin/curl`, `/usr/bin/jq`, `/usr/bin/git`
 - Never force-push
-- Never commit secrets/tokens/credentials
+- Never commit secrets/tokens
 - Never auto-approve or auto-merge
-- Post thread replies BEFORE pipeline wait resumes
+- Post replies BEFORE pipeline wait resumes
 - Resolve only `to_fix[]` — leave `to_reject[]` open
-- Run full loop to completion — no user prompts mid-workflow
-- Paginate all list API calls until response length is 0
+- Run full loop without pausing
+- Paginate all API calls until empty

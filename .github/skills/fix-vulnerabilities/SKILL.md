@@ -8,50 +8,34 @@ argument-hint: '<gitlab-mr-url | repo-name>'
 
 Fetch all vulnerability findings (critical-low) from GitLab. No git ops — structured report only.
 
-## Sandbox Note
+## Config
 
-All `curl`/`jq` commands run with `dangerouslyDisableSandbox: true`.
-Use absolute paths: `/usr/bin/curl`, `/usr/bin/jq`, `/usr/bin/mktemp`, `/bin/rm`.
-
----
-
-## Prerequisite
-
-- DO: Check token
-```bash
-echo "Token: $([ -n "$GITLAB_TOKEN" ] && echo YES || echo MISSING)"
-```
-Scope needed: `read_api`. Create at `sgts.gitlab-dedicated.com → User Settings → Access Tokens`.
-
----
+- Binaries: `/usr/bin/curl`, `/usr/bin/jq`, `/usr/bin/mktemp`, `/bin/rm`
+- Token: `$GITLAB_TOKEN` (scope: `read_api`)
+- Instance: `sgts.gitlab-dedicated.com`
 
 ## Repo Map
 
-| Short name | Local path | GitLab project path (URL-encoded) |
-|---|---|---|
-| `molb-agency-portal-web` | `molb-agency-portal-web/` | `wog%2Fgvt%2Fgobiz%2Fmolb-gobusiness%2Fmolb-agency-portal%2Fmolb-agency-portal-web` |
-| `molb-agency-portal-backend` | `molb-agency-portal-backend/` | `wog%2Fgvt%2Fgobiz%2Fmolb-gobusiness%2Fmolb-agency-portal%2Fmolb-agency-portal-backend` |
-| `molb-formbuilder-backend` | `molb-formbuilder-backend/` | `wog%2Fgvt%2Fgobiz%2Fmolb-gobusiness%2Fmolb-l1t%2Fmolb-formbuilder-backend` |
-| `molb-lab-web` | `molb-lab-web/` | `wog%2Fgvt%2Fgobiz%2Fmolb-gobusiness%2Fmolb-l1t%2Fmolb-lab-web` |
+| Short name | GitLab path (URL-encoded) |
+|---|---|
+| `molb-agency-portal-web` | `wog%2Fgvt%2Fgobiz%2Fmolb-gobusiness%2Fmolb-agency-portal%2Fmolb-agency-portal-web` |
+| `molb-agency-portal-backend` | `wog%2Fgvt%2Fgobiz%2Fmolb-gobusiness%2Fmolb-agency-portal%2Fmolb-agency-portal-backend` |
+| `molb-formbuilder-backend` | `wog%2Fgvt%2Fgobiz%2Fmolb-gobusiness%2Fmolb-l1t%2Fmolb-formbuilder-backend` |
+| `molb-lab-web` | `wog%2Fgvt%2Fgobiz%2Fmolb-gobusiness%2Fmolb-l1t%2Fmolb-lab-web` |
 
 ---
 
 ## Steps
 
-- DO: Resolve project path
-  - IF: GitLab MR URL provided → extract project path from URL, URL-encode it
-    ```
-    https://sgts.gitlab-dedicated.com/<namespace>/<repo>/-/merge_requests/<id>
-    → PROJECT_PATH = URL-encode("<namespace>/<repo>")
-    ```
-  - IF: No URL → ask user to select repo from table (one question only)
-  - STOP: Do not ask about severity, Jira tickets, or branch names
+1. **Resolve project path**
+   - IF: GitLab MR URL → extract + URL-encode project path
+   - IF: no URL → ask user to select from repo map
+   - STOP: Do not ask about severity, tickets, or branches
 
-- DO: Fetch all severities in one pass (paginate until empty)
+2. **Fetch all severities** (paginate until empty)
 ```bash
 tmpfile=$(/usr/bin/mktemp)
 all_results="[]"
-
 for SEV in critical high medium low; do
   page=1
   while true; do
@@ -63,58 +47,29 @@ for SEV in critical high medium low; do
     page=$((page + 1))
   done
 done
-
 echo "$all_results" > "$tmpfile"
 ```
-API note: `state[]=detected` and `scope=detected` return 0 in this GitLab version. Fetch all, filter with jq.
+   API note: `state[]=detected` returns 0 on this version; fetch all, filter with jq.
 
-- DO: Extract details and output report
+3. **Extract + report**
 ```bash
 /usr/bin/jq '[.[] | select(.state == "detected") | {
-  id,
-  name,
-  severity,
-  state,
-  scanner: .scanner.name,
-  file: .location.file,
-  start_line: .location.start_line,
+  id, name, severity, scanner: .scanner.name,
+  file: .location.file, start_line: .location.start_line,
   dependency_pkg: .location.dependency.package.name,
   dependency_ver: .location.dependency.version,
-  fixed_version: (.identifiers[] | select(.type == "semver") | .value) // null,
-  solution,
-  description,
-  identifiers: [.identifiers[].name],
-  links: [.links[].url]
-}] | group_by(.severity) | map({
-  severity: .[0].severity,
-  count: length,
-  findings: .
-})' "$tmpfile"
-
+  solution, identifiers: [.identifiers[].name]
+}] | group_by(.severity) | map({severity: .[0].severity, count: length, findings: .})' "$tmpfile"
 /bin/rm -f "$tmpfile"
 ```
 
-- EMIT: Print summary
-```
-Vulnerability report — <repo> — <YYYY-MM-DD>
-
-CRITICAL: <N>
-HIGH:     <N>
-MEDIUM:   <N>
-LOW:      <N>
-TOTAL:    <N> detected
-
-<Full JSON output>
-```
-
-- STOP: Do not apply fixes, run tests, run builds, or execute any git commands.
-
----
+4. **EMIT summary** — repo, date, counts per severity, full JSON
+5. **STOP** — do not apply fixes, run tests, or execute git commands
 
 ## Errors
 
 | Symptom | Fix |
 |---|---|
-| All counts = 0 | Remove `state[]=detected` filter; use jq select instead |
-| 403 on API | Token needs `read_api` scope |
-| Pagination loop hangs | Cap at page 10 as safety limit |
+| All counts = 0 | Remove `state[]=detected` filter; use jq select |
+| 403 | Token needs `read_api` scope |
+| Pagination hangs | Cap at page 10 |
