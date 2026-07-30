@@ -37,7 +37,9 @@ IF: multiple URLs → LOOP sequentially; failure on one → log + continue.
 
 ## Step 3 — Evaluate Each Thread
 
-- LOOP: each thread → decide FIX or REJECT:
+- LOOP: each thread:
+  - IF: last note author is **you** AND thread is unresolved → **RESOLVE only**, skip evaluation
+  - ELSE: decide FIX or REJECT:
 
 | FIX when | REJECT when |
 |---|---|
@@ -55,6 +57,20 @@ IF: multiple URLs → LOOP sequentially; failure on one → log + continue.
 
 - CALL: COMMIT(WORK_DIR, `fix: address review comments`) → PUSH → WORKTREE_TEARDOWN
 - CALL: POST_THREAD_REPLIES for all FIX + REJECT items
+
+### Thread Reply Rules
+
+| Condition | Action |
+|---|---|
+| Last note in thread is **from you** | **EDIT** that note (PUT) — do NOT post a new reply |
+| Last note is from someone else | POST reply as normal |
+| Thread already replied by you but unresolved | **RESOLVE only** — do not re-evaluate or re-reply |
+
+**Edit existing note:**
+- GitLab: `PUT .../merge_requests/${MR_IID}/discussions/${discussion_id}/notes/${note_id}` → `{"body":"<updated>"}`
+- GitHub: `PATCH /repos/{owner}/{repo}/pulls/comments/${comment_id}` → `{"body":"<updated>"}`
+
+**Mandatory resolve:** Every thread you've addressed (FIX or REJECT) MUST be resolved immediately after reply/edit. Never leave a thread open after acting on it.
 
 ## Step 6 — Poll Until Clean
 
@@ -84,3 +100,5 @@ IF: multiple URLs → LOOP sequentially; failure on one → log + continue.
 - Never commit secrets; never force-push
 - Rejection reasons must be specific
 - Do not auto-approve or auto-merge
+- Never reply to your own last message — edit it instead
+- Never leave a thread open after you've acted on it — always resolve
