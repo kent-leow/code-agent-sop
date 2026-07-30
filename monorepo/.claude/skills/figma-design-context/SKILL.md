@@ -6,31 +6,19 @@ argument-hint: '<figma-url-or-file-key> [--node-id <nodeId>]'
 
 # figma-design-context
 
-Extract design context from Figma using the **REST API** with `FIGMA_TOKEN`.
-
----
+Extract design context from Figma using **REST API** with `FIGMA_TOKEN`.
 
 ## Prerequisites
 
 ```bash
-echo $FIGMA_TOKEN  # If empty, see Credential Setup below
+echo $FIGMA_TOKEN  # If empty, see ~/.zshenv
 ```
-
----
 
 ## URL Parsing
 
 `https://www.figma.com/design/AbCdEfGhIj/My-Project?node-id=2313-102848`
 - `fileKey` = `AbCdEfGhIj` (segment after `/design/`)
-- `nodeId` = `2313:102848` (query param `node-id`, convert `-` → `:`)
-
-URL types:
-| URL Pattern | Type |
-|-------------|------|
-| `figma.com/design/...` | Design file |
-| `figma.com/file/...` | Design file (legacy) |
-| `figma.com/board/...` | FigJam |
-| `figma.com/slides/...` | Slides |
+- `nodeId` = `2313:102848` (query param, convert `-` → `:`)
 
 ---
 
@@ -40,14 +28,12 @@ URL types:
 ```bash
 bash .github/skills/figma-design-context/scripts/get-metadata.sh --file-key <fileKey>
 ```
-Lists pages, top-level frames with node IDs and dimensions.
 
-### Step 2: Screenshot (visual reference)
+### Step 2: Screenshot
 ```bash
 bash .github/skills/figma-design-context/scripts/get-screenshot.sh \
   --file-key <fileKey> --node-id <nodeId> --scale 2 --output ./figma-screenshot.png
 ```
-Then `view_image ./figma-screenshot.png`. Auto-resizes to 8000px limit.
 
 ### Step 3: Full Design Spec
 ```bash
@@ -56,147 +42,96 @@ bash .github/skills/figma-design-context/scripts/get-design-context.sh \
 ```
 Flags: `--depth N` (3-5 for large frames), `--geometry` (vector paths)
 
-### Step 4: Summarize Spec
+### Step 4: Summarize
 ```bash
 bash .github/skills/figma-design-context/scripts/summarize-context.sh \
   --input ./figma-context.json [--depth 5]
 ```
-Outputs: frame dimensions, node-type breakdown, typography, colors, auto-layout, component instances.
 
 ### Step 5: Implement UI
-1. Find existing project components matching Figma INSTANCE nodes — reuse over creating new
-2. Map fills → design tokens/CSS variables/Tailwind classes
-3. Map `layoutMode`/`primaryAxisAlignItems`/`counterAxisAlignItems`/`itemSpacing` → flexbox
+1. Reuse existing project components matching Figma INSTANCE nodes
+2. Map fills → design tokens/CSS variables/Tailwind
+3. Map `layoutMode`/`primaryAxisAlignItems`/`itemSpacing` → flexbox
 4. Map `paddingLeft/Right/Top/Bottom` → padding utilities
-5. Map `cornerRadius` → `rounded-*` or `border-radius`
+5. Map `cornerRadius` → border-radius
 
 ---
 
-## UI Flow Workflow — Screen Transitions
+## UI Flow Workflow
 
-### Full Page Tree
 ```bash
+# Full page tree
 bash .github/skills/figma-design-context/scripts/get-page-full.sh \
   --file-key <fileKey> --page-id <pageId> [--depth 10] --output ./figma-page.json
-```
-Run `get-metadata.sh` first to find `pageId`.
 
-### Extract Flow Graph
-```bash
+# Flow graph (connectors + prototype interactions)
 bash .github/skills/figma-design-context/scripts/get-flow.sh \
-  --file-key <fileKey> [--page-id <pageId>] [--depth 6] --output ./figma-flow.json
+  --file-key <fileKey> [--page-id <pageId>] --output ./figma-flow.json
 ```
-Extracts CONNECTOR nodes + prototype interactions (trigger → action → destination).
 
 ---
 
-## Design System Workflows
+## Design System
 
-### Components & Variants
 ```bash
-bash .github/skills/figma-design-context/scripts/get-components.sh \
-  --file-key <fileKey> --output ./figma-components.json
-```
+# Components & variants
+bash .github/skills/figma-design-context/scripts/get-components.sh --file-key <fileKey> --output ./figma-components.json
 
-### Shared Styles (colors, text, effects, grids)
-```bash
+# Shared styles
 bash .github/skills/figma-design-context/scripts/get-styles.sh --file-key <fileKey>
-```
 
-### Design Variables / Tokens
-```bash
-bash .github/skills/figma-design-context/scripts/get-variables.sh \
-  --file-key <fileKey> [--include-published] --output ./figma-variables.json
-```
-Falls back gracefully if plan doesn't support Variables API.
+# Variables / tokens
+bash .github/skills/figma-design-context/scripts/get-variables.sh --file-key <fileKey> [--include-published] --output ./figma-variables.json
 
-### Designer Comments & Annotations
-```bash
-bash .github/skills/figma-design-context/scripts/get-comments.sh \
-  --file-key <fileKey> --output ./figma-comments.json
+# Comments
+bash .github/skills/figma-design-context/scripts/get-comments.sh --file-key <fileKey> --output ./figma-comments.json
 ```
 
 ---
 
-## Asset Export Workflows
+## Asset Export
 
-### Export Images (PNG/JPG/SVG/PDF)
 ```bash
+# Export specific nodes
 bash .github/skills/figma-design-context/scripts/export-assets.sh \
-  --file-key <fileKey> --node-ids "1:2,3:4,5:6" \
-  --format svg --scale 2 --output ./assets/
-```
-Formats: `png` (default), `jpg`, `svg`, `pdf`
-Scale: 0.01–4 (default 1)
+  --file-key <fileKey> --node-ids "1:2,3:4" --format svg --scale 2 --output ./assets/
 
-### Export All Images from Frame
-```bash
+# Export all images from frame
 bash .github/skills/figma-design-context/scripts/export-assets.sh \
   --file-key <fileKey> --node-id <frameId> --all-images --output ./assets/
-```
-Finds all image fills in frame subtree and exports originals.
 
-### Get Image Fills (raw uploaded images)
-```bash
-bash .github/skills/figma-design-context/scripts/get-image-fills.sh \
-  --file-key <fileKey> --output ./image-refs.json
+# Raw uploaded images
+bash .github/skills/figma-design-context/scripts/get-image-fills.sh --file-key <fileKey> --output ./image-refs.json
 ```
-Returns URLs to original uploaded images (not rendered).
+
+Formats: `png` (default), `jpg`, `svg`, `pdf` · Scale: 0.01–4
 
 ---
 
-## Team Library Workflows
+## Team Library
 
-### Team Components
 ```bash
-bash .github/skills/figma-design-context/scripts/get-team-components.sh \
-  --team-id <teamId> --output ./team-components.json
-```
-
-### Team Styles
-```bash
-bash .github/skills/figma-design-context/scripts/get-team-styles.sh \
-  --team-id <teamId> --output ./team-styles.json
-```
-
-### List Team Projects
-```bash
-bash .github/skills/figma-design-context/scripts/get-team-projects.sh \
-  --team-id <teamId> --output ./projects.json
-```
-
-### List Project Files
-```bash
-bash .github/skills/figma-design-context/scripts/get-project-files.sh \
-  --project-id <projectId> --output ./files.json
+bash .github/skills/figma-design-context/scripts/get-team-components.sh --team-id <teamId> --output ./team-components.json
+bash .github/skills/figma-design-context/scripts/get-team-styles.sh --team-id <teamId> --output ./team-styles.json
+bash .github/skills/figma-design-context/scripts/get-team-projects.sh --team-id <teamId> --output ./projects.json
+bash .github/skills/figma-design-context/scripts/get-project-files.sh --project-id <projectId> --output ./files.json
 ```
 
 ---
 
 ## File Management
 
-### Version History
 ```bash
-bash .github/skills/figma-design-context/scripts/get-versions.sh \
-  --file-key <fileKey> --output ./versions.json
-```
+# Version history
+bash .github/skills/figma-design-context/scripts/get-versions.sh --file-key <fileKey> --output ./versions.json
 
-### Post Comment
-```bash
+# Post comment
 bash .github/skills/figma-design-context/scripts/post-comment.sh \
-  --file-key <fileKey> --message "Review this section" \
-  [--node-id <nodeId>] [--x 100 --y 200]
-```
+  --file-key <fileKey> --message "Review this" [--node-id <nodeId>] [--x 100 --y 200]
 
-### Current User Info
-```bash
+# Current user
 bash .github/skills/figma-design-context/scripts/whoami.sh
 ```
-Returns authenticated user's name, email, and ID.
-
----
-
-## API Reference
 
 ### File Operations
 

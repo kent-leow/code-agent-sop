@@ -8,58 +8,48 @@ argument-hint: '<title> [description] [story_points] [parent_key]'
 
 ## Prerequisites
 
-- DO: Check vars: `echo $JIRA_TOKEN $JIRA_BASE_URL $JIRA_PROJECT_KEY $JIRA_EMAIL`
-- IF: any missing → STOP: prompt user
+Check vars: `echo $JIRA_TOKEN $JIRA_BASE_URL $JIRA_PROJECT_KEY $JIRA_EMAIL`
+IF: any missing → STOP.
 
 | Variable | Description |
 |---|---|
-| `JIRA_TOKEN` | Jira API token (Atlassian account settings) |
+| `JIRA_TOKEN` | API token (Atlassian account settings) |
 | `JIRA_BASE_URL` | e.g. `https://your-org.atlassian.net` |
 | `JIRA_PROJECT_KEY` | e.g. `PROJ` |
 | `JIRA_EMAIL` | Atlassian account email |
 
 ---
 
-## Steps
+## Operations
 
-- DO: Gather inputs — Title (required), Description (recommended), Issue type (default: `Story`), Story points (optional), Parent key (for sub-tasks), Labels/components (optional)
+### Create ticket
+```bash
+bash .github/skills/jira-ticket/scripts/create-ticket.sh \
+  --title "Title" --description "..." --issue-type "Story" --story-points 3
+```
+Sub-task: add `--parent "PROJ-123" --issue-type "Sub-task"`
 
-- DO: Resolve story points field
+### Update story points
+```bash
+bash .github/skills/jira-ticket/scripts/update-story-points.sh --issue-key "PROJ-123" --story-points 5
+```
+
+### Get comments
+```bash
+bash .github/skills/jira-ticket/scripts/get-comments.sh --issue-key "GOBIZWKST2-324" [--max-results N]
+```
+
+### Resolve SP field
 ```bash
 bash .github/skills/jira-ticket/scripts/get-fields.sh
 ```
-Use `customfield_10274` (verified) unless script shows otherwise.
+Default: `customfield_10274` (verified).
 
-- DO: Create main ticket
-```bash
-bash .github/skills/jira-ticket/scripts/create-ticket.sh \
-  --title "Your ticket title" \
-  --description "Detailed description" \
-  --issue-type "Story" \
-  --story-points 3
-```
-- STORE: output issue key (e.g. `PROJ-123`)
+---
 
-- IF: sub-tasks needed →
-```bash
-bash .github/skills/jira-ticket/scripts/create-ticket.sh \
-  --title "Sub-task title" --description "..." \
-  --issue-type "Sub-task" --parent "PROJ-123" --story-points 1
-```
+## Persist State
 
-- IF: update story points →
-```bash
-bash .github/skills/jira-ticket/scripts/update-story-points.sh \
-  --issue-key "PROJ-123" --story-points 5
-```
-
-- IF: get comments →
-```bash
-bash .github/skills/jira-ticket/scripts/get-comments.sh \
-  --issue-key "GOBIZWKST2-324" [--max-results N] [--order-by created]
-```
-
-- DO: Persist state to `.docs/<task>/jira.json`
+Write to `.docs/<task>/jira.json`:
 ```json
 {
   "parent": { "key": "GOBIZWKST2-123", "url": "...", "story_points": N },
@@ -67,15 +57,11 @@ bash .github/skills/jira-ticket/scripts/get-comments.sh \
 }
 ```
 
-- EMIT: Report — issue key + URL (`$JIRA_BASE_URL/browse/$ISSUE_KEY`), sub-task keys/URLs, final story points
-
----
-
 ## Errors
 
 | Error | Fix |
 |---|---|
-| `401 Unauthorized` | Verify `JIRA_TOKEN` and `JIRA_EMAIL` |
-| `400 Bad Request` | Issue type is case-sensitive; run field discovery |
-| `404 Not Found` | Verify `JIRA_BASE_URL` and `JIRA_PROJECT_KEY` |
-| Sub-task fails | Some next-gen projects use `Child Issue` instead of `Sub-task` |
+| 401 | Verify `JIRA_TOKEN` + `JIRA_EMAIL` |
+| 400 | Issue type is case-sensitive; run field discovery |
+| 404 | Verify `JIRA_BASE_URL` + `JIRA_PROJECT_KEY` |
+| Sub-task fails | Some projects use `Child Issue` instead of `Sub-task` |

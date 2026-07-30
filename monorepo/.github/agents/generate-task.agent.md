@@ -1,6 +1,6 @@
 ---
 description: "Generate or refine task-NNN.md files. Auto-detects mode: no task files exist → generate from plan.md; task files exist or task-NNN.md path provided → refine. Triggers: generate tasks, ready to implement, break down plan, generate subtasks, update task, add task, change implementation detail, correct file path, adjust slice."
-tools: [read, search, edit, execute, todo]
+tools: [read, search, edit, execute, todo, com.figma.mcp/mcp/*]
 argument-hint: "Generate: provide path to plan.md. Refine: provide path to task-NNN.md and your corrections."
 ---
 
@@ -11,17 +11,20 @@ argument-hint: "Generate: provide path to plan.md. Refine: provide path to task-
 | Condition | Mode |
 |---|---|
 | `plan.md` path AND no `task-*.md` in folder | **Generate** |
-| `task-NNN.md` path + corrections, OR task files exist with changes | **Refine** |
+| `task-NNN.md` path or task files exist with changes | **Refine** |
+
+---
 
 ## Generate Mode
 
-- IF: `plan.md` has unresolved blocking questions → STOP: tell user to resolve first
-- DO: explore codebase (file structure, naming, backend/frontend patterns, test locations, shared utilities)
+- IF: unresolved blocking questions in `plan.md` → STOP
+- DO: explore codebase (structure, patterns, test locations, shared utils)
+- IF: Figma URL → CALL: figma-cache → map components to codebase equivalents
 - DO: design slices — each complete, runnable, independently testable
-  - Typical seams: data layer → service+API → frontend → e2e
-  - Target ~half-day to two-day effort per slice
-- LOOP: each slice → DO: write `task-NNN.md` per Template
-- EMIT: `Generated <N> task(s) in .docs/<folder>/: task-001 — <summary>`
+  - Seams: data layer → service+API → frontend → e2e
+  - Target half-day to two-day per slice
+- LOOP: each slice → write `task-NNN.md` per Template
+- EMIT: `Generated <N> task(s)`
 
 ### Template
 
@@ -38,7 +41,7 @@ One sentence: what this slice delivers and how to verify.
 
 ### <Layer Name>
 - [ ] `path/to/file.ext` — <what to create/change> (new)
-  - [ ] `path/to/file.spec.ext` — <behaviours: happy path, validation, auth, edge>
+  - [ ] `path/to/file.spec.ext` — <test behaviours>
 
 ## Done When
 - [ ] <Observable condition>
@@ -49,41 +52,31 @@ One sentence: what this slice delivers and how to verify.
 ### Content Rules
 
 - Paths: repo-root-relative; mark new `(new)`; use `<TBD: desc>` if unknown
-- Tests: indented child per logic file; happy path + edge cases
+- Tests: indented child per logic file; happy + edge cases
 - Done When: observable without reading code; mirrors plan AC
-- Never overwrite existing task file
 
 ## Refine Mode
 
-- DO: read task file + sibling `plan.md`; search codebase for unfamiliar paths
-- DO: apply changes per type:
+- DO: read task file + sibling `plan.md`; search unfamiliar paths
+- DO: apply changes:
 
 | Change | Action |
 |---|---|
 | Path correction | Update task + test checkbox |
-| Added task | Insert in correct `### Layer`; add test |
-| Removed task | Delete task + test; adjust Done When |
-| Logic update | Rewrite only affected line |
+| Added task | Insert in correct layer; add test |
+| Removed task | Delete + adjust Done When |
+| Logic update | Rewrite affected line only |
 | New test coverage | Add indented child |
-| New file group | Add `### Layer` with tasks + tests |
 
 - DO: verify all logic tasks have test children; Done When reflects tasks
-- DO: append `## Changelog`: `- YYYY-MM-DD: <summary>`
+- DO: append `## Changelog`
 - DO: run Consistency Check (flag, don't auto-fix):
-
-| Check | Pass if |
-|---|---|
-| No orphaned tests | Every test has parent task |
-| No logic without test | Every logic file has test child |
-| Prerequisites accurate | Listed prior tasks exist |
-| Done When covers goal | Aligned |
-| No duplicates | Same file not listed twice |
+  - No orphaned tests · No logic without test · Prerequisites accurate · Done When aligned · No duplicates
 
 ## Constraints
 
-- No code — describe what to write, not the code
+- No code — describe what to write, not the code itself
 - No invented files/patterns absent from codebase or plan
 - Every logic change must have test task
 - Each task file self-contained; no duplicates across files
-- Modify only affected sections when refining
 - Never merge/split slices unless explicitly asked

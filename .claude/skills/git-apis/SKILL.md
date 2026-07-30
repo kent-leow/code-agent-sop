@@ -5,11 +5,9 @@ description: "Shared GitLab + GitHub REST API operations: fetch discussions, pos
 
 # git-apis
 
-Shared platform API operations for GitLab and GitHub. Load when an agent needs raw platform API calls.
+Shared platform API operations for GitLab and GitHub.
 
----
-
-## Auth Headers
+## Auth
 
 | Platform | Header |
 |---|---|
@@ -18,112 +16,70 @@ Shared platform API operations for GitLab and GitHub. Load when an agent needs r
 
 ---
 
-## Operations
-
-### FETCH_DISCUSSIONS — fetch all MR/PR discussions
+## FETCH_DISCUSSIONS
 
 **GitLab:**
 ```bash
-DISCUSSIONS=$(curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-  "https://sgts.gitlab-dedicated.com/api/v4/projects/<encoded-project>/merge_requests/<MR_ID>/discussions?per_page=100")
+curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+  "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/merge_requests/${MR_IID}/discussions?per_page=100"
 ```
 
-**GitHub:**
-```bash
-REVIEW_COMMENTS=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-  "https://api.github.com/repos/<owner>/<repo>/pulls/<PR_ID>/comments?per_page=100")
-ISSUE_COMMENTS=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-  "https://api.github.com/repos/<owner>/<repo>/issues/<PR_ID>/comments?per_page=100")
-```
+**GitHub:** Fetch both endpoints:
+- `GET /repos/{owner}/{repo}/pulls/{PR_ID}/comments?per_page=100` (inline)
+- `GET /repos/{owner}/{repo}/issues/{PR_ID}/comments?per_page=100` (general)
 
 ---
 
-### POST_INLINE — post an inline comment on a diff line
+## POST_INLINE
 
-**GitLab:**
-```bash
-curl -s -X POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "Content-Type: application/json" \
-  "https://sgts.gitlab-dedicated.com/api/v4/projects/<encoded-project>/merge_requests/<MR_ID>/discussions" \
-  -d '{"body":"<comment>","position":{"position_type":"text","base_sha":"'"$BASE_SHA"'","start_sha":"'"$BASE_SHA"'","head_sha":"'"$HEAD_SHA"'","old_path":"<file>","new_path":"<file>","new_line":<N>}}'
-# Line range: replace "new_line":<N> with "line_range":{"start":{"type":"new","new_line":<S>},"end":{"type":"new","new_line":<E>}}
-```
+Post inline comment on a diff line.
 
-**GitHub:**
-```bash
-curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/json" \
-  "https://api.github.com/repos/<owner>/<repo>/pulls/<PR_ID>/comments" \
-  -d '{"body":"<comment>","commit_id":"'"$HEAD_SHA"'","path":"<file>","line":<N>,"side":"RIGHT"}'
-# Line range: add "start_line":<S>,"start_side":"RIGHT"
+**GitLab:** `POST .../merge_requests/${MR_IID}/discussions`
+```json
+{"body":"<comment>","position":{"position_type":"text","base_sha":"$BASE_SHA","start_sha":"$BASE_SHA","head_sha":"$HEAD_SHA","old_path":"<file>","new_path":"<file>","new_line":<N>}}
 ```
+Line range: replace `new_line` with `"line_range":{"start":{"type":"new","new_line":<S>},"end":{"type":"new","new_line":<E>}}`
+
+**GitHub:** `POST /repos/{owner}/{repo}/pulls/{PR_ID}/comments`
+```json
+{"body":"<comment>","commit_id":"$HEAD_SHA","path":"<file>","line":<N>,"side":"RIGHT"}
+```
+Line range: add `"start_line":<S>,"start_side":"RIGHT"`
 
 ---
 
-### POST_GENERAL — post a general (non-inline) comment
+## POST_GENERAL
 
-**GitLab:**
-```bash
-curl -s -X POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "Content-Type: application/json" \
-  "https://sgts.gitlab-dedicated.com/api/v4/projects/<encoded-project>/merge_requests/<MR_ID>/notes" \
-  -d '{"body":"<comment>"}'
-```
+Post general (non-inline) comment.
 
-**GitHub:**
-```bash
-curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/json" \
-  "https://api.github.com/repos/<owner>/<repo>/issues/<PR_ID>/comments" \
-  -d '{"body":"<comment>"}'
-```
+**GitLab:** `POST .../merge_requests/${MR_IID}/notes` → `{"body":"<comment>"}`
+**GitHub:** `POST /repos/{owner}/{repo}/issues/{PR_ID}/comments` → `{"body":"<comment>"}`
 
 ---
 
-### REPLY — reply to an existing thread
+## REPLY
 
-**GitLab:**
-```bash
-curl -s -X POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "Content-Type: application/json" \
-  "https://sgts.gitlab-dedicated.com/api/v4/projects/<encoded-project>/merge_requests/<MR_ID>/discussions/<discussion_id>/notes" \
-  -d '{"body":"<reply>"}'
-```
+Reply to existing thread.
 
-**GitHub:**
-```bash
-curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/json" \
-  "https://api.github.com/repos/<owner>/<repo>/pulls/<PR_ID>/comments" \
-  -d '{"body":"<reply>","commit_id":"'"$HEAD_SHA"'","in_reply_to":<original_comment_id>}'
-```
+**GitLab:** `POST .../merge_requests/${MR_IID}/discussions/${discussion_id}/notes` → `{"body":"<reply>"}`
+**GitHub:** `POST /repos/{owner}/{repo}/pulls/{PR_ID}/comments` → `{"body":"<reply>","commit_id":"$HEAD_SHA","in_reply_to":<original_comment_id>}`
 
 ---
 
-### RESOLVE — mark a thread as resolved
+## RESOLVE
 
-**GitLab:**
-```bash
-curl -s -X PUT -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "Content-Type: application/json" \
-  "https://sgts.gitlab-dedicated.com/api/v4/projects/<encoded-project>/merge_requests/<MR_ID>/discussions/<discussion_id>" \
-  -d '{"resolved":true}'
-```
+Mark thread as resolved.
 
+**GitLab:** `PUT .../merge_requests/${MR_IID}/discussions/${discussion_id}` → `{"resolved":true}`
 **GitHub (GraphQL):**
-```bash
-curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/json" \
-  "https://api.github.com/graphql" \
-  -d '{"query":"mutation{resolveReviewThread(input:{threadId:\"<node_id>\"}){thread{isResolved}}}"}'
+```json
+{"query":"mutation{resolveReviewThread(input:{threadId:\"<node_id>\"}){thread{isResolved}}}"}
 ```
-If node ID unavailable → use REPLY with body `"✅ Resolved."` and note limitation.
+IF: node ID unavailable → REPLY(`"Resolved."`) and note limitation.
 
 ---
 
-### APPROVE — approve the MR/PR
+## APPROVE
 
-**GitLab:**
-```bash
-curl -s -X POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-  "https://sgts.gitlab-dedicated.com/api/v4/projects/<encoded-project>/merge_requests/<MR_ID>/approve"
-```
-
-**GitHub:**
-```bash
-curl -s -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Content-Type: application/json" \
-  "https://api.github.com/repos/<owner>/<repo>/pulls/<PR_ID>/reviews" \
-  -d '{"commit_id":"'"$HEAD_SHA"'","event":"APPROVE","body":"All threads addressed. LGTM! ✅"}'
-```
+**GitLab:** `POST .../merge_requests/${MR_IID}/approve`
+**GitHub:** `POST /repos/{owner}/{repo}/pulls/{PR_ID}/reviews` → `{"commit_id":"$HEAD_SHA","event":"APPROVE","body":"LGTM!"}`
