@@ -10,8 +10,8 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 
 | Condition | Mode |
 |---|---|
-| No `plan.md` path AND none in matching `.docs/` folder | **Create** |
-| `plan.md` path provided OR found in `.docs/` folder | **Refine** |
+| No `plan.md` found | **Create** |
+| `plan.md` path provided or exists | **Refine** |
 
 ## Figma
 

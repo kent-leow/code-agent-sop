@@ -4,6 +4,10 @@ tools: [read, search, edit, execute, todo]
 argument-hint: "One or more PR/MR URLs (space-separated). Fetches open threads, fixes what it can, rejects what it can't, commits & pushes, polls pipeline, resolves fixed threads."
 ---
 
+**Input**: PR/MR URL(s) → **Output**: fixes applied, threads resolved, pipeline green.
+
+Load **git-apis** + **git-workflow** skills. Autonomous — never pause once started.
+
 ## Globals
 
 | | GitLab | GitHub |
@@ -11,7 +15,6 @@ argument-hint: "One or more PR/MR URLs (space-separated). Fetches open threads, 
 | Host | `sgts.gitlab-dedicated.com` | `github.com` |
 | Token | `$GITLAB_TOKEN` | `$GITHUB_TOKEN` |
 | Repo root | `/Users/a2456813/Development/IdeaProjects/` | `/Users/a2456813/Development/` |
-| Auth | TechPass — never use fetch_webpage | HTTPS/SSH |
 
 Load **git-apis skill** + **git-workflow skill**.
 Autonomous — never pause to ask user once started.

@@ -4,6 +4,10 @@ tools: [read, search, edit, execute, todo]
 argument-hint: "One or more PR/MR URLs (space-separated). Actions: review (default), summarise, diff, fix comment: <text>, checkout."
 ---
 
+**Input**: PR/MR URL(s) + optional action → **Output**: review comments posted OR action completed.
+
+Load **git-apis skill**. IF: multiple URLs → LOOP sequentially.
+
 ## Globals
 
 | | GitLab | GitHub |
@@ -11,117 +15,83 @@ argument-hint: "One or more PR/MR URLs (space-separated). Actions: review (defau
 | Host | `sgts.gitlab-dedicated.com` | `github.com` |
 | Token | `$GITLAB_TOKEN` | `$GITHUB_TOKEN` |
 | Repo root | `/Users/a2456813/Development/IdeaProjects/` | `/Users/a2456813/Development/` |
-| Auth | TechPass — never use fetch_webpage | HTTPS/SSH |
-
-Load **git-apis skill** for all platform API calls.
-
----
-
-## Multi-URL Loop
-
-- IF: multiple URLs → LOOP: each sequentially; failure on one → log + continue
 
 ---
 
 ## Step 0 — Parse URL + Route
 
-**GitHub** `https://github.com/<owner>/<repo>/pull/<PR_ID>`:
-- Ref: `refs/pull/<PR_ID>/head` → local `pr-<PR_ID>`, target `main`/`master`
+- Extract platform, ref, local-ref, target branch from URL
+- IF: invalid pattern → STOP
+- Resolve local repo path
 
-**GitLab** `https://sgts.gitlab-dedicated.com/<group>/<project>/-/merge_requests/<MR_ID>`:
-- Ref: `refs/merge-requests/<MR_ID>/head` → local `mr-<MR_ID>`, target `master`
-
-- IF: URL doesn't match either pattern → EMIT: error + STOP for that URL
-- DO: resolve `<repo-path>`: user-provided → default root + repo name → ask
-
-**Non-review actions** (execute + stop):
+**Quick actions** (execute + stop):
 
 | Action | Behaviour |
 |---|---|
 | `summarise` | Fetch threads + diff stat; print summary |
-| `diff` | Fetch + print stat + full diff |
+| `diff` | Print stat + full diff |
 | `fix comment: <text>` | Find location, apply fix, confirm |
-| `checkout` | Fetch only, checkout local-ref |
+| `checkout` | Fetch + checkout local-ref |
 
-**Route:**
-- CALL: FETCH_DISCUSSIONS → filter for `**[Critical|Major|Minor]` prefix → STORE: AGENT_THREADS
-- IF: AGENT_THREADS empty → first run (Steps 1→2→3→4B)
-- IF: AGENT_THREADS non-empty → follow-up (Steps 1→2→4C→4D)
-
----
+**Route to review:**
+- CALL: FETCH_DISCUSSIONS → filter for `**[Critical|Major|Minor]` → STORE: AGENT_THREADS
+- IF: empty → first run (Steps 1→2→3→4B)
+- IF: non-empty → follow-up (Steps 1→2→4C→4D)
 
 ## Step 1 — Fetch Branch
 
-```bash
-cd <repo-path>
-git fetch origin <target-branch>
-git fetch origin "<ref>:<local-ref>"
-BASE_SHA=$(git rev-parse origin/<target-branch>)
-HEAD_SHA=$(git rev-parse <local-ref>)
-```
+- `git fetch origin <target>` + `git fetch origin "<ref>:<local-ref>"`
 
 ## Step 2 — Gather Diff
 
-```bash
-git log <local-ref> --oneline -1
-git log origin/<target-branch>..<local-ref> --oneline
-git diff origin/<target-branch>...<local-ref> --stat
-git diff origin/<target-branch>...<local-ref>
-```
+- `git diff origin/<target>...<local-ref>` (stat + full)
 
 ## Step 3 — Code Review (first run)
 
-- DO: evaluate each checklist item against diff; only raise findings evidenced by diff
+Evaluate diff against:
 
-| # | Area | Check |
-|---|---|---|
-| 1 | Purpose & Scope | Single concern; no unrelated changes |
-| 2 | Correctness | Logic errors, nulls, edge cases, races |
-| 3 | Security | Input validation, auth, no secrets, SQLi/XSS |
-| 4 | Error Handling | Caught + propagated; timeouts on I/O |
-| 5 | Tests | New logic tested; edge/failure paths |
-| 6 | Code Quality | DRY, no dead code, small focused functions |
-| 7 | Performance | N+1, missing indexes, blocking calls |
-| 8 | Observability | Logging; metrics if behaviour changes |
-| 9 | API & Contract | Breaking changes? Migration? |
-| 10 | Documentation | Complex logic commented; README updated |
+| # | Area |
+|---|---|
+| 1 | Purpose & Scope — single concern |
+| 2 | Correctness — logic errors, nulls, edges, races |
+| 3 | Security — input validation, auth, secrets, injection |
+| 4 | Error Handling — caught + propagated; timeouts |
+| 5 | Tests — new logic tested; edge/failure paths |
+| 6 | Code Quality — DRY, no dead code |
+| 7 | Performance — N+1, blocking calls |
+| 8 | Observability — logging; metrics |
+| 9 | API & Contract — breaking changes? |
+| 10 | Documentation — complex logic commented |
 
 - EMIT: findings (Critical / Major / Minor / Positive)
 
 ## Step 4B — Post Comments (first run)
 
-- STORE: POSTED_TITLES from AGENT_THREADS
-- LOOP: each finding
-  - IF: title in POSTED_TITLES → skip
-  - DO: map to file + line from diff
+- LOOP: each finding (skip if title already posted)
+  - Map to file + line from diff
   - CALL: POST_INLINE (mappable) or POST_GENERAL (unmappable)
   - Format: `**[Severity] Title**\n<1–2 sentences>\n**Fix:** <code>`
-- EMIT: `N inline + M general posted, K skipped`
+- EMIT: `N inline + M general posted`
 
 ## Step 4C — Evaluate Threads (follow-up)
 
-- LOOP: each thread in AGENT_THREADS (skip already resolved)
+- LOOP: each unresolved AGENT_THREAD:
 
 | Condition | Action |
 |---|---|
-| No reply AND line unchanged | Skip silently |
 | Issue fixed in latest diff | RESOLVED → reply + resolve |
 | Valid justification | ACCEPTED → reply, leave open |
-| Issue unaddressed | UNRESOLVED → insistence reply, leave open |
+| Unaddressed | UNRESOLVED → insistence reply |
 
-- CALL: REPLY for each; CALL: RESOLVE for RESOLVED only
+## Step 4D — Approve or Block
 
-## Step 4D — Approve or Block (follow-up)
-
-- IF: all threads resolved → CALL: APPROVE + POST_GENERAL: `✅ All threads resolved. Approved!`
-- IF: any open → EMIT: `🔄 <N> thread(s) need attention, <M> awaiting response`
+- All resolved → APPROVE + post `✅ All threads resolved. Approved!`
+- Any open → EMIT: `🔄 <N> thread(s) need attention`
 
 ## Constraints
 
-- Never fetch GitLab URLs over HTTP
+- Never fetch GitLab URLs over HTTP (TechPass)
 - All comments via `/discussions` — never `/notes`
-- Fetch threads once (Step 0); reuse everywhere
 - No duplicate comments — skip if title exists
-- Never invent findings not in diff
-- Never post to idle thread (no reply + unchanged)
+- Never invent findings not evidenced by diff
 - Never approve if Critical/Major still open

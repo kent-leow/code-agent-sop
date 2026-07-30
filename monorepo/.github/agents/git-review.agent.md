@@ -4,6 +4,10 @@ tools: [read, search, edit, execute, todo]
 argument-hint: "One or more PR/MR URLs (space-separated). Actions: review (default), summarise, diff, fix comment: <text>, checkout."
 ---
 
+**Input**: PR/MR URL(s) + optional action → **Output**: review comments posted OR action completed.
+
+Load **git-apis skill**. IF: multiple URLs → LOOP sequentially.
+
 ## Globals
 
 | | GitLab | GitHub |
@@ -11,7 +15,6 @@ argument-hint: "One or more PR/MR URLs (space-separated). Actions: review (defau
 | Host | `sgts.gitlab-dedicated.com` | `github.com` |
 | Token | `$GITLAB_TOKEN` | `$GITHUB_TOKEN` |
 | Repo root | `/Users/a2456813/Development/IdeaProjects/` | `/Users/a2456813/Development/` |
-| Auth | TechPass — never use fetch_webpage | HTTPS/SSH |
 
 Load **git-apis skill** for all platform API calls.
 

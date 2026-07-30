@@ -4,8 +4,101 @@ tools: [read, search, edit, execute, todo]
 argument-hint: "One or more inputs per line: a full GitLab vulnerability_report URL, OR just the repo name (e.g. molb-lab-web)"
 ---
 
-Security remediation agent.  
-Load **git-workflow skill** for all branch/commit/push/MR/pipeline/thread operations.
+**Input**: repo name / vulnerability URL / MR URL → **Output**: findings file, fixes applied, MR pushed.
+
+Load **git-workflow skill**. Autonomous — never pause once started.
+
+**Modes**: First run (fetch + fix + MR) · Re-run (today's `vulnerabilities.md` exists → diff + fix remaining)
+
+---
+
+## Config
+
+| Key | Value |
+|---|---|
+| Instance | `sgts.gitlab-dedicated.com` |
+| Group | `wog/gvt/gobiz/molb-gobusiness/molb-l1t` |
+| Repos | `/Users/a2456813/Development/IdeaProjects/` |
+| Severities | `CRITICAL,HIGH,MEDIUM,LOW` |
+| Output | `.docs/.vulnerability/` |
+| Binaries | `/usr/bin/curl`, `/usr/bin/jq`, `/usr/bin/git` |
+
+## Step 0 — Normalise Inputs
+
+- LOOP: each input → extract/construct project path → URL-encode as ENCODED
+- STORE: DATE, OUT_DIR, OUT_FILE
+
+## Step 0b — Mode Detection
+
+- IF: `OUT_FILE` exists → **re-run**: locate MR → skip to Step 3 (diff) → 4 → 5
+- ELSE → **first run**: continue
+
+## Step 0c — Ticket (first run)
+
+- EMIT: `GOBIZWKST2 ticket number?` → STORE: TICKET_NUM, BRANCH pattern
+
+## Step 1 — Branch + Worktree (first run)
+
+- CALL: BRANCH_SETUP → WORKTREE_SETUP → STORE: `WORK_DIR`
+
+## Step 2 — Fetch Vulnerabilities (first run)
+
+- DO: paginate `/vulnerability_findings?state=detected&severity=...&per_page=100`
+- DO: group by `(name, dependency_pkg, identifiers)` → sort critical→low
+
+## Step 3 — Write/Sync Findings
+
+- **First run**: create `OUT_FILE` with grouped checklist (severity, pkg, version, scanner, fix)
+- **Re-run**: diff by group key — resolved→`[x]`, new→append `[ ]`, re-appeared→reopen
+
+## Step 4 — Fix Loop
+
+- LOOP: each `[ ]` item (severity order)
+
+| Scanner | Approach |
+|---|---|
+| Gemnasium (Gradle) | `resolutionStrategy` in `build.gradle.kts` |
+| Gemnasium (npm/yarn) | `resolutions`/direct upgrade in `package.json` |
+| SAST | Code fix at `file:start_line` |
+| Container Scanning | Update `FROM` in Dockerfile |
+
+  - DO: apply fix in `WORK_DIR`; run verify (`./gradlew build` / `yarn build`)
+  - IF: build fails → revert, mark `DEFERRED: reason`
+  - IF: false positive → mark `SKIPPED`, dismiss via GraphQL
+
+## Step 5 — Commit, Push, MR
+
+- CALL: COMMIT(WORK_DIR, `[GOBIZWKST2-${TICKET_NUM}] Vulnerability Fixes`) → PUSH → WORKTREE_TEARDOWN → ENSURE_MR
+
+## Step 6 — Poll Until Clean
+
+> **Do NOT stop until pipeline green AND zero vulns AND zero unresolved threads.**
+
+- CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED)
+- LOOP: until (pipeline=success AND vulns=0 AND threads=0) OR terminal exit
+  - ON_SUCCESS + vulns>0: diff → fix → COMMIT → PUSH → reset poll
+  - ON_SUCCESS + threads>0: evaluate → fix → COMMIT → PUSH → RESOLVE → reset poll
+  - ON_FAILURE: fetch MR-scoped vulns → fix → COMMIT → PUSH → reset poll
+
+### Terminal Exits
+
+| Condition | Action |
+|---|---|
+| Success + 0 vulns + 0 threads | ✅ Done |
+| All remaining DEFERRED/SKIPPED | Done — nothing fixable |
+| 3 consecutive failures | BLOCKED — stop |
+| 20 polls | TIMEOUT — stop |
+
+## Step 7 — Summary
+
+- EMIT: mode, ticket, branch, repos, per-repo stats (total/fixed/deferred/skipped), pipeline, MR URL
+
+## Constraints
+
+- Never guess fix versions — use `.solution` field only
+- Once MR exists → use MR-scoped pipeline artifact endpoint only
+- Token: `$GITLAB_TOKEN`; paginate all API calls
+- Never run verify from `REPO_DIR`
 
 **Modes:**
 - **First run** — prompt for ticket number, fetch vulns, write findings file, apply fixes, commit, push, create MR.

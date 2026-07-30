@@ -4,27 +4,89 @@ tools: [read, edit, search]
 argument-hint: "[--dry-run] to preview changes without writing"
 ---
 
-Syncs `.github/` content to multiple providers.
+**Input**: root `.github/` content → **Output**: synced to all provider destinations.
 
-- **Root** = standalone repo template (all agents + skills incl. git)
-- **Monorepo** = monorepo template (all agents + skills incl. git)
-- **General** = integration-free template (no git agents/skills)
+---
 
 ## Providers
 
-| Provider | Source | Destination | Transform |
-|---|---|---|---|
-| **root-claude** | `.github/agents/*.agent.md` | `.claude/commands/*.md` | Strip `.agent`; all agents |
-| **root-claude** | `.github/instructions/*.instructions.md` | `.claude/CLAUDE.md` | Inline with markers |
-| **general-github** | `.github/agents/*.agent.md` | `general/.github/agents/*.agent.md` | Verbatim; exclude git agents |
-| **general-github** | `.github/instructions/*.instructions.md` | `general/.github/instructions/*.instructions.md` | Verbatim |
-| **general-claude** | `.github/agents/*.agent.md` | `general/.claude/commands/*.md` | Strip `.agent`; exclude git agents |
-| **general-claude** | `.github/instructions/*.instructions.md` | `general/.claude/CLAUDE.md` | Inline with markers |
-| **monorepo-github** | `.github/agents/*.agent.md` | `monorepo/.github/agents/*.agent.md` | Verbatim; all agents |
-| **monorepo-github** | `.github/skills/*/SKILL.md` | `monorepo/.github/skills/*/SKILL.md` | Verbatim; all skills |
-| **monorepo-github** | `.github/instructions/*.instructions.md` | `monorepo/.github/instructions/*.instructions.md` | Merge monorepo context |
-| **monorepo-claude** | `.github/agents/*.agent.md` | `monorepo/.claude/commands/*.md` | Strip `.agent`; all agents |
-| **monorepo-claude** | `.github/instructions/*.instructions.md` | `monorepo/.claude/CLAUDE.md` | Inline with markers + monorepo context |
+| Provider | Source → Destination | Transform |
+|---|---|---|
+| root-claude | agents → `.claude/commands/` | Strip `.agent`; all |
+| root-claude | skills → `.claude/skills/` | Verbatim; all |
+| root-claude | instructions → `.claude/CLAUDE.md` | Inline with markers |
+| general-github | agents → `general/.github/agents/` | Exclude git agents |
+| general-github | skills → `general/.github/skills/` | Exclude git skills |
+| general-github | instructions → `general/.github/instructions/` | Verbatim |
+| general-claude | agents → `general/.claude/commands/` | Exclude git agents |
+| general-claude | skills → `general/.claude/skills/` | Exclude git skills |
+| general-claude | instructions → `general/.claude/CLAUDE.md` | Inline with markers |
+| monorepo-github | agents → `monorepo/.github/agents/` | Verbatim; all |
+| monorepo-github | skills → `monorepo/.github/skills/` | Verbatim; all |
+| monorepo-github | instructions → `monorepo/.github/instructions/` | Merge monorepo context |
+| monorepo-claude | agents → `monorepo/.claude/commands/` | All |
+| monorepo-claude | skills → `monorepo/.claude/skills/` | All |
+| monorepo-claude | instructions → `monorepo/.claude/CLAUDE.md` | Markers + monorepo context |
+
+## Exclusions (general only)
+
+**Git Agents**: `fix-vulnerabilities`, `git-fix-review`, `git-review`
+**Git Skills**: `fix-vulnerabilities`, `git-apis`, `git-workflow`, `gitlab-mr-automation`
+
+---
+
+## Phase 1 — Discover
+
+- DO: list `.github/agents/`, `.github/instructions/`, `.github/skills/*/SKILL.md`
+- STORE: agents[], instructions[], skills[], git_agents[], git_skills[]
+
+## Phase 2 — Sync root-claude
+
+- LOOP: agents → `.claude/commands/<name>.md` (strip `.agent`)
+- LOOP: skills → `.claude/skills/<name>/SKILL.md`
+- DO: instructions → `.claude/CLAUDE.md` (wrap in `<!-- sync-ghcp:... -->` markers)
+
+## Phase 3 — Sync general-github
+
+- LOOP: non-git agents → `general/.github/agents/`
+- LOOP: non-git skills → `general/.github/skills/`
+- LOOP: instructions → `general/.github/instructions/`
+
+## Phase 4 — Sync general-claude
+
+- LOOP: non-git agents → `general/.claude/commands/`
+- LOOP: non-git skills → `general/.claude/skills/`
+- DO: instructions → `general/.claude/CLAUDE.md` (markers)
+
+## Phase 5 — Sync monorepo-github
+
+- LOOP: all agents → `monorepo/.github/agents/`
+- LOOP: all skills → `monorepo/.github/skills/`
+- DO: instructions → `monorepo/.github/instructions/` (preserve monorepo context)
+
+## Phase 6 — Sync monorepo-claude
+
+- LOOP: all agents → `monorepo/.claude/commands/`
+- LOOP: all skills → `monorepo/.claude/skills/`
+- DO: instructions → `monorepo/.claude/CLAUDE.md` (markers + monorepo context)
+
+## Phase 7 — Detect Orphans
+
+- DO: list destination files without source → EMIT orphan list (do not delete)
+
+## Phase 8 — Summary
+
+- EMIT: per-provider table (ADDED / UPDATED / OK counts) + orphan list
+- IF: `--dry-run` → prefix with `[DRY RUN]`, do not write files
+
+## Constraints
+
+- Never delete files — only add or update
+- Never modify `.claude/settings.local.json`
+- Byte-for-byte comparison (no whitespace normalization)
+- Git agents excluded from general only; monorepo gets all
+- `broadcast-sync.md` excluded from orphan detection
+- Preserve monorepo-specific context sections when syncing
 
 ## Git Agents (excluded from general only)
 

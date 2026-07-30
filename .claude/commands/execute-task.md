@@ -6,20 +6,7 @@ argument-hint: "Provide the path to task-NNN.md (e.g. .docs/create-form-and-appl
 
 **Input**: `task-NNN.md` path → **Output**: all tasks implemented, tests pass, checkboxes marked.
 
-Load **git-workflow skill** for branch/commit/push/MR/pipeline/thread ops.
-Autonomous — never pause to ask user once started.
-
-## Prefix Legend
-
-| Prefix | Meaning |
-|--------|---------|
-| `DO:` | Execute action |
-| `IF:` | Conditional (→ action) |
-| `LOOP:` | Iterate collection |
-| `CALL:` | Invoke skill(params) → outputs |
-| `EMIT:` | Output to user/file |
-| `STORE:` | Save value |
-| `STOP:` | Halt with reason |
+Load **git-workflow skill**. Autonomous — never pause once started.
 
 ---
 
@@ -27,101 +14,66 @@ Autonomous — never pause to ask user once started.
 
 - DO: read `task-NNN.md`, sibling `plan.md`, all `task-*.md`, `jira.json`
 - IF: any `[ ]` in prerequisites → STOP: report open items
-- DO: sync siblings (touch only affected lines):
-
-| Situation | Action |
-|---|---|
-| Another task references file you'll implement | Add `> ⚠️ Implemented in task-NNN — verify contract` |
-| Earlier Done When now satisfied | Mark `[x]` + `<!-- verified YYYY-MM-DD -->` |
-| Later prerequisite points here | Confirm name matches; correct if not |
-| Changed file missing Changelog | Append `- YYYY-MM-DD: <summary>` |
-
+- DO: sync siblings — add warnings for shared files, mark satisfied Done-Whens, fix stale refs, append changelogs
 - CALL: BRANCH_SETUP(REPO_DIR, `GOBIZWKST2-{TICKET}-{kebab-task-title}`) → TICKET_NUM, BRANCH, DEFAULT_BRANCH
 - CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORKTREE_DIR
-- STORE: `WORK_DIR="${WORKTREE_DIR}"` — **all file edits during Phase 2–4 MUST target paths inside WORK_DIR**
+- STORE: `WORK_DIR="${WORKTREE_DIR}"` — **all edits in Phase 2–4 target WORK_DIR only**
 
 ## Phase 2 — Exploration
 
-- DO: read every file listed in `task-NNN.md` in full
+- DO: read every file listed in `task-NNN.md`
 - DO: for each new file → find 2–3 analogues for conventions
-- DO: identify reusable utilities, constants, base classes, test helpers
-- STORE: impl order = entity → repository → service → controller → frontend → test
-- IF: Figma URL → CALL: figma-cache(nodeId, plan-folder) → read md + view_image
+- DO: identify reusable utilities, base classes, test helpers
+- STORE: impl order = entity → repo → service → controller → frontend → test
+- IF: Figma URL → CALL: figma-cache(nodeId, plan-folder)
 
 ## Phase 3 — Implementation
 
 - LOOP: each task in dependency order
-  - DO: write production code inside `WORK_DIR` — match conventions (naming, imports, error handling, auth, logging)
-  - IF: UI task → verify layout/spacing/colour vs Figma before marking
+  - DO: write production code inside `WORK_DIR` — match conventions
+  - IF: UI task → verify layout/spacing/colour vs Figma
   - DO: mark `[x]` in `task-NNN.md`
-  - DO: write/update test — mirror adjacent test structure; happy path min; reuse test utilities
-  - DO: run tests from `WORK_DIR`: `cd "${WORK_DIR}" && <test command>`; fix all failures before next
+  - DO: write/update tests; run from `WORK_DIR`; fix failures before next
   - DO: mark test `[x]`
 - IF: file not listed in `task-NNN.md` → STOP: do not create/modify
 
 ## Phase 4 — Verification
 
-- DO: run full test suite from `WORK_DIR`: `cd "${WORK_DIR}" && <test command>`; fix regressions
-- IF: local service verification needed → start from `WORK_DIR` (e.g. `cd "${WORK_DIR}" && ./gradlew bootRun`)
-- LOOP: each Done When item
-  - IF: satisfied → mark `[x]` + `<!-- verified YYYY-MM-DD -->`
-  - IF: blocked → mark `[ ]` + `<!-- blocked: <reason> -->`
+- DO: run full test suite from `WORK_DIR`; fix regressions
+- IF: local service verification needed → start from `WORK_DIR`
+- LOOP: each Done When → mark `[x]` + `<!-- verified YYYY-MM-DD -->` or `[ ]` + `<!-- blocked: reason -->`
 - DO: re-scan siblings for stale cross-references
 
 ## Phase 5 — Git Workflow
 
-> **Do NOT stop until MR is in best state: pipeline green AND zero unresolved threads.**
+> **Do NOT stop until pipeline green AND zero unresolved threads.**
 
-### 5a — Commit & Push (from worktree)
+### 5a — Commit & Push
 
-- CALL: COMMIT(WORK_DIR, `feat({repo}): {title} [GOBIZWKST2-{TICKET_NUM}]\n\nImplemented:\n- {files}`) → COMMITTED
+- CALL: COMMIT(WORK_DIR, `feat({repo}): {title} [GOBIZWKST2-{TICKET_NUM}]`) → COMMITTED
 - CALL: PUSH(WORK_DIR, BRANCH)
 - CALL: WORKTREE_TEARDOWN(REPO_DIR, WORKTREE_DIR)
-- CALL: ENSURE_MR(ENCODED, BRANCH, DEFAULT_BRANCH, `[GOBIZWKST2-{TICKET_NUM}] {title}`, body) → MR_IID, MR_URL
+- CALL: ENSURE_MR(ENCODED, BRANCH, DEFAULT_BRANCH, title, body) → MR_IID, MR_URL
 
-### 5b — Poll Until MR Clean
+### 5b — Poll Until Clean
 
 - CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED)
 - LOOP: until (pipeline=success AND open_threads=0) OR terminal exit
-  - ON_SUCCESS:
-    1. CALL: FETCH_OPEN_THREADS(ENCODED, MR_IID) → ALL_THREADS
-    2. IF: ALL_THREADS=0 → MR is clean → exit loop ✅
-    3. IF: ALL_THREADS>0 → evaluate each (FIX/REJECT)
-    4. CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORK_DIR
-    5. DO: apply fixes inside WORK_DIR
-    6. CALL: COMMIT(WORK_DIR, ...) → PUSH(WORK_DIR, BRANCH) → WORKTREE_TEARDOWN(REPO_DIR, WORKTREE_DIR) → POST_THREAD_REPLIES → RESOLVE_THREADS
-    7. DO: reset POLL=0 → continue polling (fixes may break pipeline)
-  - ON_FAILURE:
-    1. DO: inspect CI logs → identify failing jobs/tests
-    2. CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORK_DIR
-    3. DO: apply fixes inside WORK_DIR
-    4. CALL: COMMIT(WORK_DIR, ...) → PUSH(WORK_DIR, BRANCH) → WORKTREE_TEARDOWN(REPO_DIR, WORKTREE_DIR)
-    5. DO: reset POLL=0 → continue polling
+  - ON_SUCCESS + threads>0: evaluate → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → RESOLVE → reset poll
+  - ON_FAILURE: inspect logs → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → reset poll
 
 ### 5c — Terminal Exits
 
 | Condition | Action |
 |---|---|
-| Pipeline success + 0 open threads | ✅ Done — proceed to Phase 6 |
-| 3 consecutive pipeline failures | BLOCKED — report and stop |
-| 20 polls reached | TIMEOUT — report and stop |
+| Pipeline success + 0 threads | ✅ Proceed to Phase 6 |
+| 3 consecutive failures | BLOCKED — stop |
+| 20 polls | TIMEOUT — stop |
 
 ## Phase 6 — Completion
 
-- EMIT: jira-prompt (A: update sub-task SP | B: further changes | C: skip)
-  - IF: A → CALL: jira-ticket skill; count checkboxes as SP; update if differs
-- EMIT: summary
-
-```
-✅ Task NNN complete.
-Implemented: <paths>
-Tests:       <test paths>
-Done When:   ✅ / ⚠️
-Siblings:    task-NNN — <changes>
-MR:          <MR_URL>
-Pipeline:    <status>
-Next:        task-<NNN+1>.md
-```
+- EMIT: jira-prompt (A: update SP | B: changes | C: skip)
+- EMIT: summary — paths, tests, Done When status, MR URL, pipeline, next task
 
 ## Constraints
 

@@ -1,10 +1,12 @@
 ---
 description: "Fixes post-implementation issues raised against completed task slices: applies code fixes based on review comments, bug reports, or failing tests, then creates a new .docs/fix-{datetime}-{name}/ folder with fix-{datetime}.md and updates task/plan docs. Triggers: fix, bug, review comment, regression, failing test, broken, hotfix, post-implementation, issue raised, address comment, fix feedback, patch, fix review."
-tools: [read, search, edit, execute, todo]
-argument-hint: "Provide: (1) folder path containing plan.md / task-NNN.md, and (2) issues.md path or raw issue text."
+tools: [read, search, edit, execute, todo, com.figma.mcp/mcp/*]
+argument-hint: "Provide: (1) a folder path containing plan.md / task-NNN.md, and (2) either a path to an issues.md file or the raw issue description(s)."
 ---
 
-**Input**: folder path + `issues.md` path OR raw text → **Output**: new fix folder + file, fixes applied, docs updated.
+**Input**: folder path + `issues.md` or raw text → **Output**: fix folder + file, fixes applied, docs updated, MR pushed.
+
+Load **git-workflow skill**. Autonomous — never pause once started.
 
 ---
 

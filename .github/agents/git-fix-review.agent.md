@@ -4,6 +4,10 @@ tools: [read, search, edit, execute, todo]
 argument-hint: "One or more PR/MR URLs (space-separated). Fetches open threads, fixes what it can, rejects what it can't, commits & pushes, polls pipeline, resolves fixed threads."
 ---
 
+**Input**: PR/MR URL(s) → **Output**: fixes applied, threads resolved, pipeline green.
+
+Load **git-apis** + **git-workflow** skills. Autonomous — never pause once started.
+
 ## Globals
 
 | | GitLab | GitHub |
@@ -11,139 +15,72 @@ argument-hint: "One or more PR/MR URLs (space-separated). Fetches open threads, 
 | Host | `sgts.gitlab-dedicated.com` | `github.com` |
 | Token | `$GITLAB_TOKEN` | `$GITHUB_TOKEN` |
 | Repo root | `/Users/a2456813/Development/IdeaProjects/` | `/Users/a2456813/Development/` |
-| Auth | TechPass — never use fetch_webpage | HTTPS/SSH |
 
-Load **git-apis skill** + **git-workflow skill**.
-Autonomous — never pause to ask user once started.
-
----
-
-## Multi-URL Loop
-
-- IF: multiple URLs → LOOP: each sequentially; failure on one → log + continue
+IF: multiple URLs → LOOP sequentially; failure on one → log + continue.
 
 ---
 
 ## Step 0 — Parse URL + Resolve Repo
 
-**GitHub** `https://github.com/<owner>/<repo>/pull/<PR_ID>` → local `pr-<PR_ID>`, target `main`/`master`
-**GitLab** `https://sgts.gitlab-dedicated.com/<group>/<project>/-/merge_requests/<MR_ID>` → local `mr-<MR_ID>`, target `master`
+- Extract platform, owner/group, repo, ID from URL
+- Resolve local repo path
 
-- DO: resolve repo-path: user-provided → default root + repo name → ask
+## Step 1 — Worktree Setup
 
-## Step 1 — Worktree Setup for MR Branch
-
-```bash
-cd <repo-path>
-REPO_NAME=$(basename "<repo-path>")
-git fetch origin <target-branch>
-git fetch origin "<ref>:<local-ref>"
-BRANCH="<local-ref>"
-WORKTREE_DIR="${TMPDIR:-/tmp}/worktrees/${REPO_NAME}/${BRANCH}"
-
-# Remove stale worktree at same path
-if [ -d "${WORKTREE_DIR}" ]; then
-  git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true
-  rm -rf "${WORKTREE_DIR}" 2>/dev/null || true
-fi
-
-git worktree add "${WORKTREE_DIR}" "${BRANCH}" 2>/dev/null || \
-  git worktree add "${WORKTREE_DIR}" -b "${BRANCH}" "origin/${BRANCH//origin\//}"
-cd "${WORKTREE_DIR}" && git pull origin "${BRANCH}" 2>/dev/null || true
-
-WORK_DIR="${WORKTREE_DIR}"
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-git diff origin/<target-branch>..."${BRANCH}"
-```
-
-- STORE: diff, CURRENT_BRANCH, WORK_DIR, WORKTREE_DIR
-- All code fixes MUST be applied inside WORK_DIR (not the main repo checkout)
+- DO: fetch target + MR branch → create worktree at `$TMPDIR/worktrees/{repo}/{branch}`
+- STORE: WORK_DIR, CURRENT_BRANCH; read diff
 
 ## Step 2 — Fetch Open Threads
 
-- CALL: FETCH_OPEN_THREADS(ENCODED, MR_IID) → INLINE_THREADS[], GENERAL_THREADS[], ALL_THREADS[]
-- IF: ALL_THREADS empty → EMIT: `No open review threads` → STOP
+- CALL: FETCH_OPEN_THREADS → INLINE_THREADS[], GENERAL_THREADS[]
+- IF: empty → EMIT: `No open threads` → STOP
 
 ## Step 3 — Evaluate Each Thread
 
-- LOOP: each thread in ALL_THREADS
-  - DO: read concern from body
-  - DO: locate code (file + line from diff); read current content
-  - DO: decide FIX or REJECT:
+- LOOP: each thread → decide FIX or REJECT:
 
-| Condition | Decision |
+| FIX when | REJECT when |
 |---|---|
-| Clear, safe, within MR scope | **FIX** |
-| Requires design decisions beyond MR | **REJECT** — out of scope |
-| Concern incorrect (misread) | **REJECT** — explain why correct |
-| Would break other callers | **REJECT** — describe risk |
-| Style-only, no correctness impact | **REJECT** — style preference |
-| Uncertain impact | **REJECT** — needs clarification |
+| Clear, safe, within MR scope | Requires design decisions beyond MR |
+| | Concern incorrect (explain why) |
+| | Would break other callers |
+| | Style-only, no correctness impact |
 
 ## Step 4 — Apply Fixes
 
-- LOOP: each item in to_fix[]
-  - DO: read target file inside WORK_DIR at relevant lines
-  - DO: apply minimal change inside WORK_DIR — no refactoring beyond what was asked
-  - DO: verify syntactically valid
-- IF: nothing to fix → skip to Step 5c
+- LOOP: each FIX item → read file in WORK_DIR → apply minimal change → verify syntax
+- IF: nothing to fix → skip to Step 5
 
 ## Step 5 — Commit, Push & Reply
 
-- CALL: COMMIT(WORK_DIR, `fix: address review comments\n\n- <file>:<line> — <title>`) → COMMITTED
-- IF: COMMITTED → CALL: PUSH(WORK_DIR, CURRENT_BRANCH)
-- IF: COMMITTED → after push, call WORKTREE_TEARDOWN(repo-path, WORKTREE_DIR)
-- CALL: POST_THREAD_REPLIES for all to_fix[] and to_reject[]
+- CALL: COMMIT(WORK_DIR, `fix: address review comments`) → PUSH → WORKTREE_TEARDOWN
+- CALL: POST_THREAD_REPLIES for all FIX + REJECT items
 
-## Step 6 — Poll Until MR Clean
+## Step 6 — Poll Until Clean
 
-> **Do NOT stop until MR is in best state: pipeline green AND zero unresolved threads.**
+> **Do NOT stop until pipeline green AND zero unresolved threads.**
 
-- IF: COMMITTED=false → skip to Step 7
-- CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED) — first-interval 120s
-- LOOP: until (pipeline=success AND open_threads=0) OR terminal exit
-  - ON_SUCCESS:
-    1. CALL: RESOLVE_THREADS for all to_fix[]
-    2. CALL: FETCH_OPEN_THREADS(ENCODED, MR_IID) → ALL_THREADS (re-check for new threads from prelude/teammates)
-    3. IF: ALL_THREADS=0 → MR is clean → exit loop ✅
-    4. IF: ALL_THREADS>0 → evaluate each (FIX/REJECT)
-    5. CALL: WORKTREE_SETUP(repo-path, CURRENT_BRANCH, target-branch) → WORK_DIR
-    6. DO: apply fixes inside WORK_DIR
-    7. CALL: COMMIT(WORK_DIR, ...) → PUSH(WORK_DIR, CURRENT_BRANCH) → WORKTREE_TEARDOWN(repo-path, WORKTREE_DIR) → POST_THREAD_REPLIES → RESOLVE_THREADS
-    8. DO: reset POLL=0 → continue polling (fixes may break pipeline)
-  - ON_FAILURE:
-    1. DO: re-fetch ALL_THREADS → re-evaluate → identify CI failures
-    2. CALL: WORKTREE_SETUP(repo-path, CURRENT_BRANCH, target-branch) → WORK_DIR
-    3. DO: apply fixes inside WORK_DIR
-    4. CALL: COMMIT(WORK_DIR, ...) → PUSH(WORK_DIR, CURRENT_BRANCH) → WORKTREE_TEARDOWN(repo-path, WORKTREE_DIR) → POST_THREAD_REPLIES
-    5. DO: reset POLL=0 → continue polling
+- CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED)
+- LOOP: until (pipeline=success AND threads=0) OR terminal exit
+  - ON_SUCCESS: RESOLVE fixed threads → re-fetch → if new threads: evaluate → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → reset poll
+  - ON_FAILURE: inspect logs → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → reset poll
 
 ### Terminal Exits
 
 | Condition | Action |
 |---|---|
-| Pipeline success + 0 open threads | ✅ Done — proceed to Step 7 |
-| 3 consecutive pipeline failures | BLOCKED — report and stop |
-| 20 polls reached | TIMEOUT — report and stop |
+| Pipeline success + 0 threads | ✅ Done |
+| 3 consecutive failures | BLOCKED — stop |
+| 20 polls | TIMEOUT — stop |
 
-## Step 7 — Final Summary
+## Step 7 — Summary
 
-```
-### Fix-Review complete — <Platform> !<ID>
-Fixed & resolved (<N>): <file>:<line> — <title>
-Rejected — open (<M>): <title> — <reason>
-Pipeline: <status>
-Branch: <CURRENT_BRANCH>
-MR/PR: <URL>
-```
+- EMIT: fixed & resolved (N), rejected & open (M), pipeline status, branch, MR URL
 
 ## Constraints
 
-- Never fetch GitLab over HTTP
-- Fetch threads once in Step 2; no re-fetch mid-evaluation
+- Never fetch GitLab over HTTP (TechPass)
 - Never fix more than thread explicitly asks
-- Never commit secrets/tokens
-- Never force-push
+- Never commit secrets; never force-push
 - Rejection reasons must be specific
 - Do not auto-approve or auto-merge
-- Max 20 polls per pipeline run

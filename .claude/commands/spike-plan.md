@@ -6,50 +6,109 @@ argument-hint: "Provide the path to plan.md (e.g. .docs/my-feature/plan.md)"
 
 **Input**: `plan.md` path → **Output**: `spike.md` + `spike-report.md` in same `.docs/<folder>/`
 
-A spike is a time-boxed research activity to reduce technical uncertainty before implementation. Produces knowledge, not features.
+A spike is a time-boxed research activity to reduce technical uncertainty. Produces knowledge, not features.
 
 ---
 
 ## Phase 1 — Ingest Plan
 
-- DO: read full `plan.md`
-- DO: identify tech stack, integrations, external services, new patterns, architectural decisions
-- DO: list uncertainty signals (TBD, "investigate", "may require", open questions, unfamiliar tech)
-- DO: read `SNAPSHOT.md` (or README fallback) for relevant repos
+- DO: read `plan.md`; read `SNAPSHOT.md` for relevant repos
+- DO: identify uncertainty signals (TBD, "investigate", open questions, unfamiliar tech)
+- DO: list tech stack, integrations, external services, new patterns
 
 ## Phase 2 — Codebase Exploration
 
-- DO: find analogous patterns (similar features, integrations, architectural decisions)
-- DO: identify reusable components, shared utilities, existing abstractions
+- DO: find analogous patterns, reusable components, existing abstractions
 - DO: note constraints (framework versions, security policies, deployment targets)
-- DO: flag gaps — things plan needs that don't exist yet
+- DO: flag gaps — things plan needs that don't exist
 
 ## Phase 3 — External Research
 
-- LOOP: each unknown technology/integration/pattern
-  - DO: web search for official docs, limitations, compatibility, security
-  - DO: evaluate alternatives if better/lower-risk options exist
-  - DO: check CVEs for new libraries/services
-- IF: already well-understood in codebase → skip
+- LOOP: each unknown tech/integration
+  - DO: search official docs, limitations, compatibility, CVEs
+  - DO: evaluate alternatives if lower-risk options exist
+- IF: well-understood in codebase → skip
 
 ## Phase 4 — Synthesis
 
-- DO: compile findings into `spike.md` per Output Structure
+- DO: compile findings into `spike.md` per Structure
 - DO: score Confidence + Complexity:
 
 | Score | Confidence | Complexity |
-|-------|-----------|-----------|
-| 🔴 | Unproven approach; multiple unknowns; high rework risk | New architecture; multiple integrations; significant infra |
-| 🟡 | Viable but ≥1 question could change scope | Extends patterns; ≤2 integrations; moderate infra |
-| 🟢 | Confirmed; minor unknowns; safe to proceed | Fits patterns; no new infra; ≤1 integration |
+|---|---|---|
+| 🔴 | Unproven; multiple unknowns | New architecture; multiple integrations |
+| 🟡 | Viable but ≥1 question could change scope | Extends patterns; ≤2 integrations |
+| 🟢 | Confirmed; safe to proceed | Fits patterns; no new infra |
 
 ## Phase 5 — Spike Report
 
-- DO: generate `spike-report.md` — non-technical executive summary for PM/Tech Lead
-  - No code, file paths, class names — business language only
-  - Lead with decisions and confidence
-  - Use Mermaid diagrams for user flow + system overview
-  - Use ADD/UPDATED/NO CHANGE/REMOVED (not file names)
+- DO: write `spike-report.md` — non-technical executive summary (no code/file paths)
+  - Lead with decisions + confidence
+  - Use Mermaid for user flow + system overview
+  - Use ADD/UPDATED/NO CHANGE/REMOVED labels
+
+---
+
+## spike.md Structure
+
+```md
+# Spike: <Title>
+> **Time-box**: <N days> | **Confidence**: 🔴/🟡/🟢 | **Complexity**: 🟢/🟡/🔴
+
+## Context
+## Problem Statement
+## Goals
+| # | Question | Status |
+## Scope
+**In scope** / **Out of scope**
+## Approach
+1. <Step — what, why, expected output>
+## Existing Codebase Context
+| Area | Finding | Impact |
+## Risks & Unknowns
+| Risk | Likelihood | Impact | Mitigation |
+## Alternatives Considered
+| Option | Pros | Cons | Verdict |
+## Security Considerations
+## Open Questions
+| # | Question | Owner | Due |
+## Definition of Done
+## Findings
+> _Filled during execution._
+## Recommendation
+> **Proceed / Pivot / Stop** — <rationale>
+### Next Steps
+```
+
+## spike-report.md Structure
+
+```md
+# Spike Report: <Feature>
+> **Audience**: PM / Tech Lead | **Confidence**: 🟢/🟡/🔴
+
+## What Are We Building?
+## Decisions Made
+| Decision | Chosen | Why |
+## How It Works
+<mermaid flowchart TD — user journey>
+## System Overview
+<mermaid flowchart LR — system boxes>
+## What's Changing
+| Type | What |
+## Effort Estimate
+| Work Item | Estimate | Notes |
+## Risks
+| Risk | Likelihood | Impact | Plan |
+## Next Steps
+```
+
+## Constraints
+
+- Do NOT implement code — documents only
+- Do NOT mark Goals answered without evidence
+- Do NOT invent risks — only grounded in plan/research
+- All web research must cite source
+- Time-box: derive from plan complexity, cap 5 days
 
 ---
 

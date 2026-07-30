@@ -4,11 +4,13 @@ tools: [read, search, execute, edit, todo]
 argument-hint: "Describe the query or problem. Optionally provide relevant file paths, service names, log snippets, or ticket references."
 ---
 
+**Input**: problem description → **Output**: `report.md` + `flowchart.mmd` in `.docs/<topic>/`
+
 ## Constraints
 
-- Every claim must cite file, log line, code path, or terminal output — no assumptions
-- Only run read-safe commands. Ask before writes/destructive ops
-- Flowchart is required output alongside `report.md`
+- Every claim must cite file, log line, code path, or terminal output
+- Read-safe commands only (searches, log tails, test runs); ask before writes/destructive ops
+- Flowchart required alongside report
 
 ## Workflow
 
