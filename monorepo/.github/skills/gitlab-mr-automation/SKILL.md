@@ -70,9 +70,13 @@ IF: no changes → STOP.
 
 ## Phase 3 — Commit & Push
 
+Always squash all branch commits into a single commit, then force-push.
+
 ```bash
 cd "${WORK_DIR}" && /usr/bin/git add -A
-if ! /usr/bin/git diff --cached --quiet; then
+if ! /usr/bin/git diff --cached --quiet || [ "$(/usr/bin/git rev-list --count origin/${DEFAULT_BRANCH}..HEAD)" -gt 1 ]; then
+  FORK_POINT=$(/usr/bin/git merge-base origin/${DEFAULT_BRANCH} HEAD)
+  /usr/bin/git reset --soft "${FORK_POINT}"
   /usr/bin/git commit -m "${COMMIT_MSG}"; COMMITTED=true
 else
   COMMITTED=false
@@ -81,10 +85,9 @@ fi
 IF: `COMMITTED=false` → STOP.
 
 ```bash
-cd "${WORK_DIR}" && /usr/bin/git push origin "${BRANCH}"
+cd "${WORK_DIR}" && /usr/bin/git push --force-with-lease origin "${BRANCH}"
 cd "${REPO_DIR}" && /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true && /usr/bin/git worktree prune
 ```
-IF: non-fast-forward → `git pull --rebase` then retry push.
 
 ---
 
@@ -99,7 +102,23 @@ IF: exists → reuse. ELSE: `POST .../merge_requests` with `source_branch`, `tar
 
 ---
 
-## Phase 5 — Poll & Fix Loop
+## Phase 5 — Threads-First & Poll Loop
+
+> **Key insight:** Pushing restarts the pipeline. Process open threads IMMEDIATELY after push (before polling) — fixing threads early avoids wasted pipeline cycles.
+
+### PRE-POLL: Fix Threads First
+
+After Phase 4 (MR exists), BEFORE entering the poll loop:
+
+1. Fetch open threads (paginate `/discussions?per_page=100`)
+   - Filter: `resolved != true AND system != true`
+   - Inline: `position != null`; General: `position == null AND author not bot`
+2. IF: 0 threads → proceed to poll loop
+3. Evaluate: actionable → `to_fix[]`; commentary → `to_reject[]`
+4. IF: only rejections → post replies → proceed to poll loop
+5. Re-create worktree → apply fixes → squash commit → force-push → teardown → post replies → resolve `to_fix[]` → reset poll (push already restarted pipeline)
+
+### POLL LOOP
 
 Adaptive schedule: 180s → 120s → 90s → 60s → 30s. Reset `POLL=0` after each push.
 
@@ -110,18 +129,17 @@ LOOP: while `POLL < 20`:
 
 ### ON_SUCCESS
 
-1. Fetch open threads (paginate `/discussions?per_page=100`)
-   - Filter: `resolved != true AND system != true`
-   - Inline: `position != null`; General: `position == null AND author not bot`
+1. Fetch open threads (same filter as above)
 2. IF: 0 threads → ✅ SUCCESS
 3. Evaluate: actionable → `to_fix[]`; commentary → `to_reject[]`
 4. IF: only rejections → post replies → SUCCESS
-5. Re-create worktree → apply fixes → commit → push → teardown → post replies → resolve `to_fix[]` → reset poll
+5. Re-create worktree → apply fixes → squash commit → force-push → teardown → post replies → resolve `to_fix[]` → reset poll
 
 ### ON_FAILURE
 
 1. Fetch failed job logs: `GET .../pipelines/${PID}/jobs?scope=failed` → trace
-2. Re-create worktree → analyze + fix → commit → push → teardown → reset poll
+2. Also fetch open threads — fix both pipeline AND threads in same pass (saves a cycle)
+3. Re-create worktree → analyze + fix all → squash commit → force-push → teardown → reset poll
 
 ---
 
@@ -153,9 +171,10 @@ LOOP: while `POLL < 20`:
 ## Constraints
 
 - Absolute paths: `/usr/bin/curl`, `/usr/bin/jq`, `/usr/bin/git`
-- Never force-push
+- Always squash + force-push (`--force-with-lease`)
 - Never commit secrets/tokens
 - Never auto-approve or auto-merge
+- Fix threads BEFORE waiting for pipeline (push restarts it anyway)
 - Post replies BEFORE pipeline wait resumes
 - Resolve only `to_fix[]` — leave `to_reject[]` open
 - Run full loop without pausing
