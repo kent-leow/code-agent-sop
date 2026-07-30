@@ -35,40 +35,44 @@ argument-hint: "[--dry-run] to preview changes without writing"
 
 ---
 
-## Phase 1 — Discover
+## Phase 1 — Detect Changed Sources
 
-- DO: list `.github/agents/`, `.github/instructions/`, `.github/skills/*/SKILL.md`
-- STORE: agents[], instructions[], skills[], git_agents[], git_skills[]
+- RUN: `git diff --name-only -- .github/` (unstaged) + `git diff --staged --name-only -- .github/` (staged), union both
+- IF: no changes found → EMIT "No changes in .github/ — nothing to sync" and STOP
+- FILTER: only files under `.github/agents/`, `.github/instructions/`, `.github/skills/`
+- CLASSIFY: changed_agents[], changed_instructions[], changed_skills[]
+- ALSO STORE: git_agents[], git_skills[] (exclusion lists, same as before)
+- EMIT: list of changed source files being synced
 
-## Phase 2 — Sync root-claude
+## Phase 2 — Sync root-claude (changed only)
 
-- LOOP: agents → `.claude/commands/<name>.md` (strip `.agent`)
-- LOOP: skills → `.claude/skills/<name>/SKILL.md`
-- DO: instructions → `.claude/CLAUDE.md` (wrap in `<!-- sync-ghcp:... -->` markers)
+- LOOP: changed_agents → `.claude/commands/<name>.md` (strip `.agent`)
+- LOOP: changed_skills → `.claude/skills/<name>/SKILL.md`
+- IF: changed_instructions not empty → `.claude/CLAUDE.md` (wrap in `<!-- sync-ghcp:... -->` markers)
 
-## Phase 3 — Sync general-github
+## Phase 3 — Sync general-github (changed only)
 
-- LOOP: non-git agents → `general/.github/agents/`
-- LOOP: non-git skills → `general/.github/skills/`
-- LOOP: instructions → `general/.github/instructions/`
+- LOOP: changed non-git agents → `general/.github/agents/`
+- LOOP: changed non-git skills → `general/.github/skills/`
+- LOOP: changed instructions → `general/.github/instructions/`
 
-## Phase 4 — Sync general-claude
+## Phase 4 — Sync general-claude (changed only)
 
-- LOOP: non-git agents → `general/.claude/commands/`
-- LOOP: non-git skills → `general/.claude/skills/`
-- DO: instructions → `general/.claude/CLAUDE.md` (markers)
+- LOOP: changed non-git agents → `general/.claude/commands/`
+- LOOP: changed non-git skills → `general/.claude/skills/`
+- IF: changed_instructions not empty → `general/.claude/CLAUDE.md` (markers)
 
-## Phase 5 — Sync monorepo-github
+## Phase 5 — Sync monorepo-github (changed only)
 
-- LOOP: all agents → `monorepo/.github/agents/`
-- LOOP: all skills → `monorepo/.github/skills/`
-- DO: instructions → `monorepo/.github/instructions/` (preserve monorepo context)
+- LOOP: changed agents → `monorepo/.github/agents/`
+- LOOP: changed skills → `monorepo/.github/skills/`
+- IF: changed_instructions not empty → `monorepo/.github/instructions/` (preserve monorepo context)
 
-## Phase 6 — Sync monorepo-claude
+## Phase 6 — Sync monorepo-claude (changed only)
 
-- LOOP: all agents → `monorepo/.claude/commands/`
-- LOOP: all skills → `monorepo/.claude/skills/`
-- DO: instructions → `monorepo/.claude/CLAUDE.md` (markers + monorepo context)
+- LOOP: changed agents → `monorepo/.claude/commands/`
+- LOOP: changed skills → `monorepo/.claude/skills/`
+- IF: changed_instructions not empty → `monorepo/.claude/CLAUDE.md` (markers + monorepo context)
 
 ## Phase 7 — Detect Orphans
 
@@ -83,7 +87,7 @@ argument-hint: "[--dry-run] to preview changes without writing"
 
 - Never delete files — only add or update
 - Never modify `.claude/settings.local.json`
-- Byte-for-byte comparison (no whitespace normalization)
+- Only sync files with git changes (staged or unstaged); skip unchanged files
 - Git agents excluded from general only; monorepo gets all
 - `broadcast-sync.md` excluded from orphan detection
 - Preserve monorepo-specific context sections when syncing
