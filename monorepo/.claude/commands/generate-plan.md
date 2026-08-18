@@ -20,7 +20,7 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 - DO: parse requirements — never invent unstated items
 - DO: search codebase for affected domain context
 - DO: create `.docs/<kebab-folder>/` if needed
-- IF: Figma URL → CALL: figma-design-context skill (Workflow A step 1-2 outline + Workflow B UX flow, not deep per-node styling) → store in `figma/` subfolder → fold into AC
+- IF: Figma URL → CALL: figma-design-context skill (Workflow A step 1-2 outline + Workflow B UX flow, not deep per-node styling) → cache under `.docs/<kebab-folder>/figma/` (becomes `<plan-folder>/figma/` for all downstream agents — check cache before re-fetching) → fold into AC
 - DO: estimate SP (holistic — layers touched × regression risk × uncertainty):
 
 | SP | Category | Signal |

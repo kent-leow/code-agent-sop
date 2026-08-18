@@ -19,7 +19,7 @@ argument-hint: "Generate: provide path to plan.md. Refine: provide path to task-
 
 - IF: unresolved blocking questions in `plan.md` → STOP
 - DO: explore codebase (structure, patterns, test locations, shared utils)
-- IF: Figma URL → CALL: figma-design-context skill (Workflow A step 5: `get-components.sh`) → map INSTANCE nodes to codebase equivalents
+- IF: Figma URL → CALL: figma-design-context skill (Workflow A step 5: `get-components.sh`) → cache under `<plan-folder>/figma/` per skill's Caching Convention — check cache before re-fetching → map INSTANCE nodes to codebase equivalents
 - DO: design slices — each complete, runnable, independently testable
   - Seams: data layer → service+API → frontend → e2e
   - Target half-day to two-day per slice

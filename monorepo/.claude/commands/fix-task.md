@@ -32,7 +32,7 @@ Load **git-workflow skill**. Autonomous — never pause once started.
 - LOOP: each unchecked `FIX-NNN`
   - DO: grep/glob to locate relevant files
   - DO: apply minimal fix inside `WORK_DIR`
-  - IF: Figma URL → CALL: figma-design-context skill (Workflow A, node scoped to the fix) → re-verify against cached spec
+  - IF: Figma URL → CALL: figma-design-context skill (Workflow A, node scoped to the fix) → reuse the existing `<plan-folder>/figma/` cache (never create a new one) → re-verify against cached spec
   - DO: run narrowest test from `WORK_DIR`; fix failures
   - EMIT: mark `[x]` + update `_Files_:` + append changelog
 

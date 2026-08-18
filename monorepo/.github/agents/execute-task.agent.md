@@ -25,7 +25,7 @@ Load **git-workflow skill**. Autonomous — never pause once started.
 - DO: for each new file → find 2–3 analogues for conventions
 - DO: identify reusable utilities, base classes, test helpers
 - STORE: impl order = entity → repo → service → controller → frontend → test
-- IF: Figma URL → CALL: figma-design-context skill (Workflow A: metadata → targeted design context → summarize) → cache under `<plan-folder>/figma/`
+- IF: Figma URL → CALL: figma-design-context skill (Workflow A: metadata → targeted design context → summarize) → cache under `<plan-folder>/figma/` per skill's Caching Convention — check cache before re-fetching; implement strictly from the cached spec, never from memory
 
 ## Phase 3 — Implementation
 

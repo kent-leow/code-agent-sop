@@ -22,6 +22,42 @@ Never fetch or read a whole Figma file. Escalate one step at a time and **stop a
 
 Always pipe raw JSON through `summarize-context.sh` — never read a `figma-context.json` file directly; it is 10-100x more tokens than the summary.
 
+## Caching Convention (mandatory)
+
+Every fetch from Figma MUST be saved to a deterministic, reusable path. Never fetch the same fileKey+nodeId twice in one task, and never let a downstream agent (generate-task, execute-task, fix-task) re-derive design facts from memory — they read the cached file instead. This is the single biggest lever against hallucination: the cache is the source of truth, not the model's recollection of it.
+
+**Cache root**: `<task-folder>/figma/` where `<task-folder>` is the same `.docs/<kebab-folder>/` used for `plan.md`/`task-NNN.md`. `fix-task` reuses this same cache root (never creates its own) so it verifies against the exact spec the original implementation was built from.
+
+**Layout**:
+
+```
+<task-folder>/figma/
+└── <fileKey>/
+    ├── metadata.txt           # get-metadata.sh (stdout redirect — no --output flag)
+    ├── variables.json          # get-variables.sh
+    ├── styles.txt              # get-styles.sh (stdout redirect — no --output flag)
+    ├── components.json         # get-components.sh
+    ├── <nodeId>/
+    │   ├── context.json        # get-design-context.sh (raw)
+    │   ├── context.summary.md  # summarize-context.sh output (piped, not regenerated)
+    │   └── screenshot.png      # get-screenshot.sh
+    └── <pageId>/
+        ├── page.json            # get-page-full.sh
+        └── flow.json            # get-flow.sh
+```
+
+**Rule — check cache before every fetch**:
+
+```bash
+CACHE_DIR="<task-folder>/figma/<fileKey>"; mkdir -p "$CACHE_DIR/<nodeId>"
+
+[[ -f "$CACHE_DIR/<nodeId>/context.json" ]] || \
+  bash .github/skills/figma-design-context/scripts/get-design-context.sh \
+    --file-key <fileKey> --node-id <nodeId> --depth 4 --output "$CACHE_DIR/<nodeId>/context.json"
+```
+
+Only re-fetch when the user explicitly asks for a refresh, or the cached file is missing/empty — otherwise read the cached file directly. This also keeps every call under the rate limit (~30 req/min).
+
 ## Prerequisites
 
 ```bash
@@ -39,23 +75,30 @@ echo $FIGMA_TOKEN  # If empty, see Credential Setup below
 ## Workflow A — Implement a UI Frame
 
 ```bash
-# 1. Outline — find the frame, don't guess
-bash .github/skills/figma-design-context/scripts/get-metadata.sh --file-key <fileKey>
+CACHE="<task-folder>/figma/<fileKey>"; mkdir -p "$CACHE/<nodeId>"
 
-# 2. Targeted context — ONE node, capped depth
-bash .github/skills/figma-design-context/scripts/get-design-context.sh \
-  --file-key <fileKey> --node-id <nodeId> --depth 4 --output ./figma-context.json
+# 1. Outline — find the frame, don't guess (skip if cached)
+[[ -f "$CACHE/metadata.txt" ]] || \
+  bash .github/skills/figma-design-context/scripts/get-metadata.sh --file-key <fileKey> > "$CACHE/metadata.txt"
 
-# 3. Summarize — read this, never the raw JSON
-bash .github/skills/figma-design-context/scripts/summarize-context.sh \
-  --input ./figma-context.json --depth 4
+# 2. Targeted context — ONE node, capped depth (skip if cached)
+[[ -f "$CACHE/<nodeId>/context.json" ]] || \
+  bash .github/skills/figma-design-context/scripts/get-design-context.sh \
+    --file-key <fileKey> --node-id <nodeId> --depth 4 --output "$CACHE/<nodeId>/context.json"
 
-# 4. Visual check — only if summary is ambiguous
-bash .github/skills/figma-design-context/scripts/get-screenshot.sh \
-  --file-key <fileKey> --node-id <nodeId> --scale 2 --output ./figma-screenshot.png
+# 3. Summarize — cache the summary too; read this, never the raw JSON
+[[ -f "$CACHE/<nodeId>/context.summary.md" ]] || \
+  bash .github/skills/figma-design-context/scripts/summarize-context.sh \
+    --input "$CACHE/<nodeId>/context.json" --depth 4 > "$CACHE/<nodeId>/context.summary.md"
 
-# 5. Reuse — map INSTANCE nodes to real components before coding new ones
-bash .github/skills/figma-design-context/scripts/get-components.sh --file-key <fileKey>
+# 4. Visual check — only if summary is ambiguous (skip if cached)
+[[ -f "$CACHE/<nodeId>/screenshot.png" ]] || \
+  bash .github/skills/figma-design-context/scripts/get-screenshot.sh \
+    --file-key <fileKey> --node-id <nodeId> --scale 2 --output "$CACHE/<nodeId>/screenshot.png"
+
+# 5. Reuse — map INSTANCE nodes to real components before coding new ones (skip if cached)
+[[ -f "$CACHE/components.json" ]] || \
+  bash .github/skills/figma-design-context/scripts/get-components.sh --file-key <fileKey> --output "$CACHE/components.json"
 ```
 
 Then implement:
@@ -69,11 +112,15 @@ Then implement:
 No REST equivalent of a single "flow" tool exists, so combine two calls into one flow graph:
 
 ```bash
-bash .github/skills/figma-design-context/scripts/get-page-full.sh \
-  --file-key <fileKey> --page-id <pageId> --depth 6 --output ./figma-page.json
+CACHE="<task-folder>/figma/<fileKey>/<pageId>"; mkdir -p "$CACHE"
 
-bash .github/skills/figma-design-context/scripts/get-flow.sh \
-  --file-key <fileKey> --page-id <pageId> --output ./figma-flow.json
+[[ -f "$CACHE/page.json" ]] || \
+  bash .github/skills/figma-design-context/scripts/get-page-full.sh \
+    --file-key <fileKey> --page-id <pageId> --depth 6 --output "$CACHE/page.json"
+
+[[ -f "$CACHE/flow.json" ]] || \
+  bash .github/skills/figma-design-context/scripts/get-flow.sh \
+    --file-key <fileKey> --page-id <pageId> --output "$CACHE/flow.json"
 ```
 
 Read the `summarize-context.sh` output for `CONNECTOR ARROWS / UI FLOW` and prototype `interactions` sections — this is the sequence of screens/states, and which trigger navigates where. Use it to decide route/screen order before writing any code.
@@ -81,9 +128,14 @@ Read the `summarize-context.sh` output for `CONNECTOR ARROWS / UI FLOW` and prot
 ## Workflow C — Reuse Design System (tokens + components)
 
 ```bash
-bash .github/skills/figma-design-context/scripts/get-variables.sh --file-key <fileKey> --output ./figma-variables.json
-bash .github/skills/figma-design-context/scripts/get-styles.sh --file-key <fileKey>
-bash .github/skills/figma-design-context/scripts/get-components.sh --file-key <fileKey>
+CACHE="<task-folder>/figma/<fileKey>"; mkdir -p "$CACHE"
+
+[[ -f "$CACHE/variables.json" ]] || \
+  bash .github/skills/figma-design-context/scripts/get-variables.sh --file-key <fileKey> --output "$CACHE/variables.json"
+[[ -f "$CACHE/styles.txt" ]] || \
+  bash .github/skills/figma-design-context/scripts/get-styles.sh --file-key <fileKey> > "$CACHE/styles.txt"
+[[ -f "$CACHE/components.json" ]] || \
+  bash .github/skills/figma-design-context/scripts/get-components.sh --file-key <fileKey> --output "$CACHE/components.json"
 ```
 
 If Variables API returns 403/404 (plan doesn't support it), fall back to `get-styles.sh`.
