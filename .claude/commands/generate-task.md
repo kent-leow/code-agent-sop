@@ -1,6 +1,6 @@
 ---
 description: "Generate or refine task-NNN.md files. Auto-detects mode: no task files exist → generate from plan.md; task files exist or task-NNN.md path provided → refine. Triggers: generate tasks, ready to implement, break down plan, generate subtasks, update task, add task, change implementation detail, correct file path, adjust slice."
-tools: [read, search, edit, execute, todo, com.figma.mcp/mcp/*]
+tools: [read, search, edit, execute, todo]
 argument-hint: "Generate: provide path to plan.md. Refine: provide path to task-NNN.md and your corrections."
 ---
 
@@ -19,7 +19,7 @@ argument-hint: "Generate: provide path to plan.md. Refine: provide path to task-
 
 - IF: unresolved blocking questions in `plan.md` → STOP
 - DO: explore codebase (structure, patterns, test locations, shared utils)
-- IF: Figma URL → CALL: figma-cache → map components to codebase equivalents
+- IF: Figma URL → CALL: figma-design-context skill (Workflow A step 5: `get-components.sh`) → map INSTANCE nodes to codebase equivalents
 - DO: design slices — each complete, runnable, independently testable
   - Seams: data layer → service+API → frontend → e2e
   - Target half-day to two-day per slice

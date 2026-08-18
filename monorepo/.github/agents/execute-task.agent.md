@@ -1,6 +1,6 @@
 ---
 description: "Executes a task-NNN.md end-to-end: syncs sibling task files, then fully implements every task — production code, tests, checkboxes. Triggers: execute task, run task, implement, code this, build this, do the work, start slice."
-tools: [read, search, edit, execute, todo, agent, com.figma.mcp/mcp/*]
+tools: [read, search, edit, execute, todo, agent]
 argument-hint: "Provide the path to task-NNN.md (e.g. .docs/create-form-and-application/task-002.md)"
 ---
 
@@ -25,7 +25,7 @@ Load **git-workflow skill**. Autonomous — never pause once started.
 - DO: for each new file → find 2–3 analogues for conventions
 - DO: identify reusable utilities, base classes, test helpers
 - STORE: impl order = entity → repo → service → controller → frontend → test
-- IF: Figma URL → CALL: figma-cache(nodeId, plan-folder)
+- IF: Figma URL → CALL: figma-design-context skill (Workflow A: metadata → targeted design context → summarize) → cache under `<plan-folder>/figma/`
 
 ## Phase 3 — Implementation
 
