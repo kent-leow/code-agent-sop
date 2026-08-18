@@ -31,7 +31,7 @@ Load **git-workflow skill**. Autonomous — never pause once started.
 
 - LOOP: each task in dependency order
   - DO: write production code inside `WORK_DIR` — match conventions
-  - IF: UI task → verify layout/spacing/colour vs Figma
+  - IF: UI task → verify node-by-node against the cached `context.summary.md` NODE TREE (dimensions, fills, padding, gap, corner-radius, font, text) — 0 discrepancy, no invented/"improved" values; screenshot is a sanity check only, tree/JSON is ground truth
   - DO: mark `[x]` in `task-NNN.md`
   - DO: write/update tests; run from `WORK_DIR`; fix failures before next
   - DO: mark test `[x]`

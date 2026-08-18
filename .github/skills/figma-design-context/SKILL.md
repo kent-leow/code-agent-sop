@@ -22,6 +22,16 @@ Never fetch or read a whole Figma file. Escalate one step at a time and **stop a
 
 Always pipe raw JSON through `summarize-context.sh` — never read a `figma-context.json` file directly; it is 10-100x more tokens than the summary.
 
+## Fidelity Contract — zero discrepancy (mandatory)
+
+The goal is to build **exactly** what is in the Figma file — same layout, same spacing, same colours, same copy, same component hierarchy. Not an "improved" version, not a best-guess, not a stylistic reinterpretation.
+
+- **Build from the `NODE TREE` section** of `context.summary.md` (produced by `summarize-context.sh`), not the aggregated sections below it (`NODE TYPES`, `TYPOGRAPHY`, `COLOURS`, `AUTO-LAYOUT`, `COMPONENT INSTANCES`). The tree preserves per-node parent/child structure and each node's own exact properties in document order; the aggregated sections are deduplicated/flattened and lose that structure — use them only as a cross-check, never as the primary spec.
+- **Never invent, add, remove, reorder, or "improve" anything** not present in the tree — no extra elements, no rewritten copy, no different spacing/colours/radii "because it looks better", no rounding of numeric values (use the exact px/hex/opacity values printed).
+- **If a value is ambiguous or missing** from the tree (e.g. truncated text sample, unclear nesting), read the raw `context.json` for that specific node — do not guess or fall back to a plausible-looking default.
+- **Screenshot is a visual sanity check only** — the JSON/tree values are ground truth. If the screenshot and the tree ever appear to disagree, trust the tree/JSON and re-fetch/re-check rather than eyeballing the image.
+- **Before marking a UI task complete**, diff your implementation against the tree node-by-node (dimensions, fills, padding, gap, corner-radius, font, text content) — not just an overall glance.
+
 ## Caching Convention (mandatory)
 
 Every fetch from Figma MUST be saved to a deterministic, reusable path. Never fetch the same fileKey+nodeId twice in one task, and never let a downstream agent (generate-task, execute-task, fix-task) re-derive design facts from memory — they read the cached file instead. This is the single biggest lever against hallucination: the cache is the source of truth, not the model's recollection of it.
@@ -86,7 +96,9 @@ CACHE="<task-folder>/figma/<fileKey>"; mkdir -p "$CACHE/<nodeId>"
   bash .github/skills/figma-design-context/scripts/get-design-context.sh \
     --file-key <fileKey> --node-id <nodeId> --depth 4 --output "$CACHE/<nodeId>/context.json"
 
-# 3. Summarize — cache the summary too; read this, never the raw JSON
+# 3. Summarize — cache the summary too; read this, never the raw JSON.
+#    Output has a NODE TREE section (exact per-node structure — build from this)
+#    followed by aggregated cross-check sections (colours/typography/etc).
 [[ -f "$CACHE/<nodeId>/context.summary.md" ]] || \
   bash .github/skills/figma-design-context/scripts/summarize-context.sh \
     --input "$CACHE/<nodeId>/context.json" --depth 4 > "$CACHE/<nodeId>/context.summary.md"

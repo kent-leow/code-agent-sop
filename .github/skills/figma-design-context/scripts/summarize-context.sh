@@ -66,12 +66,67 @@ def index_names(node):
     for child in node.get("children", []):
         index_names(child)
 
+# ── Per-node structural tree (exact ground truth — NOT aggregated/deduplicated) ─
+tree_lines = []
+
+def format_node_line(node, depth):
+    ntype  = node.get("type", "?")
+    name   = node.get("name", "")
+    bounds = node.get("absoluteBoundingBox") or {}
+    pad = "  " * depth
+    dims = ""
+    if bounds:
+        dims = f"  {round(bounds.get('width', 0))}\u00d7{round(bounds.get('height', 0))} @ ({round(bounds.get('x', 0))},{round(bounds.get('y', 0))})"
+    lines = [f'{pad}{ntype}: "{name}"{dims}']
+
+    layout_mode = node.get("layoutMode")
+    if layout_mode and layout_mode != "NONE":
+        p = f"pt:{node.get('paddingTop', 0)} pr:{node.get('paddingRight', 0)} pb:{node.get('paddingBottom', 0)} pl:{node.get('paddingLeft', 0)}"
+        lines.append(f"{pad}  layout: {layout_mode}  gap:{node.get('itemSpacing', 0)}  {p}  justify:{node.get('primaryAxisAlignItems', '')}  align:{node.get('counterAxisAlignItems', '')}")
+
+    own_fills = [describe_fill(f) for f in node.get("fills", []) if f.get("visible", True)]
+    if own_fills:
+        lines.append(f"{pad}  fill: {', '.join(own_fills)}")
+
+    own_strokes = [rgba_to_hex(s["color"]) for s in node.get("strokes", []) if s.get("visible", True) and s.get("color")]
+    if own_strokes:
+        w = node.get("strokeWeight")
+        lines.append(f"{pad}  stroke: {', '.join(own_strokes)}" + (f"  weight:{w}px" if w else ""))
+
+    cr = node.get("cornerRadius")
+    if cr:
+        lines.append(f"{pad}  corner-radius: {cr}px")
+
+    opacity = node.get("opacity")
+    if opacity is not None and opacity != 1:
+        lines.append(f"{pad}  opacity: {opacity}")
+
+    effects = [e for e in node.get("effects", []) if e.get("visible", True)]
+    if effects:
+        for e in effects:
+            off = e.get("offset", {})
+            lines.append(f"{pad}  effect: {e.get('type', '?')}  radius:{e.get('radius', 0)}  offset:({off.get('x', 0)},{off.get('y', 0)})")
+
+    if ntype == "TEXT":
+        style = node.get("style", {})
+        chars = node.get("characters", "")
+        sample = (chars[:80] + "\u2026") if len(chars) > 80 else chars
+        weight = style.get("fontPostScriptName", style.get("fontWeight", "?"))
+        lines.append(f'{pad}  text: {style.get("fontFamily", "?")} {weight} {style.get("fontSize", "?")}px  "{sample}"')
+
+    if ntype == "INSTANCE":
+        lines.append(f"{pad}  \u2192 component instance — find existing codebase equivalent, do not re-author")
+
+    return "\n".join(lines)
+
 def walk(node, depth, max_depth):
     if depth > max_depth:
         return
     ntype = node.get("type", "?")
     name  = node.get("name", "")
     nid   = node.get("id", "")
+
+    tree_lines.append(format_node_line(node, depth))
 
     node_type_counts[ntype] += 1
 
@@ -176,12 +231,21 @@ for node_id, node_data in nodes.items():
     print("=" * 60)
     print(f"FRAME: {file_name}  (id: {node_id})")
     if bounds:
-        print(f"  Dimensions: {bounds.get('width', '?')} × {bounds.get('height', '?')} px")
+        print(f"  Dimensions: {bounds.get('width', '?')} \u00d7 {bounds.get('height', '?')} px")
     cr = doc.get("cornerRadius")
     if cr:
         print(f"  Corner radius: {cr}px")
     print()
+
+    tree_lines.clear()
     walk(doc, 0, max_depth)
+
+    print("NODE TREE \u2014 exact structure (BUILD FROM THIS, in this order; the aggregated sections below are a cross-check only, never the source of truth)")
+    print("-" * 40)
+    for line in tree_lines:
+        print(line)
+    print()
+
 
 # ── Node-type breakdown ───────────────────────────────────────────────────────
 if node_type_counts:
