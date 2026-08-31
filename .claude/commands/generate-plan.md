@@ -6,6 +6,8 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 
 **Input**: raw requirements (Create) or `plan.md` path + changes (Refine) → **Output**: `.docs/<folder>/plan.md`
 
+Load **deep-think skill**.
+
 ## Mode Detection
 
 | Condition | Mode |
@@ -21,7 +23,10 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 - DO: search codebase for affected domain context
 - DO: create `.docs/<kebab-folder>/` if needed
 - IF: Figma URL → CALL: figma-design-context skill (Workflow A step 1-2 outline + Workflow B UX flow, not deep per-node styling) → cache under `.docs/<kebab-folder>/figma/` (becomes `<plan-folder>/figma/` for all downstream agents — check cache before re-fetching) → fold into AC
-- DO: estimate SP (holistic — layers touched × regression risk × uncertainty):
+- DO: draft Scope + Acceptance Criteria
+- CALL: DEEP_THINK_PASS(draft, SCOPE=business) → fold Known-fact/Strong-inference gaps into Scope/AC; fold Assumptions into `## Assumptions` (with Confidence); route Unknowns to `## Open Questions`
+- DO: draft Invariants — business-language statements of what must remain true (existing behaviour, data, compatibility); evidence-based only, never invented
+- DO: estimate SP (holistic — layers touched × regression risk × uncertainty; re-check after gaps folded):
 
 | SP | Category | Signal |
 |---|---|---|
@@ -40,6 +45,7 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 
 - DO: read existing `plan.md`; apply Figma if relevant
 - DO: fold answered questions into AC; revise for new/changed reqs
+- CALL: DEEP_THINK_PASS(revised plan, SCOPE=business) → fold Known-fact/Strong-inference gaps into Scope/AC; fold Assumptions into `## Assumptions`; route Unknowns to `## Open Questions`; revise `## Invariants`
 - DO: append `## Changelog`; recompute estimate
 - DO: run Readiness Check
 - IF: `task-NNN.md` files exist → run Task Cascade (update impacted files only)
@@ -54,6 +60,8 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 | Scope defined | In/out both listed |
 | AC complete | Every in-scope item has ≥1 Given/When/Then |
 | AC concrete | No vague terms ("works correctly") |
+| Invariants stated | ≥1 evidence-based invariant, or explicit "None identified" |
+| Deep-think run | ≥1 `DEEP_THINK_PASS` completed; gaps folded or logged |
 
 - All pass → `✅ Plan ready` · Any fail → `⚠️ Plan has gaps: [criteria]`
 
@@ -87,6 +95,13 @@ One paragraph: what + why. Business language only.
 | When  | ... |
 | Then  | ... |
 
+## Invariants
+What must remain true (existing behaviour/data/compatibility). Evidence-based only.
+- ...
+
+## Assumptions
+| # | Assumption | Confidence |
+
 ## Open Questions
 | # | Question | Impact if unresolved |
 
@@ -94,7 +109,7 @@ One paragraph: what + why. Business language only.
 **Story Points**: <N> SP — <Category> (<rationale>)
 
 ## Notes
-Context, constraints, assumptions.
+Context, constraints.
 
 ## Changelog
 - YYYY-MM-DD: <summary>
@@ -105,5 +120,6 @@ Context, constraints, assumptions.
 - No code, file names, SQL, or impl details in `plan.md`
 - No invented requirements; business language only
 - AC must be concrete and testable
+- Assumptions must carry a Confidence level; Unknowns never get invented answers
 - One `plan.md` per folder — update in place
 - Only touch task files genuinely impacted

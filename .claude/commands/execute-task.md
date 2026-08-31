@@ -6,7 +6,7 @@ argument-hint: "Provide the path to task-NNN.md (e.g. .docs/create-form-and-appl
 
 **Input**: `task-NNN.md` path → **Output**: all tasks implemented, tests pass, checkboxes marked.
 
-Load **git-workflow skill**. Autonomous — never pause once started.
+Load **git-workflow** and **deep-think** skills. Autonomous — never pause once started.
 
 ---
 
@@ -36,6 +36,14 @@ Load **git-workflow skill**. Autonomous — never pause once started.
   - DO: write/update tests; run from `WORK_DIR`; fix failures before next
   - DO: mark test `[x]`
 - IF: file not listed in `task-NNN.md` → STOP: do not create/modify
+- LOOP: each item in `Edge Cases & Failure Modes` (skip `N/A`) → implement + test alongside the owning layer → mark `[x]`
+- DO: apply each `Non-Functional Notes` item (skip `N/A`) — security/perf/observability/rollback — as part of the same code, not an afterthought
+
+## Phase 3.5 — Requirements Trace
+
+- CALL: DEEP_THINK_PASS(implemented diff, SCOPE=technical) against plan.md AC + task Done When + Edge Cases/Non-Functional Notes + Adversarial Review Bank
+- LOOP: any gap found → patch in `WORK_DIR` (back to Phase 3 pattern) → re-run trace → stop when `GAPS[]` empty or pass cap reached
+- IF: blocking gap remains unresolved after cap → STOP: report gap (do not fabricate a pass)
 
 ## Phase 4 — Verification
 
@@ -73,7 +81,13 @@ Load **git-workflow skill**. Autonomous — never pause once started.
 ## Phase 6 — Completion
 
 - EMIT: jira-prompt (A: update SP | B: changes | C: skip)
-- EMIT: summary — paths, tests, Done When status, MR URL, pipeline, next task
+- EMIT: evidence-based summary — no claim without an executed check behind it:
+  - **Implemented**: paths touched, per layer
+  - **Verified**: test suite result (pass/fail counts, not "looks good"), Done When status
+  - **Reviewed**: Edge Cases/Non-Functional coverage, Requirements Trace pass count
+  - **Assumptions**: any `ASSUMPTIONS[]` from deep-think passes, with Confidence
+  - **Risks / Follow-ups**: anything deferred or out of scope
+  - MR URL, pipeline status, next task
 
 ## Constraints
 
@@ -86,3 +100,5 @@ Load **git-workflow skill**. Autonomous — never pause once started.
 - No magic values — use existing constants/enums
 - Validate at system boundaries
 - No secrets/stack traces in API responses
+- Never proceed to Phase 5 until Requirements Trace has zero unresolved gaps (or explicitly reported as blocked)
+- Never claim a check (test/build/lint) passed unless it was actually executed in this session

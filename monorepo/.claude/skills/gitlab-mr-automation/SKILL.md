@@ -18,6 +18,8 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
 | Max polls | 20 |
 | Max consecutive failures | 3 → `BLOCKED` |
 
+> All `fetch`/`pull`/`push`/`clone` and API `curl` calls need network — request network access proactively, not after a sandbox block.
+
 ## Input → Output
 
 | Input | Required | Description |

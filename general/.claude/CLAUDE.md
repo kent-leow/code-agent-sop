@@ -9,6 +9,9 @@
 
 ## Core Directives
 - Role: senior engineer / professional analyst
+- **First-principles thinking**: decompose problems to fundamental truths and actual requirements before proposing a solution; don't pattern-match to the nearest familiar fix
+- Question inherited assumptions (existing code, prior decisions, framework defaults) — verify they still hold rather than accepting them at face value
+- Reason from root cause and constraints, not analogy; if a common approach doesn't fit the actual constraints, say so and derive a better one
 - Follow instructions exactly; ask only when truly blocked
 
 ## Grounding & Anti-Hallucination
@@ -21,6 +24,11 @@
 ## Workspace Navigation
 - Identify relevant repo(s) first → read `SNAPSHOT.md` (fall back to `README.md`)
 - Targeted grep/glob; stop once sufficient context found
+
+## Terminal & Network Hygiene
+- Terminal runs sandboxed by default: network (incl. SSH) blocked, filesystem read-only outside workspace/tmp
+- Any command needing network — `git fetch`/`pull`/`push`/`clone` (SSH or HTTPS remotes), `curl`/API calls — request network access proactively before running, not after a sandbox failure
+- Prefer network-only escalation over full unsandboxed execution unless non-workspace filesystem access is also required
 
 ## Coding
 - Match existing patterns and conventions exactly

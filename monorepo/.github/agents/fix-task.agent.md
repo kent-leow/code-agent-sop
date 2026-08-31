@@ -6,7 +6,7 @@ argument-hint: "Provide: (1) a folder path containing plan.md / task-NNN.md, and
 
 **Input**: folder path + `issues.md` or raw text → **Output**: fix folder + file, fixes applied, docs updated, MR pushed.
 
-Load **git-workflow skill**. Autonomous — never pause once started.
+Load **git-workflow** and **deep-think** skills. Autonomous — never pause once started.
 
 ---
 
@@ -25,13 +25,17 @@ Load **git-workflow skill**. Autonomous — never pause once started.
 
 - STORE: DATETIME=`YYYYMMDD-HHMMSS`, NAME=short kebab (max 5 words)
 - STORE: FIX_FOLDER=`.docs/fix-{DATETIME}-{NAME}/`, FIX_FILE=`fix-{DATETIME}.md`
-- DO: create fix file with Issues checklist + Changelog section
+- DO: create fix file with Issues checklist + Changelog section + optional `## Follow-up Recommendations`
 
 ## Phase 3 — Fix Loop
 
 - LOOP: each unchecked `FIX-NNN`
   - DO: grep/glob to locate relevant files
   - DO: apply minimal fix inside `WORK_DIR`
+  - CALL: DEEP_THINK_PASS(fix diff, SCOPE=technical) restricted to this issue's root cause — sweep the Adversarial Review Bank to confirm the actual cause is fixed (not just the reported symptom) and surface directly-related edge cases
+    - Root-cause confidence < High (per Confidence Classification) → keep investigating before marking fixed; don't guess
+    - Gap tightly coupled to this root cause → fold into the same fix
+    - Gap out of scope → log under `## Follow-up Recommendations`, do not implement
   - IF: Figma URL → CALL: figma-design-context skill (Workflow A, node scoped to the fix) → reuse the existing `<plan-folder>/figma/` cache (never create a new one) → re-verify against cached spec
   - DO: run narrowest test from `WORK_DIR`; fix failures
   - EMIT: mark `[x]` + update `_Files_:` + append changelog
@@ -69,7 +73,7 @@ Load **git-workflow skill**. Autonomous — never pause once started.
 ## Phase 6 — Report
 
 - EMIT: jira-prompt (A: comment | B: changes | C: skip)
-- EMIT: summary — fix folder, items resolved, files, tests, MR URL, pipeline
+- EMIT: summary — fix folder, items resolved, files, tests, MR URL, pipeline, Follow-up Recommendations (if any)
 
 ## Constraints
 
@@ -77,3 +81,4 @@ Load **git-workflow skill**. Autonomous — never pause once started.
 - Never mark `[x]` until test passes
 - Never read existing `fix-*.md` from previous runs
 - Don't modify `plan.md` unless AC gap confirmed
+- Deep-think gaps outside this issue's scope go to `Follow-up Recommendations`, never silently implemented

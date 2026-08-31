@@ -20,6 +20,8 @@ description: "Shared Git + platform workflow: branch setup, commit, push, MR cre
 
 Token pre-flight: `echo "GL: $([ -n "$GITLAB_TOKEN" ] && echo OK || echo MISSING) | GH: $([ -n "$GITHUB_TOKEN" ] && echo OK || echo MISSING)"`
 
+> All `fetch`/`pull`/`push`/`clone` and API `curl` calls need network — request network access proactively, not after a sandbox block.
+
 ---
 
 ## BRANCH_SETUP

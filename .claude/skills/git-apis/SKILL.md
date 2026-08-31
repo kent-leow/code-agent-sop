@@ -14,6 +14,8 @@ Shared platform API operations for GitLab and GitHub.
 | GitLab | `PRIVATE-TOKEN: $GITLAB_TOKEN` |
 | GitHub | `Authorization: Bearer $GITHUB_TOKEN` |
 
+> All `curl` calls below need network — request network access proactively, not after a sandbox block.
+
 ---
 
 ## FETCH_DISCUSSIONS

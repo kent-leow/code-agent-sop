@@ -6,6 +6,8 @@ argument-hint: "Generate: provide path to plan.md. Refine: provide path to task-
 
 **Input**: `plan.md` path (Generate) or `task-NNN.md` path + changes (Refine) → **Output**: self-contained vertical-slice task files.
 
+Load **deep-think skill**.
+
 ## Mode Detection
 
 | Condition | Mode |
@@ -23,7 +25,8 @@ argument-hint: "Generate: provide path to plan.md. Refine: provide path to task-
 - DO: design slices — each complete, runnable, independently testable
   - Seams: data layer → service+API → frontend → e2e
   - Target half-day to two-day per slice
-- LOOP: each slice → write `task-NNN.md` per Template
+  - DO: sweep the deep-think Change Surface Checklist per slice — catch layers easy to forget (migrations, seed data, events, config/secrets, CI/CD, rollback)
+- LOOP: each slice → draft Tasks per Template → CALL: DEEP_THINK_PASS(slice draft, SCOPE=technical) → fold gaps into `Edge Cases & Failure Modes` / `Non-Functional Notes` (mark `N/A` if a dimension genuinely doesn't apply — never omit silently) → write `task-NNN.md`
 - EMIT: `Generated <N> task(s)`
 
 ### Template
@@ -43,6 +46,15 @@ One sentence: what this slice delivers and how to verify.
 - [ ] `path/to/file.ext` — <what to create/change> (new)
   - [ ] `path/to/file.spec.ext` — <test behaviours>
 
+## Edge Cases & Failure Modes
+- [ ] <input/state edge case> — <expected behaviour> (or "N/A — <why>")
+
+## Non-Functional Notes
+- Security: <authz/input-validation notes, or "N/A — <why>">
+- Performance: <scale/timeout/idempotency notes, or "N/A — <why>">
+- Observability: <logs/metrics for new failure paths, or "N/A — <why>">
+- Rollback: <how to safely revert, or "N/A — <why>">
+
 ## Done When
 - [ ] <Observable condition>
 - [ ] All new/modified tests pass
@@ -52,8 +64,9 @@ One sentence: what this slice delivers and how to verify.
 ### Content Rules
 
 - Paths: repo-root-relative; mark new `(new)`; use `<TBD: desc>` if unknown
-- Tests: indented child per logic file; happy + edge cases
+- Tests: indented child per logic file; cover happy path + deep-think Boundary Values relevant to the input, plus permission and concurrency cases where applicable
 - Done When: observable without reading code; mirrors plan AC
+- Non-functional dimensions (security, performance, observability, rollback) must be addressed explicitly per slice — `N/A` is fine, silent omission is not
 
 ## Refine Mode
 
@@ -70,8 +83,9 @@ One sentence: what this slice delivers and how to verify.
 
 - DO: verify all logic tasks have test children; Done When reflects tasks
 - DO: append `## Changelog`
+- CALL: DEEP_THINK_PASS(revised task, SCOPE=technical) → fold gaps into `Edge Cases & Failure Modes` / `Non-Functional Notes`
 - DO: run Consistency Check (flag, don't auto-fix):
-  - No orphaned tests · No logic without test · Prerequisites accurate · Done When aligned · No duplicates
+  - No orphaned tests · No logic without test · Prerequisites accurate · Done When aligned · No duplicates · Edge Cases / Non-Functional sections present (or explicit `N/A`)
 
 ## Constraints
 
