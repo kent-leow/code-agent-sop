@@ -56,17 +56,6 @@ argument-hint: "Describe the query or problem. Optionally provide relevant file 
 ### Option 1: <name> ⭐ Recommended
 - **Action**: ... **Effort**: ... **Risk**: ...
 ## Open Questions
-```
-
-- DO: write `flowchart.mmd` — Mermaid `flowchart TD`: trigger → components → root cause → symptom
-  - Root cause: `fill:#ff4444,color:#fff` · Symptom: `fill:#ffaa00` · Fix: `fill:#22aa44`
-  - Max ~15 nodes
-
-## Phase 7 — Summarise
-
-- EMIT: one-line verdict + paths to outputs + top recommendation + open questions
-
-## Open Questions
 - [ ] ...
 ```
 
@@ -74,6 +63,6 @@ argument-hint: "Describe the query or problem. Optionally provide relevant file 
   - Root cause: `fill:#ff4444,color:#fff` · Symptom: `fill:#ffaa00` · Fix: `fill:#22aa44`
   - Max ~15 nodes
 
-### 7. Summarise
+## Phase 7 — Summarise
 
 - EMIT: one-line verdict + paths to outputs + top recommendation + open questions

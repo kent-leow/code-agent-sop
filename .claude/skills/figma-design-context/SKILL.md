@@ -6,7 +6,7 @@ argument-hint: '<figma-url-or-file-key> [--node-id <nodeId>]'
 
 # figma-design-context
 
-REST-API implementation of the same context contract the official **Figma Dev Mode MCP Server** exposes (`get_metadata`, `get_design_context`, `get_variable_defs`, `get_screenshot`, `get_code_connect_map`). Use wherever the MCP server can't be connected — it returns the same *shape* of signal at the same low token cost, not raw file dumps.
+REST-API implementation of the same context contract the official **Figma Dev Mode MCP Server** exposes (`get_metadata`, `get_design_context`, `get_variable_defs`, `get_screenshot`, `get_code_connect_map`). Use where the MCP server can't connect — same signal shape at the same low token cost, not raw file dumps.
 
 ## Core principle: minimum context, maximum signal
 
@@ -24,17 +24,17 @@ Always pipe raw JSON through `summarize-context.sh` — never read a `figma-cont
 
 ## Fidelity Contract — zero discrepancy (mandatory)
 
-The goal is to build **exactly** what is in the Figma file — same layout, same spacing, same colours, same copy, same component hierarchy. Not an "improved" version, not a best-guess, not a stylistic reinterpretation.
+Build **exactly** what's in the Figma file — same layout, spacing, colours, copy, component hierarchy. No improvised, best-guess, or reinterpreted version.
 
-- **Build from the `NODE TREE` section** of `context.summary.md` (produced by `summarize-context.sh`), not the aggregated sections below it (`NODE TYPES`, `TYPOGRAPHY`, `COLOURS`, `AUTO-LAYOUT`, `COMPONENT INSTANCES`). The tree preserves per-node parent/child structure and each node's own exact properties in document order; the aggregated sections are deduplicated/flattened and lose that structure — use them only as a cross-check, never as the primary spec.
-- **Never invent, add, remove, reorder, or "improve" anything** not present in the tree — no extra elements, no rewritten copy, no different spacing/colours/radii "because it looks better", no rounding of numeric values (use the exact px/hex/opacity values printed).
-- **If a value is ambiguous or missing** from the tree (e.g. truncated text sample, unclear nesting), read the raw `context.json` for that specific node — do not guess or fall back to a plausible-looking default.
-- **Screenshot is a visual sanity check only** — the JSON/tree values are ground truth. If the screenshot and the tree ever appear to disagree, trust the tree/JSON and re-fetch/re-check rather than eyeballing the image.
-- **Before marking a UI task complete**, diff your implementation against the tree node-by-node (dimensions, fills, padding, gap, corner-radius, font, text content) — not just an overall glance.
+- **Build from the `NODE TREE`** section of `context.summary.md`, not the aggregated sections (`NODE TYPES`, `TYPOGRAPHY`, `COLOURS`, `AUTO-LAYOUT`, `COMPONENT INSTANCES`) — the tree preserves per-node parent/child structure in document order; the aggregated sections are deduplicated/flattened cross-checks only, never the primary spec.
+- **Never invent, add, remove, reorder, or "improve"** anything absent from the tree — no extra elements, rewritten copy, different spacing/colours/radii "because it looks better", or rounded values (use the exact px/hex/opacity printed).
+- **Ambiguous or missing value** in the tree (e.g. truncated text, unclear nesting) → read raw `context.json` for that node — never guess or fall back to a plausible default.
+- **Screenshot is a sanity check only** — JSON/tree is ground truth. If they disagree, trust the tree/JSON and re-check rather than eyeballing the image.
+- **Before marking a UI task complete** — diff the implementation against the tree node-by-node (dimensions, fills, padding, gap, corner-radius, font, text), not just an overall glance.
 
 ## Caching Convention (mandatory)
 
-Every fetch from Figma MUST be saved to a deterministic, reusable path. Never fetch the same fileKey+nodeId twice in one task, and never let a downstream agent (generate-task, execute-task, fix-task) re-derive design facts from memory — they read the cached file instead. This is the single biggest lever against hallucination: the cache is the source of truth, not the model's recollection of it.
+Every fetch MUST be cached at a deterministic, reusable path — never fetch the same fileKey+nodeId twice in one task, and never let a downstream agent (generate-task, execute-task, fix-task) re-derive design facts from memory; they read the cached file instead. The cache is the source of truth against hallucination, not the model's recollection of it.
 
 **Cache root**: `<task-folder>/figma/` where `<task-folder>` is the same `.docs/<kebab-folder>/` used for `plan.md`/`task-NNN.md`. `fix-task` reuses this same cache root (never creates its own) so it verifies against the exact spec the original implementation was built from.
 

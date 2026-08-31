@@ -1,8 +1,6 @@
 # Code Agent SOP
 
-A general-purpose, platform-agnostic collection of AI coding agent instructions that transform raw requirements into production code through a structured pipeline.
-
-Works with any codebase — no specific CI/CD, issue tracker, or design tool required.
+Platform-agnostic AI coding agent instructions that turn raw requirements into production code via a structured pipeline. Works with any codebase — no CI/CD, issue tracker, or design tool required.
 
 ## Pipeline
 
@@ -53,7 +51,7 @@ cp -r .claude your-repo/.claude
 # Requires tokens in ~/.zshenv — see .env.example
 ```
 
-Invoke agents via `@<agent-name>` in your IDE's AI chat.
+Invoke via `@<agent-name>` in your IDE's AI chat.
 
 ## Agents
 
@@ -73,7 +71,7 @@ Invoke agents via `@<agent-name>` in your IDE's AI chat.
 |---|---|
 | `instructions/guidelines.instructions.md` | Core principles — grounding, anti-hallucination, SOLID, quality gates |
 
-Applied automatically to every interaction. Enforces concise communication, no hallucination, and code quality standards.
+Applied automatically to every interaction.
 
 ## Step Prefix Format
 
@@ -89,7 +87,7 @@ All agent files use a prefix-based step format for machine-readability:
 | `STORE:` | Save value for later |
 | `STOP:` | Halt with reason |
 
-This format reduces token waste and makes agent instructions unambiguous for LLMs to parse.
+Reduces token waste; unambiguous for LLMs to parse.
 
 ## File Structure
 
@@ -127,7 +125,7 @@ monorepo/                    # Monorepo workspace variant
 
 ## Monorepo Workspace Context
 
-The `monorepo/` version is designed for workspaces structured like:
+`monorepo/` targets workspaces structured like:
 
 ```
 workspace/
@@ -136,15 +134,11 @@ workspace/
 └── other-project/      # Another sibling
 ```
 
-When working in this setup, the agent:
-1. Applies the custom instructions from this repo
-2. Reads `monorepo/AGENTS.md` for monorepo-specific routing
-3. Uses skills from `monorepo/skills/` tree
-4. Follows service-local context when working inside monorepo services
+The agent: applies these instructions → reads `monorepo/AGENTS.md` for routing → uses `monorepo/skills/` → follows service-local context inside monorepo services.
 
 ## Extended Variant
 
-The root `.github/` and `.qwen/` folders contain an extended version with:
+Root `.github/` and `.qwen/` add:
 
 | Extra | Purpose |
 |---|---|
