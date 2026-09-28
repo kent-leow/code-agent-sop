@@ -87,16 +87,13 @@ cd "${REPO_DIR}" && /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/de
 
 ## COMMIT
 
-**Inputs:** `WORK_DIR`, `COMMIT_MSG`, `DEFAULT_BRANCH` → **Outputs:** `COMMITTED` (bool), `COMMIT_SHA`
+**Inputs:** `WORK_DIR`, `COMMIT_MSG` → **Outputs:** `COMMITTED` (bool), `COMMIT_SHA`
 
-Always squash all branch commits into a single commit. This keeps history clean and simplifies force-push.
+Never squash. Each call adds one new commit on top of existing history — preserves full commit log across review/pipeline-fix cycles.
 
 ```bash
 cd "${WORK_DIR}" && /usr/bin/git add -A
-if ! /usr/bin/git diff --cached --quiet || [ "$(/usr/bin/git rev-list --count origin/${DEFAULT_BRANCH}..HEAD)" -gt 1 ]; then
-  # Soft-reset to fork point, then commit everything as one
-  FORK_POINT=$(/usr/bin/git merge-base origin/${DEFAULT_BRANCH} HEAD)
-  /usr/bin/git reset --soft "${FORK_POINT}"
+if ! /usr/bin/git diff --cached --quiet; then
   /usr/bin/git commit -m "${COMMIT_MSG}"
   COMMIT_SHA=$(/usr/bin/git rev-parse --short HEAD); COMMITTED=true
 else
@@ -116,10 +113,10 @@ fi
 
 ## PUSH
 
-**Inputs:** `WORK_DIR`, `BRANCH` — **Always force-push** (single squashed commit guarantees rewritten history).
+**Inputs:** `WORK_DIR`, `BRANCH` — Plain push; commits are additive, history is never rewritten, so `--force` is not needed.
 
 ```bash
-cd "${WORK_DIR}" && /usr/bin/git push --force-with-lease origin "${BRANCH}"
+cd "${WORK_DIR}" && /usr/bin/git push origin "${BRANCH}"
 ```
 
 After push → call **WORKTREE_TEARDOWN**.

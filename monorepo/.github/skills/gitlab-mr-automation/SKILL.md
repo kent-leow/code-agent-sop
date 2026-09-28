@@ -72,13 +72,11 @@ IF: no changes → STOP.
 
 ## Phase 3 — Commit & Push
 
-Always squash all branch commits into a single commit, then force-push.
+Never squash. Each pass adds a new commit on top of existing history, then a plain push (no force needed since history is never rewritten).
 
 ```bash
 cd "${WORK_DIR}" && /usr/bin/git add -A
-if ! /usr/bin/git diff --cached --quiet || [ "$(/usr/bin/git rev-list --count origin/${DEFAULT_BRANCH}..HEAD)" -gt 1 ]; then
-  FORK_POINT=$(/usr/bin/git merge-base origin/${DEFAULT_BRANCH} HEAD)
-  /usr/bin/git reset --soft "${FORK_POINT}"
+if ! /usr/bin/git diff --cached --quiet; then
   /usr/bin/git commit -m "${COMMIT_MSG}"; COMMITTED=true
 else
   COMMITTED=false
@@ -87,7 +85,7 @@ fi
 IF: `COMMITTED=false` → STOP.
 
 ```bash
-cd "${WORK_DIR}" && /usr/bin/git push --force-with-lease origin "${BRANCH}"
+cd "${WORK_DIR}" && /usr/bin/git push origin "${BRANCH}"
 cd "${REPO_DIR}" && /usr/bin/git worktree remove "${WORKTREE_DIR}" --force 2>/dev/null || true && /usr/bin/git worktree prune
 ```
 
@@ -118,7 +116,7 @@ After Phase 4 (MR exists), BEFORE entering the poll loop:
 2. IF: 0 threads → proceed to poll loop
 3. Evaluate: actionable → `to_fix[]`; commentary → `to_reject[]`
 4. IF: only rejections → post replies → proceed to poll loop
-5. Re-create worktree → apply fixes → squash commit → force-push → teardown → post replies → resolve `to_fix[]` → reset poll (push already restarted pipeline)
+5. Re-create worktree → apply fixes → commit → push → teardown → post replies → resolve `to_fix[]` → reset poll (push already restarted pipeline)
 
 ### POLL LOOP
 
@@ -135,13 +133,13 @@ LOOP: while `POLL < 20`:
 2. IF: 0 threads → ✅ SUCCESS
 3. Evaluate: actionable → `to_fix[]`; commentary → `to_reject[]`
 4. IF: only rejections → post replies → SUCCESS
-5. Re-create worktree → apply fixes → squash commit → force-push → teardown → post replies → resolve `to_fix[]` → reset poll
+5. Re-create worktree → apply fixes → commit → push → teardown → post replies → resolve `to_fix[]` → reset poll
 
 ### ON_FAILURE
 
 1. Fetch failed job logs: `GET .../pipelines/${PID}/jobs?scope=failed` → trace
 2. Also fetch open threads — fix both pipeline AND threads in same pass (saves a cycle)
-3. Re-create worktree → analyze + fix all → squash commit → force-push → teardown → reset poll
+3. Re-create worktree → analyze + fix all → commit → push → teardown → reset poll
 
 ---
 
@@ -173,7 +171,7 @@ LOOP: while `POLL < 20`:
 ## Constraints
 
 - Absolute paths: `/usr/bin/curl`, `/usr/bin/jq`, `/usr/bin/git`
-- Always squash + force-push (`--force-with-lease`)
+- Always commit incrementally (never squash); plain push, no `--force`
 - Never commit secrets/tokens
 - Never auto-approve or auto-merge
 - Fix threads BEFORE waiting for pipeline (push restarts it anyway)
