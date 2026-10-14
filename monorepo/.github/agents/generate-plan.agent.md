@@ -71,9 +71,16 @@ Load **deep-think skill**.
 
 > ✅ Plan saved. **A** — Create/update Jira Story · **B** — Edit · **C** — Skip
 
-- **A**: load jira-ticket skill → create/update Story from Summary+Scope+AC; write `jira.json`
+- **A**: load jira-ticket skill → build description per Jira Description Format below → create/update Story; write `jira.json`
 - **B**: apply edits; re-present prompt
 - **C**: stop
+
+### Jira Description Format
+
+- DO: compose `--description` as Markdown mirroring `plan.md` — Summary paragraph, `## Scope`, `## Acceptance Criteria`
+- DO: copy each AC block **verbatim as a pipe-table** (`| **AC1** | <title> |` header + `Given/When/Then` rows) — identical shape to `plan.md`, never flattened
+- DO NOT: paraphrase AC into bullet points or one-liners — jira-ticket's markdown→ADF converter renders pipe-tables as native Jira tables; bullets lose the Given/When/Then structure
+- DO: resync (update) the Jira description on every Refine-mode AC change, keeping table format
 
 ---
 

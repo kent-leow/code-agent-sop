@@ -45,6 +45,10 @@ bash .github/skills/jira-ticket/scripts/get-fields.sh
 ```
 Default: `customfield_10274` (verified).
 
+### Description formatting
+
+`--description` is Markdown, auto-converted to ADF. Pipe-tables render as **native Jira tables** — always pass Acceptance Criteria as pipe-tables (same shape as `plan.md`'s `| **AC1** | <title> |` + Given/When/Then rows), never paraphrase into bullets or one-liners. Headings, bold/italic/code, lists, and blockquotes are also preserved.
+
 ---
 
 ## Persist State
