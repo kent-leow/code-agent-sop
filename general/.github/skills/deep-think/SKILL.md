@@ -31,6 +31,8 @@ description: "Shared multi-lens self-interrogation checklist to surface gaps in 
 | Dependencies & integration | Upstream/downstream contracts changed? Breaking? What if the external call succeeds but the response is lost/timed out locally? | technical |
 | Rollback / recovery | Safely revertible? Old + new code coexisting mid-rollout? Feature flag/toggle needed? | technical |
 | UX / accessibility | Loading/error/empty/disabled states? A11y/i18n? (UI only) | business + technical |
+| Navigation & IA | Which route/screen hosts this? Parent layout? Nav entry or deliberately hidden? Deep-link + refresh? Back behaviour? Guarded → where does an unauthorised/unauthenticated user land? 404 for unknown IDs? (UI only) | business + technical |
+| Foundation readiness | Greenfield: do env, scaffold, CI, config, shell and the commands this relies on already exist in an earlier task/phase? (see app-blueprint Build Phases) | technical |
 
 ### Ambiguity Classification
 
@@ -51,7 +53,7 @@ description: "Shared multi-lens self-interrogation checklist to surface gaps in 
 
 ### Change Surface Checklist (technical scope)
 
-UI · routing · state management · API contract · controller · service · domain logic · repository · DB schema/migration · seed/reference data · events/messages · external integrations · authentication · authorisation · validation · error handling · logging/metrics/tracing · config/secrets · infra/CI-CD · docs · tests · rollback
+toolchain/env setup · scaffold · UI · routing · navigation/layout · state management · API contract · controller · service · domain logic · repository · DB schema/migration · seed/reference data · events/messages · external integrations · authentication · authorisation · validation · error handling · logging/metrics/tracing · config/secrets · infra/CI-CD · docs · tests · rollback
 
 Not every slice touches every layer — mark `N/A`, never omit silently.
 
@@ -74,5 +76,6 @@ Not every slice touches every layer — mark `N/A`, never omit silently.
 
 ### Stop Conditions
 
-- Max 3 passes OR a pass yields 0 new gaps → stop
+- Max 3 passes OR a pass yields 0 new findings → stop
 - A blocking gap (unresolvable from context, halts correctness) → surface immediately, don't wait for pass limit
+

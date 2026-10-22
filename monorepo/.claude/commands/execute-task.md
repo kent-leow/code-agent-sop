@@ -6,15 +6,17 @@ argument-hint: "Provide the path to task-NNN.md (e.g. .docs/create-form-and-appl
 
 **Input**: `task-NNN.md` path → **Output**: all tasks implemented, tests pass, checkboxes marked.
 
-Load **git-workflow** and **deep-think** skills. Autonomous — never pause once started.
+Load **git-workflow**, **deep-think** and **app-blueprint** skills. Autonomous — never pause once started.
 
 ---
 
 ## Phase 1 — Pre-flight
 
-- DO: read `task-NNN.md`, sibling `plan.md`, all `task-*.md`, `jira.json`
+- DO: read `task-NNN.md`, sibling `plan.md`, `blueprint.md` (if present), all `task-*.md`, `jira.json`
+- IF: `blueprint.md` present AND `Status` ≠ `Approved` → STOP: blueprint not approved
 - IF: any `[ ]` in prerequisites → STOP: report open items
 - DO: sync siblings — add warnings for shared files, mark satisfied Done-Whens, fix stale refs, append changelogs
+- IF: greenfield AND (REPO_DIR has no git repo, no commits, or no `origin` remote) → **Local Bootstrap**: `git init` if needed (default branch `main`) → STORE `WORK_DIR="${REPO_DIR}"`, `LOCAL_ONLY=true` → skip BRANCH_SETUP/WORKTREE_SETUP → continue to Phase 2
 - CALL: BRANCH_SETUP(REPO_DIR, `GOBIZWKST2-{TICKET}-{kebab-task-title}`) → TICKET_NUM, BRANCH, DEFAULT_BRANCH
 - CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORKTREE_DIR
 - STORE: `WORK_DIR="${WORKTREE_DIR}"` — **all edits in Phase 2–4 target WORK_DIR only**
@@ -22,20 +24,22 @@ Load **git-workflow** and **deep-think** skills. Autonomous — never pause once
 ## Phase 2 — Exploration
 
 - DO: read every file listed in `task-NNN.md`
-- DO: for each new file → find 2–3 analogues for conventions
+- DO: for each new file → find 2–3 analogues for conventions; IF: none exist (greenfield early phases) → conventions come from blueprint `Repository Layout`, `Cross-cutting Conventions`, `API Conventions` — never improvise
 - DO: identify reusable utilities, base classes, test helpers
-- STORE: impl order = entity → repo → service → controller → frontend → test
+- STORE: impl order = entity → repo → service → controller → frontend → test (greenfield P0–P4: follow task order as written — toolchain → generator → config → wiring → tests)
 - IF: Figma URL → CALL: figma-design-context skill (Workflow A: metadata → targeted design context → summarize) → cache under `<plan-folder>/figma/` per skill's Caching Convention — check cache before re-fetching; implement strictly from the cached spec, never from memory
 
 ## Phase 3 — Implementation
 
 - LOOP: each task in dependency order
+  - IF: generator/scaffold task → run the exact listed command non-interactively inside `WORK_DIR` (pinned version; never `@latest` unless blueprint pins it) → review generated files → delete only demo boilerplate the task names
+  - IF: dependency install → exact version from blueprint Stack → update lockfile → run ecosystem audit; HIGH/CRITICAL finding → STOP and report
   - DO: write production code inside `WORK_DIR` — match conventions
   - IF: UI task → verify node-by-node against the cached `context.summary.md` NODE TREE (dimensions, fills, padding, gap, corner-radius, font, text) — 0 discrepancy, no invented/"improved" values; screenshot is a sanity check only, tree/JSON is ground truth
   - DO: mark `[x]` in `task-NNN.md`
   - DO: write/update tests; run from `WORK_DIR`; fix failures before next
   - DO: mark test `[x]`
-- IF: file not listed in `task-NNN.md` → STOP: do not create/modify
+- IF: file not listed in `task-NNN.md` → STOP: do not create/modify (exception: files emitted by a generator/install command listed in the task, and lockfiles)
 - LOOP: each item in `Edge Cases & Failure Modes` (skip `N/A`) → implement + test alongside the owning layer → mark `[x]`
 - DO: apply each `Non-Functional Notes` item (skip `N/A`) — security/perf/observability/rollback — as part of the same code, not an afterthought
 
@@ -48,6 +52,8 @@ Load **git-workflow** and **deep-think** skills. Autonomous — never pause once
 ## Phase 4 — Verification
 
 - DO: run full test suite from `WORK_DIR`; fix regressions
+- DO: run every command in the task's `Verify` section; greenfield → also run blueprint `install` (clean), `lint`, `typecheck`, `build`, `test` (and `e2e` once P1 created it) — all must pass
+- IF: greenfield P1+ OR task has `Routes & Navigation` rows → start `dev` from `WORK_DIR` → hit health endpoint + every route in the task (and nav links) → confirm expected status/content → stop the server
 - IF: local service verification needed → start from `WORK_DIR`
 - LOOP: each Done When → mark `[x]` + `<!-- verified YYYY-MM-DD -->` or `[ ]` + `<!-- blocked: reason -->`
 - DO: re-scan siblings for stale cross-references
@@ -55,6 +61,8 @@ Load **git-workflow** and **deep-think** skills. Autonomous — never pause once
 ## Phase 5 — Git Workflow
 
 > **Do NOT stop until pipeline green AND zero unresolved threads.**
+
+> IF: `LOCAL_ONLY=true` → stage task files + commit in `WORK_DIR` with the 5a message format (ticket suffix omitted if none) → skip push/MR/polling → Phase 6 reports "local commit only — no remote configured". Once a remote exists, later tasks follow the normal flow.
 
 ### 5a — Commit & Push
 
@@ -95,7 +103,7 @@ Load **git-workflow** and **deep-think** skills. Autonomous — never pause once
 - Search codebase before asking user
 - Never mark done until code written + tests pass
 - Never skip test tasks
-- No dead code, unused imports, placeholder implementations
+- No dead code, unused imports, placeholder implementations (exception: P4 route shells listed in blueprint Route Map with a named owning task)
 - Explicit errors — no silent failures
 - No magic values — use existing constants/enums
 - Validate at system boundaries

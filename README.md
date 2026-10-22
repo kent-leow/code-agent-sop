@@ -14,6 +14,22 @@ Raw Requirements
 
 Each stage produces artefacts in `.docs/<feature>/`. Nothing advances until prior stage is complete.
 
+### Greenfield (new app from scratch)
+
+Detected automatically (empty repo / no app manifest / "from scratch" request / `**Project Type**: Greenfield` in `plan.md`):
+
+```
+@generate-plan  →  plan.md (feature inventory, users & roles, information architecture, platform constraints)
+@generate-task  →  blueprint.md (stack + verified versions, envs, env vars, commands, route map, navigation) → STOP for approval
+"approve blueprint" →  phased task-NNN.md:
+   P0 Environment & Toolchain → P1 Backbone Scaffold → P2 Delivery Pipeline (CI)
+   → P3 Cross-cutting Foundations → P4 App Shell, Routing & Navigation
+   → P5 Features (walking skeleton first) → P6 Hardening & Release
+@execute-task   →  one task at a time; app stays runnable after every task
+```
+
+Rules live in the `app-blueprint` skill.
+
 ## Versions
 
 | Version | Folder | Use Case |
@@ -58,7 +74,7 @@ Invoke via `@<agent-name>` in your IDE's AI chat.
 | Agent | Purpose | Triggers |
 |---|---|---|
 | `generate-plan` | Raw requirements → structured `plan.md` with AC | plan, I need, create feature |
-| `generate-task` | `plan.md` → vertical-slice `task-NNN.md` files | generate tasks, break down plan |
+| `generate-task` | `plan.md` → vertical-slice `task-NNN.md` files (greenfield: `blueprint.md` + phased tasks) | generate tasks, break down plan, new app, approve blueprint |
 | `execute-task` | Implement `task-NNN.md` end-to-end (code + tests) | execute task, implement, code this |
 | `fix-task` | Apply fixes from review comments / bugs / failing tests | fix, bug, review comment, regression |
 | `investigate` | Root-cause analysis + evidence-based report | investigate, why is, root cause, debug |
@@ -119,6 +135,7 @@ monorepo/                    # Monorepo workspace variant
 .docs/                       # Created per-feature by agents
 └── <feature>/
     ├── plan.md              # Requirements + AC
+    ├── blueprint.md         # Greenfield only: stack, envs, commands, route map, nav
     ├── task-NNN.md          # Vertical slices
     └── fix-{dt}.md          # Fix logs
 ```

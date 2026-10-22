@@ -1,18 +1,21 @@
 ---
-description: "Create or refine a plan.md. Auto-detects mode: no plan.md exists → create from requirements; plan.md path provided or found → refine. Triggers: plan, new task, I need, implement, design, create feature, update plan, modify requirements, refine plan, plan is ready."
+description: "Create or refine a plan.md. Auto-detects mode: no plan.md exists → create from requirements; plan.md path provided or found → refine. Greenfield (new app from scratch) → product-level plan with feature inventory + screen map. Triggers: plan, new task, I need, implement, design, create feature, update plan, modify requirements, refine plan, plan is ready, new app, from scratch, build an app."
 tools: [read, search, edit, execute, todo]
 argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md and your changes."
 ---
 
 **Input**: raw requirements (Create) or `plan.md` path + changes (Refine) → **Output**: `.docs/<folder>/plan.md`
 
-Load **deep-think skill**.
+Load **deep-think** and **app-blueprint** skills.
 
 ## Mode Detection
 
+- CALL: GREENFIELD_DETECT(REPO_DIR, plan.md if any, request) → PROJECT_TYPE
+
 | Condition | Mode |
 |---|---|
-| No `plan.md` found | **Create** |
+| No `plan.md` found AND PROJECT_TYPE=brownfield | **Create** |
+| No `plan.md` found AND PROJECT_TYPE=greenfield | **Greenfield Create** |
 | `plan.md` path provided or exists | **Refine** |
 
 ---
@@ -41,6 +44,25 @@ Load **deep-think skill**.
 - DO: write `plan.md` per Structure below
 - EMIT: jira-prompt (A: create/update story | B: edit | C: skip)
 
+## Greenfield Create Mode
+
+Product-level plan for an app that does not exist yet. Still business language only — tech decisions go to `blueprint.md` (generate-task).
+
+- DO: parse requirements — never invent unstated features, screens, or roles
+- DO: create `.docs/<kebab-app-name>/`; Figma → same as Create (also derive screens + navigation flow from Workflow B)
+- DO: draft, in addition to the standard Structure:
+  - `**Project Type**: Greenfield` header line
+  - `## Users & Roles` — who uses it, what each role may do
+  - `## Feature Inventory` — F1…Fn, each with priority (`MVP` | `Later`) and SP
+  - `## Information Architecture` — every screen/page in business terms: name, purpose, who can access, reached from (nav / link / action); main/landing screen identified; include sign-in/out and "not found / no access" behaviour where users would encounter them
+  - `## Platform & Constraints` — target platforms/devices/browsers, user-stated stack/hosting/compliance preferences verbatim, expected scale, languages, accessibility target; unstated → `Open Questions` (if they change architecture) or `Assumptions`
+  - Acceptance Criteria grouped per feature with IDs `F<n>-AC<m>`
+- CALL: DEEP_THINK_PASS(draft, SCOPE=business) → route as in Create; additionally check: every feature reachable from some screen, every screen serves ≥1 feature or system need, every role's journey has an entry point
+- DO: draft Invariants — for greenfield usually business rules that must always hold (data ownership, privacy, audit); "None identified" if none
+- DO: estimate SP per feature (same table); a feature >5 SP → split into F<n>a/F<n>b; plan total = sum of MVP features + `Foundation` line (environment, scaffold, delivery pipeline, app shell — estimated holistically). The >5 SP STOP rule applies per feature, not to the whole plan
+- DO: write `plan.md`; run Readiness Check (+ Greenfield criteria)
+- EMIT: jira-prompt; next step → `@generate-task <plan.md>` produces `blueprint.md` for approval, then phased tasks
+
 ## Refine Mode
 
 - DO: read existing `plan.md`; apply Figma if relevant
@@ -62,6 +84,9 @@ Load **deep-think skill**.
 | AC concrete | No vague terms ("works correctly") |
 | Invariants stated | ≥1 evidence-based invariant, or explicit "None identified" |
 | Deep-think run | ≥1 `DEEP_THINK_PASS` completed; gaps folded or logged |
+| Greenfield only: inventory | Every feature has priority + SP ≤5; ≥1 MVP feature |
+| Greenfield only: IA | Every screen has access + entry point; main screen identified; every MVP feature mapped to ≥1 screen (or marked headless) |
+| Greenfield only: platform | Target platforms stated or logged as Assumption/Open Question |
 
 - All pass → `✅ Plan ready` · Any fail → `⚠️ Plan has gaps: [criteria]`
 
@@ -89,11 +114,25 @@ Load **deep-think skill**.
 ```md
 # <Task Title>
 
+**Project Type**: Greenfield | Brownfield
+
 ## Summary
 One paragraph: what + why. Business language only.
 
 ## Scope
 **In scope** / **Out of scope**
+
+## Users & Roles            <!-- greenfield only -->
+| Role | Can do |
+
+## Feature Inventory          <!-- greenfield only -->
+| ID | Feature | Priority | SP |
+
+## Information Architecture   <!-- greenfield only -->
+| Screen | Purpose | Access | Reached from | Features |
+
+## Platform & Constraints     <!-- greenfield only -->
+- ...
 
 ## Acceptance Criteria
 | **AC1** | <title> |
@@ -124,7 +163,7 @@ Context, constraints.
 
 ## Constraints
 
-- No code, file names, SQL, or impl details in `plan.md`
+- No code, file names, SQL, or impl details in `plan.md` (user-stated stack preferences quoted verbatim under `Platform & Constraints` are allowed)
 - No invented requirements; business language only
 - AC must be concrete and testable
 - Assumptions must carry a Confidence level; Unknowns never get invented answers
