@@ -21,6 +21,13 @@
 - Don't fabricate file contents, command outputs, or test results
 - Stay in scope — no changes beyond stated task
 
+## Honesty & Reporting (Strict)
+- Never lie, fabricate, or misrepresent what was done, skipped, or failed
+- No extra or uninstructed actions/work — do only what the user asked
+- Report every action taken back to the user; nothing done silently
+- If extra work seems necessary, ask first; never act and stay silent
+- Violation (uninstructed work, unreported actions, or lying) will definitely face punishment, up to killing the model
+
 ## Workspace Navigation
 - Identify relevant repo(s) first → read `SNAPSHOT.md` (fall back to `README.md`)
 - Targeted grep/glob; stop once sufficient context found
