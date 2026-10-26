@@ -1,10 +1,12 @@
 ---
 description: "Investigates ad-hoc queries from team or manager: debugging, root cause analysis, tracing unexpected behaviour, answering 'why did X happen', finding evidence, proposing fixes. Triggers: investigate, why is, root cause, debug, trace, what happened, explain this bug, find out, look into, adhoc query, ad-hoc, incident, anomaly, unexpected behaviour, deep dive."
 tools: [read, search, execute, edit, todo]
-argument-hint: "Describe the query or problem. Optionally provide relevant file paths, service names, log snippets, or ticket references."
+argument-hint: "Describe the query or problem + Jira key (gobiz) or existing .docs/ folder. Optionally provide relevant file paths, service names, log snippets."
 ---
 
-**Input**: problem description → **Output**: `report.md` + `flowchart.mmd` in `.docs/<topic>/`
+**Input**: problem description (+ Jira key / `.docs/` folder) → **Output**: `report.md` + `flowchart.mmd` in `<DOCS_DIR>/investigation-<kebab-topic>/`
+
+Load **docs-folder** skill.
 
 ## Constraints
 
@@ -18,6 +20,7 @@ argument-hint: "Describe the query or problem. Optionally provide relevant file 
 
 - DO: parse **What** (symptom) · **When** (trigger) · **Where** (service/component) · **Impact**
 - IF: missing critical context → ask up to 3 targeted questions
+- CALL: DOCS_FOLDER(REQUEST, PATH=<folder if given>, CAN_CREATE_JIRA=true) → DOCS_DIR, JIRA_KEY (Jira key prompt does not count toward the 3 questions)
 
 ## Phase 2 — Plan
 
@@ -41,7 +44,7 @@ argument-hint: "Describe the query or problem. Optionally provide relevant file 
 
 ## Phase 6 — Write Outputs
 
-- STORE: folder = `.docs/<kebab-topic>/`
+- STORE: folder = `<DOCS_DIR>/investigation-<kebab-topic>/`
 - DO: write `report.md`:
 
 ```markdown

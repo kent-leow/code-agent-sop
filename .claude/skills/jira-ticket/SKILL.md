@@ -53,7 +53,7 @@ Default: `customfield_10274` (verified).
 
 ## Persist State
 
-Write to `.docs/<task>/jira.json`:
+Write to `<DOCS_DIR>/jira.json` (`DOCS_DIR` from docs-folder skill DOCS_FOLDER):
 ```json
 {
   "parent": { "key": "GOBIZWKST2-123", "url": "...", "story_points": N },

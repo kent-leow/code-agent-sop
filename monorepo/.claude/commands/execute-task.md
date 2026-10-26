@@ -1,17 +1,18 @@
 ---
 description: "Executes a task-NNN.md end-to-end: syncs sibling task files, then fully implements every task — production code, tests, checkboxes. Triggers: execute task, run task, implement, code this, build this, do the work, start slice."
 tools: [read, search, edit, execute, todo, agent]
-argument-hint: "Provide the path to task-NNN.md (e.g. .docs/create-form-and-application/task-002.md)"
+argument-hint: "Provide the path to task-NNN.md (e.g. .docs/GOBIZWKST2-324-create-form-and-application/task-002.md)"
 ---
 
 **Input**: `task-NNN.md` path → **Output**: all tasks implemented, tests pass, checkboxes marked.
 
-Load **git-workflow**, **deep-think** and **app-blueprint** skills. Autonomous — never pause once started.
+Load **docs-folder**, **git-workflow**, **deep-think** and **app-blueprint** skills. Autonomous — never pause once started.
 
 ---
 
 ## Phase 1 — Pre-flight
 
+- CALL: DOCS_FOLDER(REQUEST, PATH=task-NNN.md) → DOCS_DIR, JIRA_KEY (validates/renames legacy folder — the only permitted pause)
 - DO: read `task-NNN.md`, sibling `plan.md`, `blueprint.md` (if present), all `task-*.md`, `jira.json`
 - IF: `blueprint.md` present AND `Status` ≠ `Approved` → STOP: blueprint not approved
 - IF: any `[ ]` in prerequisites → STOP: report open items
@@ -27,7 +28,7 @@ Load **git-workflow**, **deep-think** and **app-blueprint** skills. Autonomous �
 - DO: for each new file → find 2–3 analogues for conventions; IF: none exist (greenfield early phases) → conventions come from blueprint `Repository Layout`, `Cross-cutting Conventions`, `API Conventions` — never improvise
 - DO: identify reusable utilities, base classes, test helpers
 - STORE: impl order = entity → repo → service → controller → frontend → test (greenfield P0–P4: follow task order as written — toolchain → generator → config → wiring → tests)
-- IF: Figma URL → CALL: figma-design-context skill (Workflow A: metadata → targeted design context → summarize) → cache under `<plan-folder>/figma/` per skill's Caching Convention — check cache before re-fetching; implement strictly from the cached spec, never from memory
+- IF: Figma URL → CALL: figma-design-context skill (Workflow A: metadata → targeted design context → summarize) → cache under `<DOCS_DIR>/figma/` per skill's Caching Convention — check cache before re-fetching; implement strictly from the cached spec, never from memory
 
 ## Phase 3 — Implementation
 

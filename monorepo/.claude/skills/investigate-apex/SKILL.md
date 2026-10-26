@@ -211,7 +211,7 @@ Include the last-success timestamp in the verdict.
 
 ## Step 6 — Generate report
 
-Write a Markdown file to `.docs/investigation-<identifier>/apex-report.md`.  
+Write a Markdown file to `<DOCS_DIR>/investigation-<identifier>/apex-report.md` (`DOCS_DIR` from docs-folder skill DOCS_FOLDER).  
 Use the identifier from: correlation ID prefix, endpoint slug, or date+agency (e.g., `526-spf-28sep`).
 
 ### Report structure

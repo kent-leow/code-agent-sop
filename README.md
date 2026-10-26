@@ -9,10 +9,17 @@ Raw Requirements
   → @generate-plan   →  plan.md
   → @generate-task   →  task-001.md, task-002.md, ...
   → @execute-task    →  production code + tests
-  → @fix-task        →  fix-{datetime}.md
+  → @fix-task        →  fixes/fix-{datetime}-{name}.md
 ```
 
-Each stage produces artefacts in `.docs/<feature>/`. Nothing advances until prior stage is complete.
+Each stage produces artefacts in one work folder per ticket (`docs-folder` skill):
+
+| Variant | Folder | Example |
+|---|---|---|
+| root / `monorepo/` (gobiz) | `.docs/<JIRA-KEY>-<kebab-title>/` — Jira key required | `.docs/GOBIZWKST2-324-create-form-and-application/` |
+| `general/` | `.docs/<kebab-title>/` | `.docs/create-form-and-application/` |
+
+Nothing advances until prior stage is complete.
 
 ### Greenfield (new app from scratch)
 
@@ -132,12 +139,18 @@ monorepo/                    # Monorepo workspace variant
 └── .claude/
     └── commands/
 
-.docs/                       # Created per-feature by agents
-└── <feature>/
+.docs/                       # One folder per ticket, created by agents (docs-folder skill)
+└── <JIRA-KEY>-<kebab-title>/  # general/: <kebab-title>/
     ├── plan.md              # Requirements + AC
+    ├── spike.md, spike-report.md
     ├── blueprint.md         # Greenfield only: stack, envs, commands, route map, nav
+    ├── jira.json            # Jira story + sub-task keys
     ├── task-NNN.md          # Vertical slices
-    └── fix-{dt}.md          # Fix logs
+    ├── figma/               # Cached Figma assets
+    ├── fixes/fix-{dt}-{name}.md        # Fix logs
+    ├── investigation-<topic>/          # investigate / investigate-apex reports
+    ├── cft-checklist.md
+    └── vulnerability/vulnerabilities-{date}.md
 ```
 
 ## Monorepo Workspace Context

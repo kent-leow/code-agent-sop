@@ -47,6 +47,7 @@ All `.agent.md` and `SKILL.md` files must follow:
 - `CALL:` for skill invocations — never repeat skill internals
 - Constraints section at end — short bullets
 - No duplicate logic across agents — extract to skill
+- Any agent writing under `.docs/` → load **docs-folder** skill and `CALL: DOCS_FOLDER(...)`; never hard-code `.docs/<name>/` paths
 
 ## Constraints
 

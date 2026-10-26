@@ -28,7 +28,7 @@ Token pre-flight: `echo "GL: $([ -n "$GITLAB_TOKEN" ] && echo OK || echo MISSING
 
 **Inputs:** `REPO_DIR`, `BRANCH_PATTERN` → **Outputs:** `TICKET_NUM`, `BRANCH`, `DEFAULT_BRANCH`
 
-1. Resolve ticket (first hit): caller-supplied → `jira.json` `.ticket` → current branch regex `GOBIZWKST2-(\d+)` → STOP: ask user
+1. Resolve ticket (first hit): caller-supplied → `jira.json` `.parent.key` → `DOCS_DIR` folder name `GOBIZWKST2-(\d+)-` (docs-folder skill) → current branch regex `GOBIZWKST2-(\d+)` → STOP: ask user
 2. `BRANCH` = substitute `{TICKET}` → `GOBIZWKST2-${TICKET_NUM}`
 3. Sync default branch:
 ```bash

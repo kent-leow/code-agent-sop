@@ -10,7 +10,7 @@ metadata:
 
 # CFT Agency Onboarding
 
-**Input**: Jira key and/or agency, team, env, change type → **Output**: `.docs/<ticket-or-agency>/cft-checklist.md`
+**Input**: Jira key and/or agency, team, env, change type → **Output**: `<DOCS_DIR>/cft-checklist.md`
 
 The Confluence guide is the source of truth. This skill reads it at run time and maps the request onto its steps. It never copies the guide's procedure into itself, so the guide can change without this skill going stale.
 
@@ -92,7 +92,7 @@ The Confluence guide is the source of truth. This skill reads it at run time and
 
 ## Phase 6 — Write checklist
 
-- DO: write `.docs/<ticket-or-agency>/cft-checklist.md`
+- DO: write `<DOCS_DIR>/cft-checklist.md` (`DOCS_DIR` from docs-folder skill DOCS_FOLDER; `cft-checklist-<agency>.md` when one ticket covers >1 agency)
 
 ```md
 # CFT checklist: <agency>[-<team>] — <env> — <change type>

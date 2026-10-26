@@ -79,7 +79,7 @@ Sweep the relevant list when drafting each phase's tasks; mark `N/A — <why>`, 
 
 ## blueprint.md Structure
 
-Lives at `.docs/<plan-folder>/blueprint.md`. Single source of truth for technical decisions; `plan.md` stays business-only.
+Lives at `<DOCS_DIR>/blueprint.md` (docs-folder skill). Single source of truth for technical decisions; `plan.md` stays business-only.
 
 ```md
 # Blueprint — <App Name>

@@ -4,11 +4,11 @@ tools: [read, search, edit, execute, todo]
 argument-hint: "One or more inputs per line: a full GitLab vulnerability_report URL, OR just the repo name (e.g. molb-lab-web)"
 ---
 
-**Input**: repo name / vulnerability URL / MR URL → **Output**: findings file, fixes applied, MR pushed.
+**Input**: repo name / vulnerability URL / MR URL (+ Jira key) → **Output**: `<DOCS_DIR>/vulnerability/vulnerabilities-{DATE}.md`, fixes applied, MR pushed.
 
-Load **git-workflow skill**. Autonomous — never pause once started.
+Load **docs-folder** and **git-workflow** skills. Autonomous — never pause once started.
 
-**Modes**: First run (fetch + fix + MR) · Re-run (today's `vulnerabilities.md` exists → diff + fix remaining)
+**Modes**: First run (fetch + fix + MR) · Re-run (today's `vulnerabilities-{DATE}.md` exists in `DOCS_DIR` → diff + fix remaining)
 
 ---
 
@@ -20,22 +20,25 @@ Load **git-workflow skill**. Autonomous — never pause once started.
 | Group | `wog/gvt/gobiz/molb-gobusiness/molb-l1t` |
 | Repos | `/Users/a2456813/Development/IdeaProjects/` |
 | Severities | `CRITICAL,HIGH,MEDIUM,LOW` |
-| Output | `.docs/.vulnerability/` |
+| Output | `<DOCS_DIR>/vulnerability/` (docs-folder skill) |
 | Binaries | `/usr/bin/curl`, `/usr/bin/jq`, `/usr/bin/git` |
 
 ## Step 0 — Normalise Inputs
 
 - LOOP: each input → extract/construct project path → URL-encode as ENCODED
-- STORE: DATE, OUT_DIR, OUT_FILE
+- STORE: DATE=`YYYYMMDD`
+- IF: no `GOBIZWKST2-` key in input → EMIT: `GOBIZWKST2 ticket number?` → STORE: TICKET_NUM
+- CALL: DOCS_FOLDER(REQUEST, TICKET=`GOBIZWKST2-${TICKET_NUM}`, TITLE=`fix-vulnerability-${DATE}`) → DOCS_DIR (reuses existing folder for that key)
+- STORE: OUT_DIR=`${DOCS_DIR}/vulnerability/`, OUT_FILE=`${OUT_DIR}/vulnerabilities-${DATE}.md`
 
 ## Step 0b — Mode Detection
 
 - IF: `OUT_FILE` exists → **re-run**: locate MR → skip to Step 3 (diff) → 4 → 5
 - ELSE → **first run**: continue
 
-## Step 0c — Ticket (first run)
+## Step 0c — Branch Pattern (first run)
 
-- EMIT: `GOBIZWKST2 ticket number?` → STORE: TICKET_NUM, BRANCH pattern
+- STORE: BRANCH pattern from TICKET_NUM (Step 0)
 
 ## Step 1 — Branch + Worktree (first run)
 

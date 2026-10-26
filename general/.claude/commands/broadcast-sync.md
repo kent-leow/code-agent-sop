@@ -16,10 +16,10 @@ argument-hint: "[--dry-run] to preview changes without writing"
 | root-claude | skills → `.claude/skills/` | Verbatim; all |
 | root-claude | instructions → `.claude/CLAUDE.md` | Inline with markers |
 | general-github | agents → `general/.github/agents/` | Exclude git agents |
-| general-github | skills → `general/.github/skills/` | Exclude git skills |
+| general-github | skills → `general/.github/skills/` | Exclude git skills; docs-folder profile → `general` |
 | general-github | instructions → `general/.github/instructions/` | Verbatim |
 | general-claude | agents → `general/.claude/commands/` | Exclude git agents |
-| general-claude | skills → `general/.claude/skills/` | Exclude git skills |
+| general-claude | skills → `general/.claude/skills/` | Exclude git skills; docs-folder profile → `general` |
 | general-claude | instructions → `general/.claude/CLAUDE.md` | Inline with markers |
 | monorepo-github | agents → `monorepo/.github/agents/` | Verbatim; all |
 | monorepo-github | skills → `monorepo/.github/skills/` | Verbatim; all |
@@ -54,12 +54,14 @@ argument-hint: "[--dry-run] to preview changes without writing"
 
 - LOOP: changed non-git agents → `general/.github/agents/`
 - LOOP: changed non-git skills → `general/.github/skills/`
+  - IF: skill = `docs-folder` → replace line `**PROFILE: gobiz**` with `**PROFILE: general**`
 - LOOP: changed instructions → `general/.github/instructions/`
 
 ## Phase 4 — Sync general-claude (changed only)
 
 - LOOP: changed non-git agents → `general/.claude/commands/`
 - LOOP: changed non-git skills → `general/.claude/skills/`
+  - IF: skill = `docs-folder` → replace line `**PROFILE: gobiz**` with `**PROFILE: general**`
 - IF: changed_instructions not empty → `general/.claude/CLAUDE.md` (markers)
 
 ## Phase 5 — Sync monorepo-github (changed only)
@@ -91,3 +93,4 @@ argument-hint: "[--dry-run] to preview changes without writing"
 - Git agents excluded from general only; monorepo gets all
 - `broadcast-sync.md` excluded from orphan detection
 - Preserve monorepo-specific context sections when syncing
+- `docs-folder` PROFILE: root + monorepo = `gobiz` (Jira key in folder name); general = `general`

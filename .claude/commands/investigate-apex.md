@@ -4,15 +4,16 @@ tools: [read, search, execute, edit, todo]
 argument-hint: "Incident description, correlation ID, endpoint, agency, timeframe, and/or HTTP status. Add 'prod'/'production' for production (defaults to staging)."
 ---
 
-**Input**: incident signal (any combination of description / correlation ID / endpoint / agency / timeframe / HTTP status) → **Output**: `.docs/investigation-<identifier>/apex-report.md` + Slack-ready summary in chat.
+**Input**: incident signal (any combination of description / correlation ID / endpoint / agency / timeframe / HTTP status) → **Output**: `<DOCS_DIR>/investigation-<identifier>/apex-report.md` + Slack-ready summary in chat.
 
-Load **investigate-apex skill** — follow its Steps 0–7 end to end. The skill owns credential handling, ES queries, bridging detection, root-cause classification, and report + Slack summary generation.
+Load **docs-folder** skill, then **investigate-apex skill** — follow its Steps 0–7 end to end. The skill owns credential handling, ES queries, bridging detection, root-cause classification, and report + Slack summary generation.
 
 ## Orchestrator responsibilities
 
 - Map the user's raw request onto the skill's Step 0 input types; ask at most 1 clarifying question if nothing matches
+- CALL: DOCS_FOLDER(REQUEST, PATH=<folder if given>, CAN_CREATE_JIRA=true) → DOCS_DIR before the skill writes its report (Jira key prompt is separate from the 1 clarifying question)
 - Default to staging; switch to production only when the user says "prod"/"production"
-- IF: multiple incidents/correlation IDs given → loop the skill sequentially, one report per incident
+- IF: multiple incidents/correlation IDs given → loop the skill sequentially, one `investigation-<identifier>/` per incident, all under the same `DOCS_DIR` (unless different tickets given)
 - After the skill completes → confirm the report file path back to the user
 
 ## Constraints

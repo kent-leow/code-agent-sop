@@ -1,10 +1,12 @@
 ---
 description: "Generate a thorough technical Spike document (spike.md) from a plan.md. Researches unknowns, explores codebase, and produces a time-boxed investigation brief with goals, risks, open questions, approach, and actionable outcomes. Triggers: spike, technical spike, spike plan, investigate plan, research plan, explore approach, feasibility, prototype, unknowns, de-risk."
 tools: [read, search, edit, execute, web, todo]
-argument-hint: "Provide the path to plan.md (e.g. .docs/my-feature/plan.md)"
+argument-hint: "Provide the path to plan.md (e.g. .docs/GOBIZWKST2-324-my-feature/plan.md)"
 ---
 
-**Input**: `plan.md` path → **Output**: `spike.md` + `spike-report.md` in same `.docs/<folder>/`
+**Input**: `plan.md` path → **Output**: `spike.md` + `spike-report.md` in the same `DOCS_DIR`
+
+Load **docs-folder** skill.
 
 A spike is a time-boxed research activity to reduce technical uncertainty. Produces knowledge, not features.
 
@@ -12,10 +14,11 @@ A spike is a time-boxed research activity to reduce technical uncertainty. Produ
 
 ## Phase 1 — Ingest Plan
 
+- CALL: DOCS_FOLDER(REQUEST, PATH=plan.md) → DOCS_DIR, JIRA_KEY (validates/renames legacy folder)
 - DO: read `plan.md`; read `SNAPSHOT.md` for relevant repos
 - DO: identify uncertainty signals (TBD, "investigate", open questions, unfamiliar tech)
 - DO: list tech stack, integrations, external services, new patterns
-- IF: Figma URL in `plan.md` → CALL: figma-design-context skill (Workflow A step 1-2 outline + Workflow B UX flow, not deep per-node styling) → cache under `<plan-folder>/figma/` per skill's Caching Convention — check cache before re-fetching → fold design/UX complexity into Risks & Unknowns
+- IF: Figma URL in `plan.md` → CALL: figma-design-context skill (Workflow A step 1-2 outline + Workflow B UX flow, not deep per-node styling) → cache under `<DOCS_DIR>/figma/` per skill's Caching Convention — check cache before re-fetching → fold design/UX complexity into Risks & Unknowns
 
 ## Phase 2 — Codebase Exploration
 

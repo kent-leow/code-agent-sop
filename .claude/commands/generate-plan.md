@@ -4,9 +4,9 @@ tools: [read, search, edit, execute, todo]
 argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md and your changes."
 ---
 
-**Input**: raw requirements (Create) or `plan.md` path + changes (Refine) → **Output**: `.docs/<folder>/plan.md`
+**Input**: raw requirements (+ Jira key for gobiz) (Create) or `plan.md` path + changes (Refine) → **Output**: `<DOCS_DIR>/plan.md` (e.g. `.docs/GOBIZWKST2-324-create-form/plan.md`)
 
-Load **deep-think** and **app-blueprint** skills.
+Load **docs-folder**, **deep-think** and **app-blueprint** skills.
 
 ## Mode Detection
 
@@ -24,8 +24,8 @@ Load **deep-think** and **app-blueprint** skills.
 
 - DO: parse requirements — never invent unstated items
 - DO: search codebase for affected domain context
-- DO: create `.docs/<kebab-folder>/` if needed
-- IF: Figma URL → CALL: figma-design-context skill (Workflow A step 1-2 outline + Workflow B UX flow, not deep per-node styling) → cache under `.docs/<kebab-folder>/figma/` (becomes `<plan-folder>/figma/` for all downstream agents — check cache before re-fetching) → fold into AC
+- CALL: DOCS_FOLDER(REQUEST, CAN_CREATE_JIRA=true) → DOCS_DIR, JIRA_KEY
+- IF: Figma URL → CALL: figma-design-context skill (Workflow A step 1-2 outline + Workflow B UX flow, not deep per-node styling) → cache under `<DOCS_DIR>/figma/` (shared by all downstream agents — check cache before re-fetching) → fold into AC
 - DO: draft Scope + Acceptance Criteria
 - CALL: DEEP_THINK_PASS(draft, SCOPE=business) → fold Known-fact/Strong-inference gaps into Scope/AC; fold Assumptions into `## Assumptions` (with Confidence); route Unknowns to `## Open Questions`
 - DO: draft Invariants — business-language statements of what must remain true (existing behaviour, data, compatibility); evidence-based only, never invented
@@ -49,7 +49,7 @@ Load **deep-think** and **app-blueprint** skills.
 Product-level plan for an app that does not exist yet. Still business language only — tech decisions go to `blueprint.md` (generate-task).
 
 - DO: parse requirements — never invent unstated features, screens, or roles
-- DO: create `.docs/<kebab-app-name>/`; Figma → same as Create (also derive screens + navigation flow from Workflow B)
+- CALL: DOCS_FOLDER(REQUEST, TITLE=<app-name>, CAN_CREATE_JIRA=true) → DOCS_DIR, JIRA_KEY; Figma → same as Create (also derive screens + navigation flow from Workflow B)
 - DO: draft, in addition to the standard Structure:
   - `**Project Type**: Greenfield` header line
   - `## Users & Roles` — who uses it, what each role may do
@@ -65,6 +65,7 @@ Product-level plan for an app that does not exist yet. Still business language o
 
 ## Refine Mode
 
+- CALL: DOCS_FOLDER(REQUEST, PATH=plan.md) → DOCS_DIR, JIRA_KEY (validates/renames legacy folder)
 - DO: read existing `plan.md`; apply Figma if relevant
 - DO: fold answered questions into AC; revise for new/changed reqs
 - CALL: DEEP_THINK_PASS(revised plan, SCOPE=business) → fold Known-fact/Strong-inference gaps into Scope/AC; fold Assumptions into `## Assumptions`; route Unknowns to `## Open Questions`; revise `## Invariants`
@@ -96,7 +97,7 @@ Product-level plan for an app that does not exist yet. Still business language o
 
 > ✅ Plan saved. **A** — Create/update Jira Story · **B** — Edit · **C** — Skip
 
-- **A**: load jira-ticket skill → build description per Jira Description Format below → create/update Story; write `jira.json`
+- **A**: load jira-ticket skill → build description per Jira Description Format below → update the Story at `JIRA_KEY` (create only when no key exists — general profile); write `<DOCS_DIR>/jira.json`
 - **B**: apply edits; re-present prompt
 - **C**: stop
 
@@ -167,5 +168,5 @@ Context, constraints.
 - No invented requirements; business language only
 - AC must be concrete and testable
 - Assumptions must carry a Confidence level; Unknowns never get invented answers
-- One `plan.md` per folder — update in place
+- One `plan.md` per folder — update in place; folder name per docs-folder Naming Convention (gobiz: Jira key required)
 - Only touch task files genuinely impacted

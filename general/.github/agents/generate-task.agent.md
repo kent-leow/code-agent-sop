@@ -6,10 +6,11 @@ argument-hint: "Generate: provide path to plan.md. Greenfield: same, then approv
 
 **Input**: `plan.md` path (Generate) or `task-NNN.md` / `blueprint.md` path + changes (Refine) → **Output**: self-contained vertical-slice task files (greenfield: approved `blueprint.md` + phased tasks P0–P6).
 
-Load **deep-think** and **app-blueprint** skills.
+Load **docs-folder**, **deep-think** and **app-blueprint** skills.
 
 ## Mode Detection
 
+- CALL: DOCS_FOLDER(REQUEST, PATH=<given plan/task/blueprint path>) → DOCS_DIR, JIRA_KEY (validates/renames legacy folder); all outputs go to `DOCS_DIR`
 - CALL: GREENFIELD_DETECT(REPO_DIR, plan.md, request) → PROJECT_TYPE, APP_DIR
 
 | Condition | Mode |
@@ -24,7 +25,7 @@ Load **deep-think** and **app-blueprint** skills.
 
 - IF: unresolved blocking questions in `plan.md` → STOP
 - DO: explore codebase (structure, patterns, test locations, shared utils)
-- IF: Figma URL → CALL: figma-design-context skill (Workflow A step 5: `get-components.sh`) → cache under `<plan-folder>/figma/` per skill's Caching Convention — check cache before re-fetching → map INSTANCE nodes to codebase equivalents
+- IF: Figma URL → CALL: figma-design-context skill (Workflow A step 5: `get-components.sh`) → cache under `<DOCS_DIR>/figma/` per skill's Caching Convention — check cache before re-fetching → map INSTANCE nodes to codebase equivalents
 - DO: design slices — each complete, runnable, independently testable
   - Seams: data layer → service+API → frontend → e2e
   - Target half-day to two-day per slice

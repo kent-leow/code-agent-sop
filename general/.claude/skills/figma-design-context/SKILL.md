@@ -36,12 +36,12 @@ Build **exactly** what's in the Figma file — same layout, spacing, colours, co
 
 Every fetch MUST be cached at a deterministic, reusable path — never fetch the same fileKey+nodeId twice in one task, and never let a downstream agent (generate-task, execute-task, fix-task) re-derive design facts from memory; they read the cached file instead. The cache is the source of truth against hallucination, not the model's recollection of it.
 
-**Cache root**: `<task-folder>/figma/` where `<task-folder>` is the same `.docs/<kebab-folder>/` used for `plan.md`/`task-NNN.md`. `fix-task` reuses this same cache root (never creates its own) so it verifies against the exact spec the original implementation was built from.
+**Cache root**: `<DOCS_DIR>/figma/` where `DOCS_DIR` is the ticket work folder (docs-folder skill, e.g. `.docs/GOBIZWKST2-324-create-form/`) used for `plan.md`/`task-NNN.md`. `fix-task` reuses this same cache root (never creates its own) so it verifies against the exact spec the original implementation was built from.
 
 **Layout**:
 
 ```
-<task-folder>/figma/
+<DOCS_DIR>/figma/
 └── <fileKey>/
     ├── metadata.txt           # get-metadata.sh (stdout redirect — no --output flag)
     ├── variables.json          # get-variables.sh
@@ -59,7 +59,7 @@ Every fetch MUST be cached at a deterministic, reusable path — never fetch the
 **Rule — check cache before every fetch**:
 
 ```bash
-CACHE_DIR="<task-folder>/figma/<fileKey>"; mkdir -p "$CACHE_DIR/<nodeId>"
+CACHE_DIR="<DOCS_DIR>/figma/<fileKey>"; mkdir -p "$CACHE_DIR/<nodeId>"
 
 [[ -f "$CACHE_DIR/<nodeId>/context.json" ]] || \
   bash .github/skills/figma-design-context/scripts/get-design-context.sh \
@@ -85,7 +85,7 @@ echo $FIGMA_TOKEN  # If empty, see Credential Setup below
 ## Workflow A — Implement a UI Frame
 
 ```bash
-CACHE="<task-folder>/figma/<fileKey>"; mkdir -p "$CACHE/<nodeId>"
+CACHE="<DOCS_DIR>/figma/<fileKey>"; mkdir -p "$CACHE/<nodeId>"
 
 # 1. Outline — find the frame, don't guess (skip if cached)
 [[ -f "$CACHE/metadata.txt" ]] || \
@@ -124,7 +124,7 @@ Then implement:
 No REST equivalent of a single "flow" tool exists, so combine two calls into one flow graph:
 
 ```bash
-CACHE="<task-folder>/figma/<fileKey>/<pageId>"; mkdir -p "$CACHE"
+CACHE="<DOCS_DIR>/figma/<fileKey>/<pageId>"; mkdir -p "$CACHE"
 
 [[ -f "$CACHE/page.json" ]] || \
   bash .github/skills/figma-design-context/scripts/get-page-full.sh \
@@ -140,7 +140,7 @@ Read the `summarize-context.sh` output for `CONNECTOR ARROWS / UI FLOW` and prot
 ## Workflow C — Reuse Design System (tokens + components)
 
 ```bash
-CACHE="<task-folder>/figma/<fileKey>"; mkdir -p "$CACHE"
+CACHE="<DOCS_DIR>/figma/<fileKey>"; mkdir -p "$CACHE"
 
 [[ -f "$CACHE/variables.json" ]] || \
   bash .github/skills/figma-design-context/scripts/get-variables.sh --file-key <fileKey> --output "$CACHE/variables.json"
