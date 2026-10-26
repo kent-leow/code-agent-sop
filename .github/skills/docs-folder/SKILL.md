@@ -39,6 +39,7 @@ description: "Shared .docs/ work-folder resolver + naming convention: one folder
 ├── investigation-<kebab-topic>/           # investigate → report.md, flowchart.mmd
 ├── investigation-<identifier>/            # investigate-apex → apex-report.md
 ├── cft-checklist[-<agency>].md            # cft-onboarding (suffix only when >1 agency)
+├── env-chope/cleanup-<env>-<app>-<KEY>.sql  # env-chope (draft Flyway cleanup, attached to chope card)
 └── vulnerability/vulnerabilities-{YYYYMMDD}.md  # fix-vulnerabilities
 ```
 

@@ -150,6 +150,7 @@ monorepo/                    # Monorepo workspace variant
     ├── fixes/fix-{dt}-{name}.md        # Fix logs
     ├── investigation-<topic>/          # investigate / investigate-apex reports
     ├── cft-checklist.md
+    ├── env-chope/cleanup-*.sql  # Draft Flyway cleanup for choped env cards
     └── vulnerability/vulnerabilities-{date}.md
 ```
 
@@ -175,6 +176,7 @@ Root `.github/` and `.qwen/` add:
 | `git-review` | Review/summarise/act on GitHub PR or GitLab MR |
 | `git-fix-review` | Fix open review threads, commit, push, poll pipeline |
 | `fix-vulnerabilities` | Fetch + fix GitLab security vulnerabilities |
+| `env-chope` | Chope/release DEV/QA/STAGING env cards on the MOLBLT Chope Env board from a GitLab MR (touched apps + Flyway) |
 | `figma-design-context` skill | Fetch design context from Figma REST API |
 | `jira-ticket` skill | Create/update Jira stories and sub-tasks |
 | `git-workflow` skill | Branch → commit → push → MR → pipeline polling |
