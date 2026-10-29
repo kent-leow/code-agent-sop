@@ -179,6 +179,8 @@ Root `.github/` and `.qwen/` add:
 | `env-chope` | Chope/release DEV/QA/STAGING env cards on the MOLBLT Chope Env board from a GitLab MR (touched apps + Flyway) |
 | `figma-design-context` skill | Fetch design context from Figma REST API |
 | `jira-ticket` skill | Create/update Jira stories and sub-tasks |
+| `opensearch-logs` skill | Read-only log search/count/aggregate/trace on MOLB OpenSearch (dev/qa/stg/prod; VPN) — used by `investigate` |
+| `postgres-query` skill | psql access to licence / agency-portal / formbuilder / onboarding-portal DBs (PROD read-only; lower-env writes need approval) — used by `investigate` |
 | `git-workflow` skill | Branch → commit → push → MR → pipeline polling |
 | `git-apis` skill | Shared GitLab + GitHub REST API primitives |
 
