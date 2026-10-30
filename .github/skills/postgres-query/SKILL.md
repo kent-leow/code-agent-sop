@@ -1,7 +1,7 @@
 ---
 name: postgres-query
-description: "Query MOLB / GoBusiness PostgreSQL databases (licence, agency-portal, formbuilder, onboarding-portal) in dev, qa, stg, prod via psql: list tables, describe columns, run SQL to verify data state as investigation evidence. PROD is strictly read-only; DEV/QA/STG writes only with --write after explicit user approval. Requires DB_<DB>_<ENV>_{HOST,PORT,NAME,USER,PASSWORD,ROLE} in ~/.zshenv and VPN. Use when: check db, query database, data issue, record state, verify row, sql, postgres, dbeaver."
-argument-hint: "db (licence|agency-portal|formbuilder|onboarding-portal) + env (dev|qa|stg|prod) + what to verify"
+description: "Query MOLB / GoBusiness PostgreSQL databases (licence, agency-portal, formbuilder, onboarding-portal, payment) in dev, qa, stg, prod via psql: list tables, describe columns, run SQL to verify data state as investigation evidence. PROD is strictly read-only; DEV/QA/STG writes only with --write after explicit user approval. Requires DB_<DB>_<ENV>_{HOST,PORT,NAME,USER,PASSWORD,ROLE} in ~/.zshenv and VPN. Use when: check db, query database, data issue, record state, verify row, sql, postgres, dbeaver."
+argument-hint: "db (licence|agency-portal|formbuilder|onboarding-portal|payment) + env (dev|qa|stg|prod) + what to verify"
 metadata:
   category: operations
   tier: standard
@@ -19,11 +19,11 @@ metadata:
 
 | Part | Values |
 |---|---|
-| `<DB>` | `LICENCE` · `AGENCY_PORTAL` · `FORMBUILDER` · `ONBOARDING_PORTAL` |
+| `<DB>` | `LICENCE` · `AGENCY_PORTAL` · `FORMBUILDER` · `ONBOARDING_PORTAL` · `PAYMENT` |
 | `<ENV>` | `DEV` · `QA` · `STG` · `PROD` |
 | `<FIELD>` | `HOST` · `PORT` (default 5432) · `NAME` (database) · `USER` · `PASSWORD` · `ROLE` (session role, optional) |
 
-Placeholder block: `python3 $S/pg_query.py env-template`. CLI aliases: `licence`/`ls` · `agency-portal`/`ap` · `formbuilder`/`fb` · `onboarding-portal`/`op`; `stg`/`staging`.
+Placeholder block: `python3 $S/pg_query.py env-template`. CLI aliases: `licence`/`ls` · `agency-portal`/`ap` · `formbuilder`/`fb` · `onboarding-portal`/`op` · `payment`/`pay`; `stg`/`staging`.
 
 | Env | Access |
 |---|---|
