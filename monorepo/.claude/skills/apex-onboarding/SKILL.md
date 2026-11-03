@@ -49,6 +49,37 @@ Agency calls Gobiz (LCP/SFA/LAR): publish Gobiz API in the agency's zone, then g
 
 If the card lists a scenario guide link in Tech Notes, use it.
 
+## 2b. Check current state (read-only)
+
+Before writing the checklist, find what is already configured so the checklist lists only what is required. Skip a check if the card gives no value for it, and say so.
+
+**Onboarding Portal DB** (`postgres-query` skill, db `op`, same env as the card; PROD is read-only; needs VPN, and the sandbox may block DNS, so retry unsandboxed if the host does not resolve):
+
+```sql
+select a.short_name, a.apex_cloud_base_url, a.apex_cloud_enabled,
+       l.name, l.l1t_licence_id, l.apex_cloud_licence_base_path,
+       api.common_api_type, api.http_method, api.is_apex_enabled,
+       api.host_endpoint, api.apex_cloud_api_url_path
+from onboarding_portal_licence l
+join onboarding_portal_agency a on a.id = l.agency_id
+left join onboarding_portal_api api on api.licence_id = l.id
+where l.l1t_licence_id = <licence id>   -- or: l.name ilike '%<licence name>%'
+order by api.common_api_type limit 50
+```
+
+Compare to the card and mark each row Required / Done / Mismatch:
+
+| Item | Expected from card | OP column |
+|---|---|---|
+| Agency base URL | common prefix of endpoint hosts and paths | `agency.apex_cloud_base_url`, `apex_cloud_enabled = t` |
+| Licence base path | next common path segment | `licence.apex_cloud_licence_base_path` |
+| One API row per card endpoint | non-common suffix | `api.apex_cloud_api_url_path`, `is_apex_enabled = t` |
+
+- No licence row: the licence must be created first. Do not assume the card's "Licence ID: Not provided" means it is absent; look it up by name.
+- Zero API rows: all endpoints are Required.
+- Check the shape of an existing APEX Cloud licence's rows (`host_endpoint`, `http_method`) before telling the user what to enter; never guess.
+- APEX portal state (subscription, access grant) cannot be read from here; keep those as user-verified items.
+
 ## 3. Steps per task
 
 ### A. Create API (scenarios 1, 2)
@@ -92,10 +123,13 @@ Needs agency APEX Org ID/name. Grant at organisation level, matching zone only (
 
 ## 5. Output
 
-Give the user, minimal:
+Write the result to a file and tell the user its path. Resolve the folder with the `docs-folder` skill (`.docs/<JIRA-KEY>-<kebab-title>/`), file name `apex-checklist.md`. Overwrite on re-run. Chat reply: path + 3-line summary of what is Required.
+
+File contents, minimal:
 1. Scenario + why (one line).
-2. Checklist mapped to the card's Tech Notes steps, each with the exact values from the card (API name, base URL, paths).
-3. Open items for the agency.
-4. Test evidence to attach (correlation ID, inbound/outbound log).
+2. Current state: table of the 2b checks, each Required / Done / Mismatch, with the evidence (db · env · query · result excerpt).
+3. Checklist mapped to the card's Tech Notes steps, each with the exact values from the card (API name, base URL, paths) and `- [ ]` boxes only for Required items.
+4. Open items for the agency.
+5. Test evidence to attach (correlation ID, inbound/outbound log).
 
 Do not write to Jira or Confluence unless asked. Do not put agency-specific values into this skill.
