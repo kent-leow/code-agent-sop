@@ -77,7 +77,21 @@ Compare to the card and mark each row Required / Done / Mismatch:
 
 - No licence row: the licence must be created first. Do not assume the card's "Licence ID: Not provided" means it is absent; look it up by name.
 - Zero API rows: all endpoints are Required.
-- Check the shape of an existing APEX Cloud licence's rows (`host_endpoint`, `http_method`) before telling the user what to enter; never guess.
+- Map card endpoint names to OP `common_api_type` (verified against PROD rows). Unlisted names: query distinct `common_api_type` first, never guess.
+
+| Card endpoint | `common_api_type` |
+|---|---|
+| CreateApplication | `CREATE_APPLICATION` |
+| Validate / Validation | `VALIDATION` |
+| StatusUpdate | `STATUS_UPDATE` (`STATUS_POLL` is a separate type) |
+| Pre-populate | `PRE_POPULATE` |
+| CalculateFee | `CALCULATE_FEE` |
+| Payment | `PAYMENT` |
+| Withdraw / WithdrawApplication | `WITHDRAW` |
+| Clarification | `CREATE_APPLICATION_RFA` |
+
+- Every row uses `http_method = POST`, `host_endpoint = APEX`, `is_apex_enabled = true`, `interceptors = []` (unless the card has static headers). `apex_cloud_api_url_path` = card URL remainder after base + licence path, with a leading `/`. The remainder varies per agency, so take it from the card.
+- Emit the Required rows as a JSON array, one object per endpoint: `l1t_licence_id`, `interceptors`, `common_api_type`, `http_method`, `host_endpoint`, `is_apex_enabled`, `apex_cloud_api_url_path`.
 - APEX portal state (subscription, access grant) cannot be read from here; keep those as user-verified items.
 
 ## 3. Steps per task
@@ -128,8 +142,9 @@ Write the result to a file and tell the user its path. Resolve the folder with t
 File contents, minimal:
 1. Scenario + why (one line).
 2. Current state: table of the 2b checks, each Required / Done / Mismatch, with the evidence (db · env · query · result excerpt).
-3. Checklist mapped to the card's Tech Notes steps, each with the exact values from the card (API name, base URL, paths) and `- [ ]` boxes only for Required items.
-4. Open items for the agency.
-5. Test evidence to attach (correlation ID, inbound/outbound log).
+3. OP API rows JSON (from 2b) in a fenced `json` block.
+4. Checklist mapped to the card's Tech Notes steps, each with the exact values from the card (API name, base URL, paths) and `- [ ]` boxes only for Required items.
+5. Open items for the agency.
+6. Test evidence to attach (correlation ID, inbound/outbound log).
 
 Do not write to Jira or Confluence unless asked. Do not put agency-specific values into this skill.
