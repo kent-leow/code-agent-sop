@@ -51,7 +51,15 @@ If the card lists a scenario guide link in Tech Notes, use it.
 
 ## 2b. Check current state (read-only)
 
-Before writing the checklist, find what is already configured so the checklist lists only what is required. Skip a check if the card gives no value for it, and say so.
+**Mandatory: fetch and validate before proposing.** Every value in the OP API rows JSON (`apex_cloud_api_url_path`, base URL / licence base path split, `interceptors` shape) must come from, or be validated against, records fetched from the OP DB in this run. Never derive the base/path split from the card alone, and never invent the `interceptors` format.
+
+- Fetch order: (1) the licence by `l1t_licence_id`, else by name; (2) its agency row; (3) the agency's other licences' API rows, and, when the licence has no rows of its own, the same `common_api_type` rows of sibling licences, to learn the split and the `interceptors` JSON shape actually stored.
+- If the DB cannot be read (access denied, no VPN, missing credentials): STOP the JSON section. Write "Not proposed: OP state not fetched" with the reason, list the exact query for the user to run, and do not emit any JSON. Never fall back to a card-derived guess.
+- Each proposed row carries evidence: the fetched record(s) it was validated against (db · env · query · result excerpt). A value with no supporting record is marked "Unvalidated" and left out of the JSON.
+- OP stores the **APEX gateway** URL/path (`agency.apex_cloud_base_url`, `licence.apex_cloud_licence_base_path`), not the agency backend URL on the card, so never derive `apex_cloud_api_url_path` by stripping the stored values from the card URL. Take it from the licence's existing API rows (same naming pattern, e.g. `/<licence id>/<action>`), else from sibling licences of the same agency, and check the card's backend path is consistent with that pattern. No pattern found: mark Unvalidated and leave it out of the JSON.
+- Interceptors are not a column on the API row: they live in `onboarding_portal_api_interceptors` (`api_id`, `interceptor_id`) → `onboarding_portal_interceptor` (`name`, `header_type`, `arguments`, `is_sensitive`). Fetch them for the licence's rows and reuse an existing interceptor by name when its header matches the card; propose a new one only if none exists, copying `header_type` / `arguments` shape from a fetched row. Print `arguments` only when `is_sensitive` is false (they hold `${ENV_VAR}` placeholders); never print card secret values.
+
+Find what is already configured so the checklist lists only what is required. Skip a check if the card gives no value for it, and say so.
 
 **Onboarding Portal DB** (`postgres-query` skill, db `op`, same env as the card; PROD is read-only; needs VPN, and the sandbox may block DNS, so retry unsandboxed if the host does not resolve):
 
@@ -67,13 +75,28 @@ where l.l1t_licence_id = <licence id>   -- or: l.name ilike '%<licence name>%'
 order by api.common_api_type limit 50
 ```
 
+Interceptors of those rows (then sibling-licence rows of the same agency, and `common_api_type` rows of other agencies, if the licence has none):
+
+```sql
+select api.common_api_type, i.name, i.header_type, i.is_sensitive,
+       case when i.is_sensitive then '<redacted>' else i.arguments end as arguments
+from onboarding_portal_licence l
+join onboarding_portal_api api on api.licence_id = l.id
+join onboarding_portal_api_interceptors ai on ai.api_id = api.id
+join onboarding_portal_interceptor i on i.id = ai.interceptor_id
+where l.l1t_licence_id = <licence id> limit 50
+```
+
+Agency-wide view (licence path + api path patterns): same first query with `where a.short_name = '<agency>'`, `limit 100`.
+
 Compare to the card and mark each row Required / Done / Mismatch:
 
 | Item | Expected from card | OP column |
 |---|---|---|
-| Agency base URL | common prefix of endpoint hosts and paths | `agency.apex_cloud_base_url`, `apex_cloud_enabled = t` |
-| Licence base path | next common path segment | `licence.apex_cloud_licence_base_path` |
-| One API row per card endpoint | non-common suffix | `api.apex_cloud_api_url_path`, `is_apex_enabled = t` |
+| Agency APEX gateway URL | exists and enabled (not the card's backend URL) | `agency.apex_cloud_base_url`, `apex_cloud_enabled = t` |
+| Licence base path | exists (gateway path) | `licence.apex_cloud_licence_base_path` |
+| One API row per card endpoint | row exists, path matches the licence's pattern | `api.apex_cloud_api_url_path`, `is_apex_enabled = t` |
+| Static header interceptors | linked to each row that needs them | `api_interceptors` → `interceptor` |
 
 - No licence row: the licence must be created first. Do not assume the card's "Licence ID: Not provided" means it is absent; look it up by name.
 - Zero API rows: all endpoints are Required.
@@ -90,8 +113,8 @@ Compare to the card and mark each row Required / Done / Mismatch:
 | Withdraw / WithdrawApplication | `WITHDRAW` |
 | Clarification | `CREATE_APPLICATION_RFA` |
 
-- Every row uses `http_method = POST`, `host_endpoint = APEX`, `is_apex_enabled = true`, `interceptors = []` (unless the card has static headers). `apex_cloud_api_url_path` = card URL remainder after base + licence path, with a leading `/`. The remainder varies per agency, so take it from the card.
-- Emit the Required rows as a JSON array, one object per endpoint: `l1t_licence_id`, `interceptors`, `common_api_type`, `http_method`, `host_endpoint`, `is_apex_enabled`, `apex_cloud_api_url_path`.
+- Every row uses `http_method = POST`, `host_endpoint = APEX`, `is_apex_enabled = true`, `interceptors = []` unless the card has static headers (then names of existing interceptors per the rule above; secret values are never copied). `apex_cloud_api_url_path` per the pattern rule above, with a leading `/`.
+- Emit the Required rows as a JSON array, one object per endpoint, only after the fetch above succeeded: `l1t_licence_id`, `interceptors` (list of interceptor names), `common_api_type`, `http_method`, `host_endpoint`, `is_apex_enabled`, `apex_cloud_api_url_path`.
 - APEX portal state (subscription, access grant) cannot be read from here; keep those as user-verified items.
 
 ## 3. Steps per task
@@ -142,7 +165,7 @@ Write the result to a file and tell the user its path. Resolve the folder with t
 File contents, minimal:
 1. Scenario + why (one line).
 2. Current state: table of the 2b checks, each Required / Done / Mismatch, with the evidence (db · env · query · result excerpt).
-3. OP API rows JSON (from 2b) in a fenced `json` block.
+3. OP API rows JSON (from 2b) in a fenced `json` block, each row with its DB evidence. If 2b was not fetched, write "Not proposed: OP state not fetched" plus the query to run, and no JSON.
 4. Checklist mapped to the card's Tech Notes steps, each with the exact values from the card (API name, base URL, paths) and `- [ ]` boxes only for Required items.
 5. Open items for the agency.
 6. Test evidence to attach (correlation ID, inbound/outbound log).
