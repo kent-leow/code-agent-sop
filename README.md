@@ -181,10 +181,11 @@ Root `.github/` and `.qwen/` add:
 | `jira-ticket` skill | Create/update Jira stories and sub-tasks |
 | `opensearch-logs` skill | Read-only log search/count/aggregate/trace on MOLB OpenSearch (dev/qa/stg/prod; VPN) — used by `investigate` |
 | `postgres-query` skill | psql access to licence / agency-portal / formbuilder / onboarding-portal / payment DBs (PROD read-only; lower-env writes need approval) — used by `investigate` |
+| `aws-access` skill | Read-only AWS (ECS, RDS, SQS DLQs, CloudWatch, ALB, Lambda, schedules) for staging + prod via GCC SSO profiles; guarded wrapper, prod writes need double confirmation — used by `investigate` |
 | `git-workflow` skill | Branch → commit → push → MR → pipeline polling |
 | `git-apis` skill | Shared GitLab + GitHub REST API primitives |
 
-Requires tokens in `~/.zshenv` — see `.env.example` for the full list.
+Requires tokens in `~/.zshenv` — see `.env.example` for the full list. AWS uses SSO profiles in `~/.aws/config` (see `aws-access` skill), not tokens.
 
 ## Workflow Details
 
