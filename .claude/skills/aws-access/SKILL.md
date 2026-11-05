@@ -1,6 +1,6 @@
 ---
 name: aws-access
-description: "Read-only AWS investigation for MOLB / GoBusiness staging (account 934558626247, holds dev/qa/staging) and production (150825224711) via GCC SSO profiles: ECS services/tasks, RDS, SQS DLQs, CloudWatch logs/metrics/alarms, ALB targets, Lambda, schedules, CloudTrail, ECR, ACM, OpenSearch, S3, DynamoDB, Secrets/SSM metadata. Guarded wrapper refuses writes; PRODUCTION writes need the user to confirm twice. Use when: check aws, ecs status, rds status, dlq, cloudwatch, alarm, task stopped, who changed, deployment, infra health, staging/prod aws."
+description: "Read-only AWS investigation for MOLB / GoBusiness staging (account 934558626247, holds dev/qa/staging) and production (150825224711) via GCC SSO profiles: ECS services/tasks, RDS, SQS DLQs, CloudWatch logs/metrics/alarms, ALB targets, Lambda, schedules, CloudTrail, ECR, ACM, OpenSearch, S3, Secrets/SSM metadata. Two profiles only: staging, prod-elevated. Guarded wrapper refuses writes; PRODUCTION writes need the user to confirm twice. Use when: check aws, ecs status, rds status, dlq, cloudwatch, alarm, task stopped, who changed, deployment, infra health, staging/prod aws."
 argument-hint: "env (staging|prod) + resource/service + what to verify (e.g. 'prod ECS licence-service stopped tasks last 2h')"
 metadata:
   category: operations
@@ -18,16 +18,16 @@ metadata:
 | `--env` | Profile | Identity | Use |
 |---|---|---|---|
 | `staging` | `staging` | SSO `agency_developer` @ 934558626247 | everything non-prod — account also holds `dev-*`, `qa-*` (filter by name prefix) |
-| `prod` | `prod-elevated` (default) | assume `Prod-Dev-Elevated-Role` via `production` | ECS, RDS, SQS, CloudWatch, Lambda, most reads |
-| — | `prod-paws-operator` | assume `Prod-Bedrock-Agent-Operator-Role` via `production` | Paws data only (S3 / DynamoDB / AgentCore memory) — `--profile prod-paws-operator` |
-| — | `production` | SSO `agency_assume_local` @ 150825224711 | login/source only; never query with it |
+| `prod` | `prod-elevated` | assume `Prod-Dev-Elevated-Role` @ 150825224711 | all production reads |
 
-- Missing profiles → copy the snippet from inspector-paws `docs/testing/PAWS-HOSTED-ENVIRONMENTS.md` § Local AWS CLI setup (append, don't overwrite; `role_session_name` = `<sso-local-part>-prod-cli` / `-prod-paws`). Never invent account IDs/ARNs; never copy a colleague's config.
-- Never set `AWS_PROFILE`/`AWS_DEFAULT_PROFILE` (the scripts ignore them and pass `--profile` per call). `[default]` holds stale static keys — never use it.
+**Only these two profiles are used.** `--env` is the sole selector; there is no `--profile` override. Other profiles in `~/.aws/config` (`production` = `source_profile` that `prod-elevated` assumes through, `prod-paws-operator`, `[default]`, …) are never queried or logged into directly.
+
+- Missing profiles → append `[profile staging]`, `[profile production]` (source) and `[profile prod-elevated]` from inspector-paws `docs/testing/PAWS-HOSTED-ENVIRONMENTS.md` § Local AWS CLI setup (don't overwrite; `role_session_name` = `<sso-local-part>-prod-cli`). Never invent account IDs/ARNs; never copy a colleague's config.
+- Never set `AWS_PROFILE`/`AWS_DEFAULT_PROFILE` (the scripts ignore them and pass the profile per call).
 
 ## Login
 
-One SSO token (same start URL) covers all four profiles, ~8 h.
+One GCC SSO token (same start URL) covers both profiles, ~8 h — always log in via `staging`.
 
 1. `bash $S/aws_ro.sh preflight --env <env>` → expiry (SGT, minutes left) + `sts` identity per profile
 2. Exit 3 / `HINT: SSO session expired` → run `aws sso login --profile staging` **async**, read its output, give the user the URL + code (browser approval is theirs; never attempt it), wait for completion, re-run preflight
@@ -37,13 +37,13 @@ Needs **unsandboxed** execution (reads `~/.aws`, writes SSO cache, network).
 
 ## Verified permissions (2026-11-05)
 
-| API | `staging` | `prod-elevated` | `prod-paws-operator` |
-|---|---|---|---|
-| ECS, RDS (+events/logs), SQS, CloudWatch metrics/alarms, CloudWatch Logs, EventBridge, Scheduler | ✅ | ✅ | ❌ |
-| CloudTrail `lookup-events`, ACM, OpenSearch domain API (`es:*`) | ✅ | ❌ | ❌ |
-| S3 / DynamoDB / AgentCore (Paws) | ✅ | per resource | ✅ |
+| API | `staging` | `prod-elevated` |
+|---|---|---|
+| ECS, RDS (+events/logs), SQS, CloudWatch metrics/alarms/history, CloudWatch Logs, EventBridge, Scheduler, Lambda (config + `/aws/lambda/*` logs + metrics) | ✅ | ✅ |
+| CloudTrail `lookup-events`, ACM, OpenSearch domain API (`es:*`), Synthetics canary runs | ✅ | ❌ |
+| S3 | ✅ | per bucket |
 
-Prod ❌ → report as a permission gap (don't hunt for another role); use evidence substitutes: deploy history → ECS `deployments`/`events`; cert expiry → APEX/`investigate-apex` or staging; OpenSearch health → `opensearch-logs ping`.
+Prod ❌ → report as a permission gap (never switch to another role); use evidence substitutes: deploy history → ECS `deployments`/`events`; cert expiry → APEX/`investigate-apex` or staging; OpenSearch health → `opensearch-logs ping`; canary result → its alarm (`describe-alarms` + `describe-alarm-history`) and the canary Lambda's logs.
 
 ## Safety (mandatory)
 
@@ -65,7 +65,7 @@ Prod ❌ → report as a permission gap (don't hunt for another role); use evide
 | Command | Purpose |
 |---|---|
 | `bash $S/aws_ro.sh preflight --env E` | SSO expiry + identity per profile |
-| `bash $S/aws_ro.sh --env E [--profile P] -- <svc> <op> [args]` | guarded AWS CLI call |
+| `bash $S/aws_ro.sh --env E -- <svc> <op> [args]` | guarded AWS CLI call |
 | `bash $S/health.sh --env E [--prefix staging]` | snapshot: ECS clusters + unsteady services, RDS, non-empty DLQs (+ oldest age), CloudWatch alarms in ALARM (scale-in alarms hidden). ~20 s |
 
 `R="bash $S/aws_ro.sh --env <env> --"` in the recipes below.
@@ -86,15 +86,15 @@ Prod ❌ → report as a permission gap (don't hunt for another role); use evide
 | RDS logs | `$R rds describe-db-log-files --db-instance-identifier I` → `$R rds download-db-log-file-portion --db-instance-identifier I --log-file-name F --starting-token 0 --output text` (may hold SQL with PII — excerpt + mask) |
 | DLQ depth / source | `$R sqs get-queue-attributes --queue-url U --attribute-names All` (`RedrivePolicy` on source queue) · `$R sqs list-dead-letter-source-queues --queue-url <dlq>` — never `receive-message` without approval |
 | Load balancer targets | `$R elbv2 describe-target-groups --names <tg>` → `$R elbv2 describe-target-health --target-group-arn ARN` |
-| Lambda | `$R lambda get-function-configuration --function-name F` · errors: `AWS/Lambda` `Errors`/`Throttles` · logs `/aws/lambda/F` |
+| Lambda | `$R lambda list-functions --query 'Functions[].[FunctionName,LastModified]'` · `$R lambda get-function-configuration --function-name F --query LoggingConfig.LogGroup` (default `/aws/lambda/F`) → `$R logs describe-log-streams --log-group-name G --order-by LastEventTime --descending --max-items 3` → `$R logs tail G --since 24h --format short` · `AWS/Lambda` `Invocations`/`Errors`/`Throttles`/`Duration` by `FunctionName` |
 | Who changed what (staging only) | `$R cloudtrail lookup-events --lookup-attributes AttributeKey=ResourceName,AttributeValue=<name> --start-time T0 --max-items 20 --query 'Events[].[EventTime,EventName,Username]'` (or `AttributeKey=EventName,AttributeValue=UpdateService`) |
 | Image vulnerabilities | `$R ecr describe-image-scan-findings --repository-name R --image-id imageTag=T --query 'imageScanFindings.findingSeverityCounts'` |
 | Cert expiry (staging only) | `$R acm list-certificates --query 'CertificateSummaryList[].[DomainName,NotAfter,Status]'` |
 | OpenSearch domain (staging only) | `$R opensearch describe-domain --domain-name staging` (prod: CloudWatch `AWS/ES` `ClusterStatus.red`, `FreeStorageSpace` via prod-elevated) |
-| S3 / DynamoDB / AgentCore | `$R s3 ls s3://B/prefix/` · `$R s3api head-object --bucket B --key K` · `$R dynamodb describe-table --table-name T` · `$R bedrock-agentcore-control get-agent-runtime --agent-runtime-id ID` (prod: `--profile prod-paws-operator`) |
+| S3 | `$R s3 ls s3://B/prefix/` · `$R s3api head-object --bucket B --key K` (prod: AccessDenied on a bucket = gap) |
 | Secrets / config (metadata only) | `$R secretsmanager describe-secret --secret-id S` (rotation, last changed) · `$R ssm get-parameter --name N` (no decryption) |
 
-Naming: ECS cluster `<env>-ecs` (+ `common-ecs`); services, log groups, DLQs, schedules prefixed `<env>-` (`dev-`/`qa-`/`staging-`/`prod-`). `--max-items` + `--output text` prints a trailing `None` (pagination token) — ignore it.
+Naming: ECS cluster `<env>-ecs` (+ `common-ecs`); services, log groups, DLQs, schedules prefixed `<env>-` (`dev-`/`qa-`/`staging-`/`prod-`). `--max-items` + `--output text` prints a trailing `None` (pagination token) — ignore it. `--query 'length(...)'` on paginated APIs prints one number per page — sum them.
 Times: CLI wants UTC ISO (`2026-11-05T01:00:00Z`) or epoch seconds; report in SGT (UTC+8).
 
 ## Procedure
@@ -110,6 +110,6 @@ Times: CLI wants UTC ISO (`2026-11-05T01:00:00Z`) or epoch seconds; report in SG
 | exit 3 / `SSO session … expired` | Login step 2 |
 | `config profile could not be found` | profile names ≠ table → add snippet (Profiles) |
 | `AccessDenied` on assume-role | IAM trust gap → report |
-| `AccessDenied` on an API (prod) | check Verified permissions → report the gap; Paws data → `--profile prod-paws-operator` |
+| `AccessDenied` on an API (prod) | check Verified permissions → report the gap |
 | `Could not connect to the endpoint URL` / DNS | sandbox → rerun unsandboxed |
 | `refused` from `aws_ro.sh` | intended guard → ask user per Safety |

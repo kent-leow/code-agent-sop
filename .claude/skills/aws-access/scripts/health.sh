@@ -2,21 +2,21 @@
 # health.sh — read-only snapshot: ECS clusters + services off desired, RDS status, non-empty DLQs (+ oldest age),
 # CloudWatch alarms in ALARM. One call per resource type (paged), so it is cheap enough for PROD.
 #
-#   bash health.sh --env staging|prod [--prefix staging] [--profile P]
+#   bash health.sh --env staging|prod [--prefix staging]
 #   --prefix filters ECS clusters, services and DLQs by name (staging account also holds dev-/qa- resources).
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-ENV="" PREFIX="" PROFILE=""
+ENV="" PREFIX=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --env) ENV="$2"; shift 2 ;;
     --prefix) PREFIX="$2"; shift 2 ;;
-    --profile) PROFILE="$2"; shift 2 ;;
     *) die "unknown argument '$1'" ;;
   esac
 done
-[[ -n "$PROFILE" ]] || { [[ -n "$ENV" ]] || die "--env staging|prod is required"; PROFILE=$(profile_for_env "$ENV"); }
+[[ -n "$ENV" ]] || die "--env staging|prod is required"
+PROFILE=$(profile_for_env "$ENV")
 A() { aws_call "$PROFILE" "$@"; }
 A sts get-caller-identity --query Arn --output text >/dev/null || exit $?
 match() { [[ -z "$PREFIX" || "$1" == *"$PREFIX"* ]]; }

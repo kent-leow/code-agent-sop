@@ -10,7 +10,7 @@ TMPDIR="${TMPDIR:-/tmp}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
-# env → default profile; profile → env, SSO login profile
+# Only two profiles are ever used: staging (staging account) and prod-elevated (production account).
 profile_for_env() {
   case "$1" in
     staging|stg|dev|qa) echo staging ;;
@@ -21,11 +21,10 @@ profile_for_env() {
 env_for_profile() {
   case "$1" in
     staging) echo staging ;;
-    production|prod-elevated|prod-paws-operator) echo prod ;;
-    *) die "unknown profile '$1' (staging | production | prod-elevated | prod-paws-operator)" ;;
+    prod-elevated) echo prod ;;
+    *) die "unknown profile '$1' (staging | prod-elevated)" ;;
   esac
 }
-sso_profile_for() { [[ "$(env_for_profile "$1")" == prod ]] && echo production || echo staging; }
 
 # classify SERVICE OPERATION [args...] → read | sensitive | write
 classify() {
@@ -63,10 +62,10 @@ aws_call() {
   if [[ $rc -ne 0 ]]; then
     cat "$err" >&2
     if is_sso_error "$err"; then
-      echo "HINT: SSO session expired — run (user approves in browser): aws sso login --profile $(sso_profile_for "$profile")" >&2
+      echo "HINT: SSO session expired — run (user approves in browser): aws sso login --profile staging  (one GCC SSO token covers staging + prod-elevated)" >&2
       rm -f "$err"; return 3
     fi
-    grep -qi "AccessDenied\|not authorized" "$err" && echo "HINT: '$profile' lacks this permission — see aws-access 'Verified permissions'; report the gap, don't escalate" >&2
+    grep -qi "AccessDenied\|not authorized" "$err" && echo "HINT: '$profile' lacks this permission — see aws-access 'Verified permissions'; report the gap, don't switch roles" >&2
   fi
   rm -f "$err"; return $rc
 }

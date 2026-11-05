@@ -2,7 +2,7 @@
 # aws_ro.sh — guarded AWS CLI for staging/prod investigation (read-only by default).
 #
 #   bash aws_ro.sh preflight --env staging|prod
-#   bash aws_ro.sh --env staging|prod [--profile P] -- <service> <operation> [args...]
+#   bash aws_ro.sh --env staging|prod -- <service> <operation> [args...]
 #   bash aws_ro.sh --env staging --write -- <service> <operation> ...                  # after user approval
 #   bash aws_ro.sh --env prod --write --confirm-prod "<service> <operation>" -- ...    # after user confirmed TWICE
 #
@@ -10,25 +10,25 @@
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-ENV="" PROFILE="" WRITE=false CONFIRM_PROD="" MODE="call"
+ENV="" WRITE=false CONFIRM_PROD="" MODE="call"
 [[ "${1:-}" == "preflight" ]] && { MODE=preflight; shift; }
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --env) ENV="$2"; shift 2 ;;
-    --profile) PROFILE="$2"; shift 2 ;;
     --write) WRITE=true; shift ;;
     --confirm-prod) CONFIRM_PROD="$2"; shift 2 ;;
     --) shift; break ;;
     *) die "unknown argument '$1' (put the aws command after --)" ;;
   esac
 done
-[[ -n "$PROFILE" ]] || { [[ -n "$ENV" ]] || die "--env staging|prod or --profile is required"; PROFILE=$(profile_for_env "$ENV"); }
+[[ -n "$ENV" ]] || die "--env staging|prod is required"
+PROFILE=$(profile_for_env "$ENV")
 TARGET_ENV=$(env_for_profile "$PROFILE")
 
 if [[ "$MODE" == preflight ]]; then
   exp=$(sso_expiry)
   echo "SSO token expires: $exp"
-  profiles=(staging); [[ "$TARGET_ENV" == prod ]] && profiles=(production prod-elevated prod-paws-operator)
+  profiles=("$PROFILE")
   rc=0
   for p in "${profiles[@]}"; do
     printf '%-20s ' "$p"
