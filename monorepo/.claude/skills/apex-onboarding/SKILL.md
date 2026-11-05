@@ -53,7 +53,11 @@ If the card lists a scenario guide link in Tech Notes, use it.
 
 **Mandatory: fetch and validate before proposing.** Every value in the OP API rows JSON (`apex_cloud_api_url_path`, base URL / licence base path split, `interceptors` shape) must come from, or be validated against, records fetched from the OP DB in this run. Never derive the base/path split from the card alone, and never invent the `interceptors` format.
 
-- Fetch order: (1) the licence by `l1t_licence_id`, else by name; (2) its agency row; (3) the agency's other licences' API rows, and, when the licence has no rows of its own, the same `common_api_type` rows of sibling licences, to learn the split and the `interceptors` JSON shape actually stored.
+- **One PROD session, one combined statement.** PROD DB access alerts the team Slack channel, so follow `postgres-query` "Access hygiene": no `check --connect`, `tables` or `describe` probes (columns are listed below), and no per-step queries. Fetch everything below with one `UNION ALL` / CTE statement and a `src` column (`licence`, `agency_apis`, `interceptors`, `sibling`), save it to `<DOCS_DIR>/db-cache/op-prod-<licence id>.json`, then work from that file.
+- **Cache first.** If `<DOCS_DIR>/db-cache/op-prod-<licence id>.json` exists and is under 1 hour old (or from this session), reuse it and say so. Agency/sibling patterns may be reused up to 7 days.
+- **Live refetch only when state may have changed**: the user says rows were created/edited, you are verifying a fix or a test call log, or they say "recheck". Say why in one line, then refetch once.
+- Contents of the combined fetch: (1) the licence by `l1t_licence_id`, else by name; (2) its agency row; (3) the agency's other licences' API rows, and, when the licence has no rows of its own, the same `common_api_type` rows of sibling licences, to learn the split and the `interceptors` JSON shape actually stored; (4) interceptors of those rows.
+- Columns (no `describe` needed): `onboarding_portal_licence(id, l1t_licence_id, name, agency_id, apex_cloud_licence_base_path)`, `onboarding_portal_agency(id, short_name, apex_cloud_base_url, apex_cloud_enabled)`, `onboarding_portal_api(id, licence_id, common_api_type, http_method, host_endpoint, is_apex_enabled, apex_cloud_api_url_path)`, `onboarding_portal_api_interceptors(api_id, interceptor_id)`, `onboarding_portal_interceptor(id, name, header_type, arguments, is_sensitive)`, `onboarding_portal_apicalllog(api_id, url, status_code, response_body, created_at, common_api_type)`.
 - If the DB cannot be read (access denied, no VPN, missing credentials): STOP the JSON section. Write "Not proposed: OP state not fetched" with the reason, list the exact query for the user to run, and do not emit any JSON. Never fall back to a card-derived guess.
 - Each proposed row carries evidence: the fetched record(s) it was validated against (db · env · query · result excerpt). A value with no supporting record is marked "Unvalidated" and left out of the JSON.
 - OP stores the **APEX gateway** URL/path (`agency.apex_cloud_base_url`, `licence.apex_cloud_licence_base_path`), not the agency backend URL on the card, so never derive `apex_cloud_api_url_path` by stripping the stored values from the card URL. Take it from the licence's existing API rows (same naming pattern, e.g. `/<licence id>/<action>`), else from sibling licences of the same agency, and check the card's backend path is consistent with that pattern. No pattern found: mark Unvalidated and leave it out of the JSON.
@@ -63,31 +67,41 @@ Find what is already configured so the checklist lists only what is required. Sk
 
 **Onboarding Portal DB** (`postgres-query` skill, db `op`, same env as the card; PROD is read-only; needs VPN, and the sandbox may block DNS, so retry unsandboxed if the host does not resolve):
 
-```sql
-select a.short_name, a.apex_cloud_base_url, a.apex_cloud_enabled,
-       l.name, l.l1t_licence_id, l.apex_cloud_licence_base_path,
-       api.common_api_type, api.http_method, api.is_apex_enabled,
-       api.host_endpoint, api.apex_cloud_api_url_path
-from onboarding_portal_licence l
-join onboarding_portal_agency a on a.id = l.agency_id
-left join onboarding_portal_api api on api.licence_id = l.id
-where l.l1t_licence_id = <licence id>   -- or: l.name ilike '%<licence name>%'
-order by api.common_api_type limit 50
-```
-
-Interceptors of those rows (then sibling-licence rows of the same agency, and `common_api_type` rows of other agencies, if the licence has none):
+Single combined statement (one PROD session). Rows are tagged by `src`: `own` = the licence's rows, `agency` = every licence of the same agency (path patterns, sibling rows), `ic` = interceptors of those API rows. Narrow `agency` with `l.l1t_licence_id >= <nearby id>` if the agency has many licences.
 
 ```sql
-select api.common_api_type, i.name, i.header_type, i.is_sensitive,
-       case when i.is_sensitive then '<redacted>' else i.arguments end as arguments
-from onboarding_portal_licence l
-join onboarding_portal_api api on api.licence_id = l.id
-join onboarding_portal_api_interceptors ai on ai.api_id = api.id
+with target as (
+  select l.id, l.agency_id from onboarding_portal_licence l
+  where l.l1t_licence_id = <licence id>   -- or: l.name ilike '%<licence name>%'
+), rows_ as (
+  select case when l.id = (select id from target) then 'own' else 'agency' end as src,
+         a.short_name, a.apex_cloud_base_url, a.apex_cloud_enabled,
+         l.l1t_licence_id, l.name, l.apex_cloud_licence_base_path,
+         api.id as api_id, api.common_api_type, api.http_method,
+         api.host_endpoint, api.is_apex_enabled, api.apex_cloud_api_url_path
+  from onboarding_portal_licence l
+  join onboarding_portal_agency a on a.id = l.agency_id
+  left join onboarding_portal_api api on api.licence_id = l.id
+  where l.agency_id = (select agency_id from target)
+    and l.apex_cloud_licence_base_path is not null
+)
+select src, short_name, apex_cloud_base_url, apex_cloud_enabled, l1t_licence_id,
+       name, apex_cloud_licence_base_path, common_api_type, http_method,
+       host_endpoint, is_apex_enabled, apex_cloud_api_url_path,
+       null::text as ic_name, null::text as ic_header_type, null::text as ic_arguments
+from rows_
+union all
+select 'ic', r.short_name, null, null, r.l1t_licence_id, null, null, r.common_api_type,
+       null, null, null, null, i.name, i.header_type,
+       case when i.is_sensitive then '<redacted>' else i.arguments::text end
+from rows_ r
+join onboarding_portal_api_interceptors ai on ai.api_id = r.api_id
 join onboarding_portal_interceptor i on i.id = ai.interceptor_id
-where l.l1t_licence_id = <licence id> limit 50
+order by 1, l1t_licence_id, common_api_type
+limit 200
 ```
 
-Agency-wide view (licence path + api path patterns): same first query with `where a.short_name = '<agency>'`, `limit 100`.
+No agency rows beyond `own` and `own` has none (new agency): the one extra fetch allowed is `common_api_type` rows of other agencies, added to the same planned statement next time rather than as a loop.
 
 Compare to the card and mark each row Required / Done / Mismatch:
 
