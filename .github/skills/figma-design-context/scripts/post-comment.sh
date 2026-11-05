@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate ─────────────────────────────────────────────────────────────────
-: "${FIGMA_TOKEN:?FIGMA_TOKEN environment variable is required}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 [[ -z "$FILE_KEY" ]] && { echo "Error: --file-key is required" >&2; exit 1; }
 [[ -z "$MESSAGE" ]] && { echo "Error: --message is required" >&2; exit 1; }
 
@@ -80,12 +80,11 @@ PYEOF
 )
 
 # ── Post comment ─────────────────────────────────────────────────────────────
-RESPONSE=$(curl -s -f \
+RESPONSE=$(figma_curl_once -f \
   -X POST \
-  -H "X-Figma-Token: $FIGMA_TOKEN" \
   -H "Content-Type: application/json" \
   -d "$BODY" \
-  "https://api.figma.com/v1/files/${FILE_KEY}/comments")
+  "$FIGMA_API/files/${FILE_KEY}/comments")
 
 # ── Output ───────────────────────────────────────────────────────────────────
 echo "$RESPONSE" | python3 -c "

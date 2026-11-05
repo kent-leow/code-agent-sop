@@ -27,7 +27,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate ─────────────────────────────────────────────────────────────────
-: "${FIGMA_TOKEN:?FIGMA_TOKEN environment variable is required. See SKILL.md#credential-setup}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 [[ -z "$FILE_KEY" ]] && { echo "Error: --file-key is required" >&2; exit 1; }
 
 TMPFILE=$(mktemp "$TMPDIR/figma_vars_XXXXXX.json")
@@ -36,9 +36,8 @@ trap 'rm -f "$TMPFILE" "$TMPFILE_PUB"' EXIT
 
 echo "Fetching local variables..."
 
-HTTP_STATUS=$(curl -s -w "%{http_code}" \
-  -H "X-Figma-Token: $FIGMA_TOKEN" \
-  "https://api.figma.com/v1/files/${FILE_KEY}/variables/local" \
+HTTP_STATUS=$(figma_curl -w "%{http_code}" \
+  "$FIGMA_API/files/${FILE_KEY}/variables/local" \
   -o "$TMPFILE")
 
 if [[ "$HTTP_STATUS" == "403" || "$HTTP_STATUS" == "404" ]]; then
@@ -57,9 +56,8 @@ fi
 PUB_STATUS="0"
 if [[ "$INCLUDE_PUBLISHED" == "true" ]]; then
   echo "Fetching published variables..."
-  PUB_STATUS=$(curl -s -w "%{http_code}" \
-    -H "X-Figma-Token: $FIGMA_TOKEN" \
-    "https://api.figma.com/v1/files/${FILE_KEY}/variables/published" \
+  PUB_STATUS=$(figma_curl -w "%{http_code}" \
+    "$FIGMA_API/files/${FILE_KEY}/variables/published" \
     -o "$TMPFILE_PUB")
 fi
 

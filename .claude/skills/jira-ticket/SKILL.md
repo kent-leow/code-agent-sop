@@ -1,71 +1,49 @@
 ---
 name: jira-ticket
-description: "Create/retrieve Jira issues via REST API: tickets, sub-tasks, story points, comments. Requires JIRA_TOKEN, JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_EMAIL."
-argument-hint: '<title> [description] [story_points] [parent_key]'
+description: "Read/create/update Jira issues (summary, description, comments, story points, sub-tasks) and read Confluence pages via Atlassian REST. Requires JIRA_EMAIL, JIRA_TOKEN, JIRA_BASE_URL (+ JIRA_PROJECT_KEY to create)."
+argument-hint: '<issue key | page id/url | title> [description] [story_points] [parent_key]'
 ---
 
 # jira-ticket
 
+`S=.github/skills/jira-ticket/scripts` — all scripts source `_http.sh`: env guard, credentials via curl config (never argv/logs), 10s connect / 60s total timeout, GET/PUT retry 429/5xx with backoff, POST never retried, non-expected HTTP → `Error: METHOD PATH -> HTTP n` + body excerpt on stderr, exit 1.
+
 ## Prerequisites
 
-Check vars: `echo $JIRA_TOKEN $JIRA_BASE_URL $JIRA_PROJECT_KEY $JIRA_EMAIL`
-IF: any missing → STOP.
-
-| Variable | Description |
-|---|---|
-| `JIRA_TOKEN` | API token (Atlassian account settings) |
-| `JIRA_BASE_URL` | e.g. `https://your-org.atlassian.net` |
-| `JIRA_PROJECT_KEY` | e.g. `PROJ` |
-| `JIRA_EMAIL` | Atlassian account email |
-
----
+- `source ~/.zshenv`; IF any of `JIRA_EMAIL`, `JIRA_TOKEN`, `JIRA_BASE_URL` (`https://<org>.atlassian.net`) unset → STOP, name it. Never print values.
+- Network → request access up front.
 
 ## Operations
 
-### Create ticket
-```bash
-bash .github/skills/jira-ticket/scripts/create-ticket.sh \
-  --title "Title" --description "..." --issue-type "Story" --story-points 3
-```
-Sub-task: add `--parent "PROJ-123" --issue-type "Sub-task"`
+| Need | Command | Writes? |
+|---|---|---|
+| Read issue (fields, links, description, comments as text) | `bash $S/get-issue.sh --issue-key PROJ-1 [--no-comments] [--json]` | no |
+| Read comments (+ inline images → `/tmp/jira-images/<KEY>/`) | `bash $S/get-comments.sh --issue-key PROJ-1 [--max-results N] [--order-by -created]` | no |
+| Read Confluence page (text + version) | `bash $S/get-page.sh --page-id N \| --url <page URL> [--json]` | no |
+| Find story-points field | `bash $S/get-fields.sh` (default `customfield_10274`) | no |
+| Create issue / sub-task | `bash $S/create-ticket.sh --title T [--description MD] [--issue-type Story] [--story-points N] [--parent PROJ-1] [--assignee <accountId>]` | **yes** |
+| Update title/description/SP | `bash $S/update-ticket.sh --issue-key PROJ-1 [--title T] [--description MD] [--story-points N]` | **yes** |
+| Update SP only | `bash $S/update-story-points.sh --issue-key PROJ-1 --story-points N [--field-id F]` | **yes** |
 
-### Update story points
-```bash
-bash .github/skills/jira-ticket/scripts/update-story-points.sh --issue-key "PROJ-123" --story-points 5
-```
-
-### Get comments
-```bash
-bash .github/skills/jira-ticket/scripts/get-comments.sh --issue-key "GOBIZWKST2-324" [--max-results N]
-```
-
-### Resolve SP field
-```bash
-bash .github/skills/jira-ticket/scripts/get-fields.sh
-```
-Default: `customfield_10274` (verified).
-
-### Description formatting
-
-`--description` is Markdown, auto-converted to ADF. Pipe-tables render as **native Jira tables** — always pass Acceptance Criteria as pipe-tables (same shape as `plan.md`'s `| **AC1** | <title> |` + Given/When/Then rows), never paraphrase into bullets or one-liners. Headings, bold/italic/code, lists, and blockquotes are also preserved.
-
----
+- `--description` is Markdown → ADF. Pipe-tables become native Jira tables: always pass Acceptance Criteria as pipe-tables (same shape as `plan.md` `| **AC1** | <title> |` + Given/When/Then rows), never bullets. Headings, emphasis, code, lists, blockquotes preserved.
+- Issue type names are case-sensitive and per-project (`Story`, `Task`, `Bug`, `Sub-task`; team-managed projects use `Child Issue`).
+- `create-ticket` is not retried: on network error/5xx, search Jira for the title before re-running (avoid duplicates).
 
 ## Persist State
 
-Write to `<DOCS_DIR>/jira.json` (`DOCS_DIR` from docs-folder skill DOCS_FOLDER):
+`<DOCS_DIR>/jira.json` (`DOCS_DIR` from docs-folder skill DOCS_FOLDER):
 ```json
-{
-  "parent": { "key": "GOBIZWKST2-123", "url": "...", "story_points": N },
-  "subtasks": { "task-001.md": { "key": "GOBIZWKST2-124", "url": "...", "story_points": 2 } }
-}
+{ "parent": { "key": "PROJ-123", "url": "...", "story_points": 5 },
+  "subtasks": { "task-001.md": { "key": "PROJ-124", "url": "...", "story_points": 2 } } }
 ```
 
 ## Errors
 
-| Error | Fix |
+| HTTP | Fix |
 |---|---|
-| 401 | Verify `JIRA_TOKEN` + `JIRA_EMAIL` |
-| 400 | Issue type is case-sensitive; run field discovery |
-| 404 | Verify `JIRA_BASE_URL` + `JIRA_PROJECT_KEY` |
-| Sub-task fails | Some projects use `Child Issue` instead of `Sub-task` |
+| 401 | Check `JIRA_EMAIL` + `JIRA_TOKEN` pair |
+| 400 | Issue type / field id wrong → `get-fields.sh` |
+| 403 | No permission on project/space |
+| 404 | Key/page id or `JIRA_BASE_URL` wrong |
+| 429 / 5xx | Already retried; wait and retry once, don't loop |
+| `self signed certificate` | `export CURL_CA_BUNDLE=<corporate CA bundle>`; never `-k` |

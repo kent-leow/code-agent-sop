@@ -186,7 +186,12 @@ def run_psql(db: str, env: str, sql: str, *, write: bool = False, rollback: bool
         cmd.insert(1, "--csv")
     env_vars = {**os.environ, "PGPASSWORD": c["PASSWORD"], "PGCONNECT_TIMEOUT": "10",
                 "PGAPPNAME": "code-agent-investigate"}
-    proc = subprocess.run(cmd, input="\n".join(lines) + "\n", text=True, capture_output=True, env=env_vars)
+    try:
+        # Hard cap above statement_timeout so a stuck connect/network can never hang the agent.
+        proc = subprocess.run(cmd, input="\n".join(lines) + "\n", text=True, capture_output=True, env=env_vars,
+                              timeout=int(timeout_s) + 30)
+    except subprocess.TimeoutExpired:
+        die(f"psql exceeded {int(timeout_s) + 30}s — check VPN, or narrow the query (indexed predicate + LIMIT)")
     sys.stdout.write(proc.stdout)
     if proc.returncode != 0:
         err = proc.stderr.replace(c["PASSWORD"], "***") if c["PASSWORD"] else proc.stderr

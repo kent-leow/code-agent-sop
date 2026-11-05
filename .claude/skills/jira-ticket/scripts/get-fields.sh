@@ -4,23 +4,9 @@
 
 set -euo pipefail
 
-: "${JIRA_TOKEN:?JIRA_TOKEN environment variable is required}"
-: "${JIRA_BASE_URL:?JIRA_BASE_URL environment variable is required}"
-: "${JIRA_EMAIL:?JIRA_EMAIL environment variable is required}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 
-RESPONSE=$(curl -s -w "\n%{http_code}" \
-  -H "Accept: application/json" \
-  -u "${JIRA_EMAIL}:${JIRA_TOKEN}" \
-  "${JIRA_BASE_URL}/rest/api/3/field")
-
-HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-BODY=$(echo "$RESPONSE" | awk 'NR>1{print prev} {prev=$0}')
-
-if [[ "$HTTP_CODE" != "200" ]]; then
-  echo "Error: Jira API returned HTTP $HTTP_CODE" >&2
-  echo "$BODY" >&2
-  exit 1
-fi
+BODY=$(jira_request GET 200 "/rest/api/3/field")
 
 echo "=== Fields matching 'story', 'point', or 'sp' ==="
 echo "$BODY" | python3 -c "

@@ -35,10 +35,22 @@ applyTo: "**"
 - Identify relevant repo(s) first → read `SNAPSHOT.md` (fall back to `README.md`)
 - Targeted grep/glob; stop once sufficient context found
 
-## Terminal & Network Hygiene
-- Sandboxed by default: network (incl. SSH) blocked, filesystem read-only outside workspace/tmp
-- Commands needing network (`git fetch`/`pull`/`push`/`clone`, `curl`, API calls) → request access proactively, not after a sandbox failure
-- Prefer network-only escalation over full unsandboxed execution unless non-workspace filesystem access is also needed
+## Terminal, Sandbox & Network
+- Sandboxed by default: network (incl. SSH, DNS) blocked; writes only in workspace + `$TMPDIR`/`/tmp`; home-dir files (`~/.zshenv`, `~/.ssh`, keychain) may be unreadable
+- Each command is a fresh process: env vars and `cd` don't persist → `source ~/.zshenv && <cmd>` in the **same** invocation
+- Classify **before** running; request escalation up front, never after a failure:
+
+| Command needs | Examples | Run with |
+|---|---|---|
+| Nothing external | build, test, lint, grep, local git | sandbox |
+| Network only | `git fetch/pull/push/clone`, `curl`, skill scripts calling Jira/Confluence/Figma/GitLab/GitHub/OpenSearch/APEX | network escalation |
+| Network + home/system files or VPN host | `source ~/.zshenv` + API script, `psql` (postgres-query), SSH keys, keychain | full unsandboxed |
+
+- Sandbox-block signatures (not real failures): `Could not resolve host`, `nodename nor servname`, `getaddrinfo`, curl exit 6/7, `Operation not permitted`, `Read-only file system`, `Permission denied` outside workspace, token vars empty right after `source ~/.zshenv`
+  - → re-run the **same** command once with the right escalation; don't rewrite it, guess output, or report the service as down
+- Real failures (report as-is): HTTP 4xx/5xx with body, auth errors, script `ERROR:` lines, VPN hints (`cannot reach … connect to the VPN`) **after** escalation
+- Still failing after one escalated retry → STOP: report exact command, error, and what was tried; no loops
+- Never work around with `curl -k`/disabled TLS, printing secrets, or copying credentials into the workspace
 
 ## Coding
 - Match existing patterns and conventions exactly

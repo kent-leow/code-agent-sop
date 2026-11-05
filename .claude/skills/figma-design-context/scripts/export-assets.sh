@@ -35,7 +35,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate ─────────────────────────────────────────────────────────────────
-: "${FIGMA_TOKEN:?FIGMA_TOKEN environment variable is required}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 [[ -z "$FILE_KEY" ]] && { echo "Error: --file-key is required" >&2; exit 1; }
 [[ -z "$NODE_IDS" && -z "$NODE_ID" ]] && { echo "Error: --node-ids or --node-id is required" >&2; exit 1; }
 
@@ -58,9 +58,8 @@ if [[ "$ALL_IMAGES" == true && -n "$NODE_ID" ]]; then
   TMPFILE=$(mktemp "$TMPDIR/figma_nodes_XXXXXX.json")
   trap 'rm -f "$TMPFILE"' EXIT
   
-  curl -s -f \
-    -H "X-Figma-Token: $FIGMA_TOKEN" \
-    "https://api.figma.com/v1/files/${FILE_KEY}/nodes?ids=${NODE_ID}" \
+  figma_curl -f \
+    "$FIGMA_API/files/${FILE_KEY}/nodes?ids=${NODE_ID}" \
     -o "$TMPFILE"
   
   # Extract node IDs with image fills
@@ -106,14 +105,14 @@ NODE_IDS="${NODE_IDS//-/:}"
 # ── Fetch image URLs ─────────────────────────────────────────────────────────
 echo "Requesting ${FORMAT} exports at scale ${SCALE}..."
 
-RESPONSE=$(curl -s -f \
-  -H "X-Figma-Token: $FIGMA_TOKEN" \
-  "https://api.figma.com/v1/images/${FILE_KEY}?ids=${NODE_IDS}&format=${FORMAT}&scale=${SCALE}")
+RESPONSE=$(figma_curl -f \
+  "$FIGMA_API/images/${FILE_KEY}?ids=${NODE_IDS}&format=${FORMAT}&scale=${SCALE}")
 
 # ── Download images ──────────────────────────────────────────────────────────
 python3 - "$RESPONSE" "$OUTPUT" "$FORMAT" <<'PYEOF'
-import json, sys, urllib.request, os
+import json, sys, urllib.request, os, socket
 
+socket.setdefaulttimeout(120)
 response = json.loads(sys.argv[1])
 output_dir = sys.argv[2]
 fmt = sys.argv[3]
@@ -123,9 +122,11 @@ if not images:
     print("No images returned")
     sys.exit(0)
 
+failed = 0
 for node_id, url in images.items():
     if url is None:
         print(f"  ✗ {node_id}: No image available")
+        failed += 1
         continue
     
     # Sanitize filename
@@ -138,6 +139,8 @@ for node_id, url in images.items():
         print(f"  ✓ {filepath}")
     except Exception as e:
         print(f"  ✗ {node_id}: {e}")
+        failed += 1
 
 print(f"\nExported to {output_dir}/")
+sys.exit(1 if failed else 0)
 PYEOF

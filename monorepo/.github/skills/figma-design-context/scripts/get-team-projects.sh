@@ -18,13 +18,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate ─────────────────────────────────────────────────────────────────
-: "${FIGMA_TOKEN:?FIGMA_TOKEN environment variable is required}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 [[ -z "$TEAM_ID" ]] && { echo "Error: --team-id is required" >&2; exit 1; }
 
 # ── Fetch projects ───────────────────────────────────────────────────────────
-RESPONSE=$(curl -s -f \
-  -H "X-Figma-Token: $FIGMA_TOKEN" \
-  "https://api.figma.com/v1/teams/${TEAM_ID}/projects")
+RESPONSE=$(figma_curl -f \
+  "$FIGMA_API/teams/${TEAM_ID}/projects")
 
 # ── Output ───────────────────────────────────────────────────────────────────
 if [[ -n "$OUTPUT" ]]; then

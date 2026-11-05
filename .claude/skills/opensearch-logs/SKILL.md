@@ -54,7 +54,7 @@ Fields per app vary → `fields --env E --app A`.
 
 ## Scripts
 
-`S=.github/skills/opensearch-logs/scripts` — stdlib Python 3, JSON on stdout, `ERROR:` on stderr + exit 1. All commands are read-only (`raw` allow-lists read endpoints only).
+`S=.github/skills/opensearch-logs/scripts` — stdlib Python 3, JSON on stdout, `ERROR:` on stderr + exit 1. Read-only (`raw` allow-lists read endpoints). 60s timeout; 429/502/503/504 retried 3× with backoff; unreachable host fails fast with the VPN hint. Needs network escalation (VPN host).
 
 | Command | Purpose |
 |---|---|
@@ -89,7 +89,7 @@ Fields per app vary → `fields --env E --app A`.
 
 ## Procedure
 
-1. DO: `source ~/.zshenv`; `ping --env E`
+1. DO: `source ~/.zshenv && python3 $S/os_query.py ping --env E` (same invocation)
    - IF: `cannot reach` → STOP: tell user **"Connect to the VPN, then retry"**
    - IF: `… is not set` → STOP: name the variable
 2. DO: confirm app via `indices` when unsure; `fields` when filtering on an unfamiliar field

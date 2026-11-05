@@ -24,7 +24,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate ─────────────────────────────────────────────────────────────────
-: "${FIGMA_TOKEN:?FIGMA_TOKEN environment variable is required. See SKILL.md#credential-setup}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 [[ -z "$FILE_KEY" ]] && { echo "Error: --file-key is required" >&2; exit 1; }
 
 TMPFILE_COMP=$(mktemp "$TMPDIR/figma_comp_XXXXXX.json")
@@ -33,14 +33,12 @@ trap 'rm -f "$TMPFILE_COMP" "$TMPFILE_SETS"' EXIT
 
 echo "Fetching components and component sets..."
 
-curl -s -f \
-  -H "X-Figma-Token: $FIGMA_TOKEN" \
-  "https://api.figma.com/v1/files/${FILE_KEY}/components" \
+figma_curl -f \
+  "$FIGMA_API/files/${FILE_KEY}/components" \
   -o "$TMPFILE_COMP"
 
-curl -s -f \
-  -H "X-Figma-Token: $FIGMA_TOKEN" \
-  "https://api.figma.com/v1/files/${FILE_KEY}/component_sets" \
+figma_curl -f \
+  "$FIGMA_API/files/${FILE_KEY}/component_sets" \
   -o "$TMPFILE_SETS"
 
 python3 - "$TMPFILE_COMP" "$TMPFILE_SETS" "$OUTPUT" <<'PYEOF'

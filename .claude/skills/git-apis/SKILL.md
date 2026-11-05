@@ -14,7 +14,7 @@ Shared platform API operations for GitLab and GitHub.
 | GitLab | `PRIVATE-TOKEN: $GITLAB_TOKEN` |
 | GitHub | `Authorization: Bearer $GITHUB_TOKEN` |
 
-> All `curl` calls below need network — request network access proactively, not after a sandbox block.
+Every call: network escalation up front · `curl --silent --show-error --connect-timeout 10 --max-time 60` · token via `-K <(printf 'header = "PRIVATE-TOKEN: %s"\n' "$GITLAB_TOKEN")` (never on argv/in logs) · check HTTP status (`-w '%{http_code}'`) before using the body · `--retry 3` on GET/PUT only — never on comment/approve POSTs (duplicates) · GitLab base `https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}` · paginate `per_page=100` until empty.
 
 ---
 

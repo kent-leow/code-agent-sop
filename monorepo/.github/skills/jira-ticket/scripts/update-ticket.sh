@@ -19,13 +19,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-: "${JIRA_TOKEN:?JIRA_TOKEN environment variable is required}"
-: "${JIRA_BASE_URL:?JIRA_BASE_URL environment variable is required}"
-: "${JIRA_EMAIL:?JIRA_EMAIL environment variable is required}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 
-if [[ -z "$ISSUE_KEY" ]]; then
-  echo "Error: --issue-key is required" >&2; exit 1
-fi
+require_issue_key "$ISSUE_KEY"
 
 # ── Build description ADF block (converts Markdown → ADF) ────────────────────
 if [[ -n "$DESCRIPTION" ]]; then
@@ -152,21 +148,8 @@ print(json.dumps({'fields': fields}))
 " "$TITLE" "$STORY_POINTS" "$DESCRIPTION_JSON")
 
 # ── Call Jira API ─────────────────────────────────────────────────────────────
-RESPONSE=$(curl -s -w "\n%{http_code}" \
-  -X PUT \
-  -H "Content-Type: application/json" \
-  -u "${JIRA_EMAIL}:${JIRA_TOKEN}" \
-  --data "$PAYLOAD" \
-  "${JIRA_BASE_URL}/rest/api/3/issue/${ISSUE_KEY}")
-
-HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-BODY=$(echo "$RESPONSE" | awk 'NR>1{print prev} {prev=$0}')
-
-if [[ "$HTTP_CODE" != "204" ]]; then
-  echo "Error: Jira API returned HTTP $HTTP_CODE" >&2
-  echo "$BODY" >&2
-  exit 1
-fi
+jira_request PUT 204 "/rest/api/3/issue/${ISSUE_KEY}" \
+  -H "Content-Type: application/json" --data "$PAYLOAD" >/dev/null
 
 echo "Updated: $ISSUE_KEY"
 echo "URL: ${JIRA_BASE_URL}/browse/${ISSUE_KEY}"

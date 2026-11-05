@@ -14,6 +14,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -22,6 +23,10 @@ ENVS = {"DEV": "dev", "QA": "qa", "STAGING": "staging", "STG": "staging"}
 JIRA_KEY_RE = re.compile(r"\b[A-Z][A-Z0-9]+-\d+\b")
 MR_URL_RE = re.compile(r"^https://([^/]+)/(.+?)/-/merge_requests/(\d+)")
 DIFF_TEXT_LIMIT = 20000
+TIMEOUT_S = 60
+MAX_RETRIES = 3
+# GITLAB_TOKEN is only ever sent to these hosts (override with GITLAB_HOSTS="a,b").
+ALLOWED_HOSTS = {h.strip() for h in os.environ.get("GITLAB_HOSTS", "sgts.gitlab-dedicated.com").split(",") if h.strip()}
 
 
 def die(msg: str):
@@ -38,15 +43,23 @@ class GitLab:
         self.headers = {"PRIVATE-TOKEN": token}
 
     def get(self, path: str, raw: bool = False, allow_404: bool = False):
-        req = urllib.request.Request(self.base + path, headers=self.headers)
-        try:
-            with urllib.request.urlopen(req) as resp:
-                body = resp.read().decode()
-                return (body if raw else json.loads(body)), resp.headers
-        except urllib.error.HTTPError as e:
-            if allow_404 and e.code == 404:
-                return None, None
-            die(f"GET {path} -> HTTP {e.code}: {e.read().decode()[:300]}")
+        for attempt in range(MAX_RETRIES + 1):
+            req = urllib.request.Request(self.base + path, headers=self.headers)
+            try:
+                with urllib.request.urlopen(req, timeout=TIMEOUT_S) as resp:
+                    body = resp.read().decode()
+                    return (body if raw else json.loads(body)), resp.headers
+            except urllib.error.HTTPError as e:
+                if allow_404 and e.code == 404:
+                    return None, None
+                if e.code not in (429, 502, 503, 504) or attempt == MAX_RETRIES:
+                    die(f"GET {path} -> HTTP {e.code}: {e.read().decode()[:300]}")
+                ra = e.headers.get("Retry-After") or ""
+                time.sleep(min(int(ra) if ra.isdigit() else 2 ** attempt, 30))
+            except (urllib.error.URLError, TimeoutError, OSError) as e:
+                if attempt == MAX_RETRIES:
+                    die(f"GET {path} -> network error: {e} (check VPN/network)")
+                time.sleep(2 ** attempt)
 
     def file(self, path: str, ref: str) -> str | None:
         enc = urllib.parse.quote(path, safe="")
@@ -156,6 +169,8 @@ def main() -> None:
     if not m:
         die("not a GitLab MR URL (https://<host>/<group>/<project>/-/merge_requests/<iid>)")
     host, project, iid = m.groups()
+    if host not in ALLOWED_HOSTS:
+        die(f"host '{host}' not in allowed GitLab hosts {sorted(ALLOWED_HOSTS)} — refusing to send GITLAB_TOKEN (set GITLAB_HOSTS to extend)")
     envs = [a.env.upper()] if a.env else ["DEV", "QA", "STAGING"]
     for e in envs:
         if e not in ENVS:

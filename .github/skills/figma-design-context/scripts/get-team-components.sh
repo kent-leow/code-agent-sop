@@ -27,7 +27,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate ─────────────────────────────────────────────────────────────────
-: "${FIGMA_TOKEN:?FIGMA_TOKEN environment variable is required}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 [[ -z "$TEAM_ID" ]] && { echo "Error: --team-id is required" >&2; exit 1; }
 
 # ── Fetch components (paginated) ─────────────────────────────────────────────
@@ -35,10 +35,10 @@ ALL_COMPONENTS="[]"
 CURSOR=""
 
 while true; do
-  URL="https://api.figma.com/v1/teams/${TEAM_ID}/components?page_size=${PAGE_SIZE}"
+  URL="$FIGMA_API/teams/${TEAM_ID}/components?page_size=${PAGE_SIZE}"
   [[ -n "$CURSOR" ]] && URL="${URL}&cursor=${CURSOR}"
   
-  RESPONSE=$(curl -s -f -H "X-Figma-Token: $FIGMA_TOKEN" "$URL")
+  RESPONSE=$(figma_curl -f "$URL")
   
   # Extract components and cursor
   RESULT=$(python3 - "$RESPONSE" "$ALL_COMPONENTS" <<'PYEOF'

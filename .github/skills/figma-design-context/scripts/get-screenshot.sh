@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate ────────────────────────────────────────────────────────────────
-: "${FIGMA_TOKEN:?FIGMA_TOKEN environment variable is required. See SKILL.md#credential-setup}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 [[ -z "$FILE_KEY" ]] && { echo "Error: --file-key is required" >&2; exit 1; }
 [[ -z "$NODE_ID" ]]  && { echo "Error: --node-id is required" >&2; exit 1; }
 
@@ -51,9 +51,8 @@ ENCODED_NODE_ID="${NORMALISED_NODE_ID//:/%3A}"
 echo "Requesting screenshot for node: $NORMALISED_NODE_ID (scale: ${SCALE}x)"
 
 # ── Fetch the pre-signed image URL from Figma ────────────────────────────────
-RESPONSE=$(curl -s -f \
-  -H "X-Figma-Token: $FIGMA_TOKEN" \
-  "https://api.figma.com/v1/images/${FILE_KEY}?ids=${ENCODED_NODE_ID}&format=png&scale=${SCALE}")
+RESPONSE=$(figma_curl -f \
+  "$FIGMA_API/images/${FILE_KEY}?ids=${ENCODED_NODE_ID}&format=png&scale=${SCALE}")
 
 # ── Extract the download URL and download image ───────────────────────────────
 IMAGE_URL=$(echo "$RESPONSE" | python3 -c "
@@ -74,7 +73,7 @@ print(url)
 ")
 
 echo "Downloading image..."
-curl -s -L -o "$OUTPUT" "$IMAGE_URL"
+fetch_url -o "$OUTPUT" "$IMAGE_URL"
 echo "Screenshot saved to: $OUTPUT"
 
 # ── Auto-resize if image exceeds Claude's 8000px-per-side limit ──────────────

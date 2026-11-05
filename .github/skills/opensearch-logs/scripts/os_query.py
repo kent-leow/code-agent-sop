@@ -23,6 +23,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -40,6 +41,7 @@ SGT = timezone(timedelta(hours=8))
 TRACE_FIELDS = ("trace_id.keyword", "correlation_id.keyword", "correlation.id.keyword")
 MAX_SIZE = 1000
 TIMEOUT_S = 60
+MAX_RETRIES = 3
 # Only read endpoints are reachable through `raw`.
 RAW_ALLOWED = re.compile(
     r"^/(?:[^/_][^/]*/)?(?:_search|_count|_msearch|_field_caps|_mapping|_validate/query)$"
@@ -67,16 +69,22 @@ def resolve_env(env: str) -> tuple[str, str]:
 def request(base: str, method: str, path: str, body=None, params: dict | None = None):
     qs = f"?{urllib.parse.urlencode(params)}" if params else ""
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(f"{base}{path}{qs}", data=data, method=method)
-    req.add_header("Content-Type", "application/json")
-    req.add_header("Accept", "application/json")
-    try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as res:
-            raw = res.read().decode()
-    except urllib.error.HTTPError as e:
-        die(f"HTTP {e.code} {method} {path}: {e.read().decode()[:2000]}")
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
-        die(f"cannot reach {base} ({e}). Connect to the VPN and retry.")
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    for attempt in range(MAX_RETRIES + 1):
+        req = urllib.request.Request(f"{base}{path}{qs}", data=data, method=method, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT_S) as res:
+                raw = res.read().decode()
+            break
+        except urllib.error.HTTPError as e:
+            # All calls are reads, so throttling/gateway errors are safe to retry with backoff.
+            if e.code not in (429, 502, 503, 504) or attempt == MAX_RETRIES:
+                die(f"HTTP {e.code} {method} {path}: {e.read().decode()[:2000]}")
+            ra = e.headers.get("Retry-After") or ""
+            time.sleep(min(int(ra) if ra.isdigit() else 2 ** attempt, 30))
+        except (urllib.error.URLError, OSError) as e:
+            # Unreachable host = VPN is down; don't burn retries on it.
+            die(f"cannot reach {base} ({e}). Connect to the VPN and retry.")
     try:
         return json.loads(raw)
     except json.JSONDecodeError:

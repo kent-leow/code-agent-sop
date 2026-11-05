@@ -37,7 +37,7 @@ Never hand-build titles — `chope_board.py` composes and validates them. Keep t
 
 ## Scripts
 
-`S=.github/skills/env-chope/scripts` — stdlib Python 3, JSON on stdout, non-zero exit + `ERROR:` on stderr.
+`S=.github/skills/env-chope/scripts` — stdlib Python 3, JSON on stdout, non-zero exit + `ERROR:` on stderr. 60s timeout; 429 always retried, 5xx/network retried only for GET/PUT (never POST — no duplicate clones/transitions); a failed write says so → verify with `list`. `mr_impact.py` sends `GITLAB_TOKEN` only to `sgts.gitlab-dedicated.com` (extend via `GITLAB_HOSTS`).
 
 | Command | Purpose | Writes Jira? |
 |---|---|---|
@@ -54,9 +54,7 @@ Never hand-build titles — `chope_board.py` composes and validates them. Keep t
 
 ## Prerequisites
 
-- DO: `source ~/.zshenv`; confirm `JIRA_EMAIL`, `JIRA_TOKEN`, `JIRA_BASE_URL`, `GITLAB_TOKEN` non-empty (never print values)
-- IF: any missing → STOP: name the missing variable
-- Network calls → request network access up front
+- Run every script as `source ~/.zshenv && python3 $S/…` with network escalation (scripts STOP naming any missing `JIRA_EMAIL`/`JIRA_TOKEN`/`JIRA_BASE_URL`/`GITLAB_TOKEN`; never print values)
 
 ## Phase 1 — Parse request
 

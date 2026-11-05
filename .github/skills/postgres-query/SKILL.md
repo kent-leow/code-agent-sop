@@ -32,7 +32,7 @@ Placeholder block: `python3 $S/pg_query.py env-template`. CLI aliases: `licence`
 
 ## Scripts
 
-`S=.github/skills/postgres-query/scripts` — Python 3 wrapper over `psql` (`brew install libpq` if missing). Errors → `ERROR:` on stderr, non-zero exit; the password is passed via `PGPASSWORD`, never on the command line.
+`S=.github/skills/postgres-query/scripts` — Python 3 wrapper over `psql` (`brew install libpq` if missing). Errors → `ERROR:` on stderr, non-zero exit; password via `PGPASSWORD` (never argv, masked in errors); connect timeout 10s; whole `psql` process killed at `--timeout` + 30s. Run **unsandboxed** (reads `~/.zshenv`, VPN-only host).
 
 | Command | Purpose | Writes? |
 |---|---|---|
@@ -65,7 +65,7 @@ Every `psql` login (`check --connect`, `tables`, `describe`, `query`) is one DB 
 
 ## Procedure
 
-1. DO: `source ~/.zshenv`; `check --db D --env E` (reads local env only, no DB session)
+1. DO: `source ~/.zshenv && python3 $S/pg_query.py check --db D --env E` (same invocation; local env only, no DB session)
    - IF: `ready: false` → STOP: list the missing variable names; ask user to fill them in `~/.zshenv` (never ask them to paste secrets in chat)
 2. Non-PROD only: `check --db D --env E --connect`. PROD: skip, go to 3; the first `query` is the connection test.
    - IF: `HINT: cannot reach` / timeout → STOP: tell user **"Connect to the VPN, then retry"**

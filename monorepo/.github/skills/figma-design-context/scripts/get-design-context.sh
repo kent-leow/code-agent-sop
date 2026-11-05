@@ -31,7 +31,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate ────────────────────────────────────────────────────────────────
-: "${FIGMA_TOKEN:?FIGMA_TOKEN environment variable is required. See SKILL.md#credential-setup}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 [[ -z "$FILE_KEY" ]] && { echo "Error: --file-key is required" >&2; exit 1; }
 [[ -z "$NODE_ID" ]]  && { echo "Error: --node-id is required" >&2; exit 1; }
 
@@ -54,9 +54,8 @@ QUERY="ids=${ENCODED_NODE_ID}"
 echo "Fetching design context for node: $NORMALISED_NODE_ID"
 
 # ── Fetch node spec ──────────────────────────────────────────────────────────
-HTTP_STATUS=$(curl -s -w "%{http_code}" \
-  -H "X-Figma-Token: $FIGMA_TOKEN" \
-  "https://api.figma.com/v1/files/${FILE_KEY}/nodes?${QUERY}" \
+HTTP_STATUS=$(figma_curl -w "%{http_code}" \
+  "$FIGMA_API/files/${FILE_KEY}/nodes?${QUERY}" \
   -o "$OUTPUT")
 
 if [[ "$HTTP_STATUS" != "200" ]]; then

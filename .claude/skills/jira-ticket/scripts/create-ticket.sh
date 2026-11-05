@@ -26,10 +26,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate required env vars ────────────────────────────────────────────────
-: "${JIRA_TOKEN:?JIRA_TOKEN environment variable is required}"
-: "${JIRA_BASE_URL:?JIRA_BASE_URL environment variable is required (e.g. https://your-org.atlassian.net)}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 : "${JIRA_PROJECT_KEY:?JIRA_PROJECT_KEY environment variable is required (e.g. PROJ)}"
-: "${JIRA_EMAIL:?JIRA_EMAIL environment variable is required}"
+[[ -n "$PARENT_KEY" ]] && require_issue_key "$PARENT_KEY"
 
 if [[ -z "$TITLE" ]]; then
   echo "Error: --title is required" >&2
@@ -170,21 +169,8 @@ print(json.dumps({'fields': fields}))
 " "$JIRA_PROJECT_KEY" "$TITLE" "$ISSUE_TYPE" "$STORY_POINTS" "$PARENT_KEY" "$DESCRIPTION_JSON" "$ASSIGNEE_ID")
 
 # ── Call Jira API ─────────────────────────────────────────────────────────────
-RESPONSE=$(curl -s -w "\n%{http_code}" \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -u "${JIRA_EMAIL}:${JIRA_TOKEN}" \
-  --data "$FIELDS" \
-  "${JIRA_BASE_URL}/rest/api/3/issue")
-
-HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-BODY=$(echo "$RESPONSE" | awk 'NR>1{print prev} {prev=$0}')
-
-if [[ "$HTTP_CODE" != "201" ]]; then
-  echo "Error: Jira API returned HTTP $HTTP_CODE" >&2
-  echo "$BODY" >&2
-  exit 1
-fi
+BODY=$(jira_request POST 201 "/rest/api/3/issue" \
+  -H "Content-Type: application/json" --data "$FIELDS")
 
 ISSUE_KEY=$(echo "$BODY" | python3 -c "import json,sys; print(json.load(sys.stdin)['key'])")
 echo "Created: $ISSUE_KEY"

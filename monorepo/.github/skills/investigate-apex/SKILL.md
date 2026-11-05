@@ -10,204 +10,105 @@ metadata:
 
 # Investigate APEX
 
-End-to-end APEX log investigation. Accepts loose input (incident description, correlation ID, endpoint, agency name, timeframe) and produces a structured incident report with a Mermaid diagram.
+Loose input (incident text, correlation ID, endpoint, agency, timeframe) → structured incident report + Mermaid diagram. Read-only.
 
-## Credential setup (one-time)
+## Step 0 — Parse input & set up
 
-Tokens are read from env vars. They must be present in `~/.zshenv`:
-
-```
-APEX_LOG_TOKEN_STAGING
-APEX_LOG_TOKEN_PROD
-```
-
-If missing, tell the user to run:
-```bash
-source ~/.zshenv
-```
-and verify with `echo $APEX_LOG_TOKEN_STAGING` (should be non-empty).  
-**Never print the token value.**
-
----
-
-## Step 0 — Parse input
-
-Accept any of the following (one or more):
-
-| Input type | Example |
+| Input | Example |
 |---|---|
-| Free-text description | "SPF licence submission failing since Monday" |
+| Free text | "SPF licence submission failing since Monday" |
 | Correlation ID | `4dceb96af3c5d699aa53d56b` |
 | Endpoint / URI fragment | `createOPSPP`, `/spf/spfdx/plus2c` |
 | Agency | `SPF`, `MOM`, `SCDF` |
 | Timeframe | "last 2 hours", "since 9am", "28 Sep" |
 | HTTP status | `526`, `504`, `401` |
 
-Set environment:
-- Default to **staging** unless user says "prod" or "production"
-- Set `TOKEN` and `ES_URL` accordingly:
+Env = **staging** unless user says prod/production. Tokens `APEX_LOG_TOKEN_STAGING` / `APEX_LOG_TOKEN_PROD` in `~/.zshenv` (never print). Every call needs network escalation; each command is a fresh process, so define the helper **in the same invocation** as the queries:
 
 ```bash
-# Staging
-TOKEN="$APEX_LOG_TOKEN_STAGING"
-ES_URL="https://gvt-gds-apex-apex-stg.es.ap-southeast-1.aws.found.io"
-
-# Production
-TOKEN="$APEX_LOG_TOKEN_PROD"
-ES_URL="https://gvt-gds-apex-apex-prod.es.ap-southeast-1.aws.found.io"
+source ~/.zshenv
+ES_URL="https://gvt-gds-apex-apex-stg.es.ap-southeast-1.aws.found.io"; TOKEN="$APEX_LOG_TOKEN_STAGING"
+# prod: ES_URL="https://gvt-gds-apex-apex-prod.es.ap-southeast-1.aws.found.io"; TOKEN="$APEX_LOG_TOKEN_PROD"
+[ -n "$TOKEN" ] || { echo "ERROR: APEX_LOG_TOKEN_* not set — add to ~/.zshenv"; exit 1; }
+apex_q() {  # apex_q <index> '<query json>' — read-only _search; token via curl config (not argv); retries 429/5xx
+  curl --silent --show-error --fail-with-body --connect-timeout 10 --max-time 60 --retry 3 --retry-max-time 60 \
+    -K <(printf 'header = "Authorization: ApiKey %s"\n' "$TOKEN") -H "Content-Type: application/json" \
+    "$ES_URL/$1/_search" -d "$2"
+}
 ```
 
-If token is empty: stop and tell user to `source ~/.zshenv`.
+HTTP 401/403 → token expired/wrong env: STOP and ask user to refresh it. Never `-k`.
 
----
-
-## Step 1 — Search traffic summary
-
-Build a query from the parsed input. Use `match_phrase` for URI fragments. Keep filters **loose** — avoid over-filtering, which hides evidence.
+## Step 1 — Traffic summary (skip if correlation ID given)
 
 ```bash
-curl -s -H "Authorization: ApiKey $TOKEN" \
-  -H "Content-Type: application/json" \
-  "$ES_URL/apigw-traffic-summary*/_search" \
-  -d '{
-    "size": 10,
-    "sort": [{"@timestamp": "desc"}],
-    "query": {
-      "bool": {
-        "must": [
-          <uri filter if provided>,
-          <time range if provided — default now-24h>,
-          <status filter only if user explicitly asked for failures>
-        ]
-      }
-    }
-  }'
+apex_q 'apigw-traffic-summary*' '{"size":10,"sort":[{"@timestamp":"desc"}],"query":{"bool":{"must":[ <filters> ]}}}'
 ```
 
-**Filter construction rules:**
-- URI: `{"match_phrase": {"http.uri": "<fragment>"}}`
-- Agency (maps to apiOrg): `{"match_phrase": {"serviceContext.apiOrg": "<AGENCY>-<DEPT>"}}`  
-  Common mappings: `SPF` → `SPF-SPFDX`, `MOM` → `MOM-IPNO`, `SCDF` → `SCDF-SCDF`  
-  If unsure of exact org, search without agency filter first
-- Status: `{"term": {"finalStatus": "Fail"}}` — only add if user asked for failures
-- Time: `{"range": {"@timestamp": {"gte": "now-24h"}}}` — widen to `now-7d` if no results
-- Correlation ID: skip summary search, go directly to Step 2
+Keep filters **loose** (over-filtering hides evidence):
+- URI: `{"match_phrase":{"http.uri":"<fragment>"}}`
+- Agency → apiOrg: `{"match_phrase":{"serviceContext.apiOrg":"<AGENCY>-<DEPT>"}}` (`SPF`→`SPF-SPFDX`, `MOM`→`MOM-IPNO`, `SCDF`→`SCDF-SCDF`; unsure → omit)
+- Status: `{"term":{"finalStatus":"Fail"}}` only if user asked for failures
+- Time: `{"range":{"@timestamp":{"gte":"now-24h"}}}`; no hits → `now-7d`
 
-Display results as a table:
+Show `| Time (SGT) | correlationId | Gateway | Status | App | Duration | URI |` (SGT = UTC+8). Auto-dive into the most recent failure.
 
-| Time (SGT) | correlationId | Gateway | Status | App | Duration | URI |
-|---|---|---|---|---|---|---|
-
-SGT = UTC+8. Auto-dive into the most recent failure — don't wait for user to pick.
-
----
-
-## Step 2 — Deep-dive correlation ID
-
-Query traffic-details for Leg 0 (inbound) and Leg 1 (outbound):
+## Step 2 — Deep-dive correlation ID (legs + bridging)
 
 ```bash
-curl -s -H "Authorization: ApiKey $TOKEN" \
-  -H "Content-Type: application/json" \
-  "$ES_URL/apigw-traffic-details*/_search" \
-  -d '{
-    "size": 5,
-    "query": {"term": {"correlationId": "<CORR_ID>"}}
-  }'
+apex_q 'apigw-traffic-details*' '{"size":5,"query":{"term":{"correlationId":"<CORR_ID>"}}}'
 ```
 
-**Detect bridging (Internet → Intranet):**
-- Check `transactionElements.leg1.protocolInfo.recvHeader` for `X-CorrelationID: Id-<internal-corr-id>`
-- If found → bridged request. Extract the internal correlation ID and repeat this step for the internal leg.
-- If `leg1.remoteName` is `gw-stg.int.api.gov.sg` (staging) or `gw.int.api.gov.sg` (prod) → bridged.
+Leg 0 = inbound, Leg 1 = outbound. Bridged (Internet → Intranet) if `transactionElements.leg1.protocolInfo.recvHeader` has `X-CorrelationID: Id-<internal-id>` or `leg1.remoteName` is `gw-stg.int.api.gov.sg` / `gw.int.api.gov.sg` → repeat this step with the internal ID.
 
-**Bridging summary:**
-
-| Pattern | What it means |
+| Pattern | Meaning |
 |---|---|
-| External leg1 → `gw*.int.api.gov.sg` | Bridged — route crosses from Internet to Intranet gateway |
-| No `X-CorrelationID` in leg1 header | Non-bridged — request goes directly to backend |
-| Internal has no leg1 | Failure at Intranet gateway auth — backend never reached |
+| External leg1 → `gw*.int.api.gov.sg` | Bridged, crosses to Intranet gateway |
+| No `X-CorrelationID` in leg1 | Non-bridged, direct to backend |
+| Internal has no leg1 | Failed at Intranet gateway auth; backend never reached |
 
----
-
-## Step 3 — Get root cause from trace
-
-Query trace logs using the **Internal** correlation ID for bridged requests (External trace has no detail):
+## Step 3 — Root cause from trace (use **internal** ID when bridged)
 
 ```bash
-curl -s -H "Authorization: ApiKey $TOKEN" \
-  -H "Content-Type: application/json" \
-  "$ES_URL/apigw-traffic-trace*/_search" \
-  -d '{
-    "size": 20,
-    "sort": [{"@timestamp": "asc"}],
-    "query": {"term": {"correlationId": "<CORR_ID>"}}
-  }'
+apex_q 'apigw-traffic-trace*' '{"size":20,"sort":[{"@timestamp":"asc"}],"query":{"term":{"correlationId":"<CORR_ID>"}}}'
 ```
 
-Look for:
-- `"Filter that caused failure:"` — contains the full policy chain with PASSED/FAILED
-- `"SSL protocol error"` / `certificate verify failed` → 526, backend cert issue
-- `"timeout while waiting for read"` → 504, backend never responded
-- `"Failed to authenticate method"` → auth failure at gateway
-- `"No match found for request"` → route not registered on gateway
-- `"invokableMethodCircuitFailure"` → APEX circuit breaker tripped (usually follows SSL/timeout)
+| Signal | Meaning |
+|---|---|
+| `Filter that caused failure:` | policy chain with PASSED/FAILED |
+| `SSL protocol error` / `certificate verify failed` | 526, backend cert |
+| `timeout while waiting for read` | 504, backend silent |
+| `Failed to authenticate method` | gateway auth failure |
+| `No match found for request` | route not registered |
+| `invokableMethodCircuitFailure` | circuit breaker (usually after SSL/timeout) |
 
-**Noise to ignore:**
-- `"unable to find API key: <uuid>"` — false positive in cross-zone bridging
-- `"Retrieve JWKS from HTTP header for CROSS-ZONE: FAILED"` — expected in same-zone requests
-- `"Client id: ... is assigned to the wrong security device store"` — non-fatal warning
-
----
+Noise: `unable to find API key: <uuid>` (cross-zone bridging), `Retrieve JWKS from HTTP header for CROSS-ZONE: FAILED` (same-zone), `Client id: ... wrong security device store`.
 
 ## Step 4 — Compare with a passing request
 
-Fetch one recent **successful** request to the same URI:
-
 ```bash
-curl -s -H "Authorization: ApiKey $TOKEN" \
-  -H "Content-Type: application/json" \
-  "$ES_URL/apigw-traffic-summary*/_search" \
-  -d '{
-    "size": 1,
-    "sort": [{"@timestamp": "desc"}],
-    "query": {
-      "bool": {
-        "must": [
-          {"match_phrase": {"http.uri": "<URI>"}},
-          {"term": {"finalStatus": "Pass"}}
-        ]
-      }
-    }
-  }'
+apex_q 'apigw-traffic-summary*' '{"size":1,"sort":[{"@timestamp":"desc"}],"query":{"bool":{"must":[{"match_phrase":{"http.uri":"<URI>"}},{"term":{"finalStatus":"Pass"}}]}}}'
 ```
 
-Use this to answer: intermittent or persistent? Same app? Different time of day?  
-Include the last-success timestamp in the verdict.
-
----
+Intermittent vs persistent? Same app? Time-of-day? Put last-success time in the verdict.
 
 ## Step 5 — Failure classification
 
-| HTTP Status | Backend reached? | Meaning | Owner |
+| HTTP | Backend reached? | Meaning | Owner |
 |---|---|---|---|
-| 526 | Yes | SSL cert verify failed at backend | Backend team (cert expired/invalid) |
-| 527 | Yes | Backend disconnected mid-response | Backend team (SSL/resource contention) |
-| 504 | Yes | Backend timeout | Backend team |
-| 500 | Yes | Backend internal error | Backend team |
-| 502 | Yes | Bad gateway / payload >10MB | Check payload size |
-| 401/403 (backend) | Yes | Backend rejected (APEX auth passed) | Backend team |
-| 401/403 (gateway) | No — Internal has no leg1 | API key not provisioned on Intranet gateway | APEX admin |
-| 450 | No | Invalid/unsubscribed API key | Check APEX subscription |
-| 452 | No | JWT signature verification failed | Client (key mismatch) |
-| 499 | No | JWT token reuse (duplicate jti) | Client (must generate fresh JWT per call) |
+| 526 | Yes | backend SSL cert verify failed | Backend (cert expired/invalid) |
+| 527 | Yes | backend disconnected mid-response | Backend |
+| 504 / 500 | Yes | backend timeout / internal error | Backend |
+| 502 | Yes | bad gateway / payload >10MB | check payload |
+| 401/403 (backend) | Yes | backend rejected (APEX auth passed) | Backend |
+| 401/403 (gateway) | No (internal has no leg1) | key not provisioned on Intranet gateway | APEX admin |
+| 450 | No | invalid/unsubscribed API key | APEX subscription |
+| 452 | No | JWT signature failed | Client (key mismatch) |
+| 499 | No | JWT reuse (duplicate jti) | Client (fresh JWT per call) |
 | 433–449 (excl. 446) | No | JWT pre-auth error | Client |
-| 446 bridged | Yes | Backend error passed through | Backend team |
-| 429 | No | Rate limit exceeded (20 TPS staging) | Client (back-off) |
-| 405 | No | Wrong HTTP method | Client |
-
----
+| 446 bridged | Yes | backend error passed through | Backend |
+| 429 | No | rate limit (20 TPS staging) | Client (back-off) |
+| 405 | No | wrong HTTP method | Client |
 
 ## Step 6 — Generate report
 

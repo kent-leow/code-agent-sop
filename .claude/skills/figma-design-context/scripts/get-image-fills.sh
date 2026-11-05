@@ -23,13 +23,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate ─────────────────────────────────────────────────────────────────
-: "${FIGMA_TOKEN:?FIGMA_TOKEN environment variable is required}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 [[ -z "$FILE_KEY" ]] && { echo "Error: --file-key is required" >&2; exit 1; }
 
 # ── Fetch image fills ────────────────────────────────────────────────────────
-RESPONSE=$(curl -s -f \
-  -H "X-Figma-Token: $FIGMA_TOKEN" \
-  "https://api.figma.com/v1/files/${FILE_KEY}/images")
+RESPONSE=$(figma_curl -f \
+  "$FIGMA_API/files/${FILE_KEY}/images")
 
 # ── Output ───────────────────────────────────────────────────────────────────
 if [[ -n "$OUTPUT" ]]; then

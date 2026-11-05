@@ -21,6 +21,7 @@ import mimetypes
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -34,6 +35,8 @@ WS_LABEL_RE = re.compile(r"^WS\d")
 ENV_ALIASES = {"DEV": "DEV", "QA": "QA", "STAGING": "STAGING", "STG": "STAGING"}
 DEFAULT_OCCUPIED_STATUS = "Dev In Progress"
 DEFAULT_AVAILABLE_STATUS = "To Do"
+TIMEOUT_S = 60
+MAX_RETRIES = 3
 # Monorepo service name -> card name, where the board uses a different name.
 APP_ALIASES = {
     "molb-sftp-send-to-edh-job": "molb-send-to-edh-job",
@@ -72,13 +75,25 @@ def api(method: str, path: str, body=None, raw: bytes | None = None, headers: di
     if raw is not None:
         data = raw
     hdrs.update(headers or {})
-    req = urllib.request.Request(BASE_URL + path, data=data, method=method, headers=hdrs)
-    try:
-        with urllib.request.urlopen(req) as resp:
-            txt = resp.read().decode()
-            return json.loads(txt) if txt else None
-    except urllib.error.HTTPError as e:
-        die(f"{method} {path} -> HTTP {e.code}: {e.read().decode()[:500]}")
+    # 429 is always safe to retry; 5xx/network only for idempotent methods (no duplicate clones/transitions).
+    idempotent = method in ("GET", "PUT", "DELETE")
+    for attempt in range(MAX_RETRIES + 1):
+        req = urllib.request.Request(BASE_URL + path, data=data, method=method, headers=hdrs)
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT_S) as resp:
+                txt = resp.read().decode()
+                return json.loads(txt) if txt else None
+        except urllib.error.HTTPError as e:
+            retryable = e.code == 429 or (idempotent and e.code in (502, 503, 504))
+            if not retryable or attempt == MAX_RETRIES:
+                die(f"{method} {path} -> HTTP {e.code}: {e.read().decode()[:500]}")
+            ra = e.headers.get("Retry-After") or ""
+            time.sleep(min(int(ra) if ra.isdigit() else 2 ** attempt, 30))
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            if not idempotent or attempt == MAX_RETRIES:
+                hint = "" if method == "GET" else "; the write may or may not have applied — run `list` to verify"
+                die(f"{method} {path} -> network error: {e} (check VPN/network{hint})")
+            time.sleep(2 ** attempt)
 
 
 # ── Title helpers ─────────────────────────────────────────────────────────────

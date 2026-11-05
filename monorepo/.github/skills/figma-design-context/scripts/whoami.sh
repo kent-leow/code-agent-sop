@@ -13,12 +13,11 @@
 set -euo pipefail
 
 # ── Validate ─────────────────────────────────────────────────────────────────
-: "${FIGMA_TOKEN:?FIGMA_TOKEN environment variable is required}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 
 # ── Fetch user info ──────────────────────────────────────────────────────────
-RESPONSE=$(curl -s -f \
-  -H "X-Figma-Token: $FIGMA_TOKEN" \
-  "https://api.figma.com/v1/me")
+RESPONSE=$(figma_curl -f \
+  "$FIGMA_API/me")
 
 # ── Output ───────────────────────────────────────────────────────────────────
 echo "$RESPONSE" | python3 -c "

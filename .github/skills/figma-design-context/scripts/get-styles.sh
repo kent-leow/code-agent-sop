@@ -17,16 +17,15 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate ────────────────────────────────────────────────────────────────
-: "${FIGMA_TOKEN:?FIGMA_TOKEN environment variable is required. See SKILL.md#credential-setup}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 [[ -z "$FILE_KEY" ]] && { echo "Error: --file-key is required" >&2; exit 1; }
 
 # ── Fetch styles ─────────────────────────────────────────────────────────────
 TMPFILE=$(mktemp /tmp/figma_styles_XXXXXX.json)
 trap 'rm -f "$TMPFILE"' EXIT
 
-curl -s -f \
-  -H "X-Figma-Token: $FIGMA_TOKEN" \
-  "https://api.figma.com/v1/files/${FILE_KEY}/styles" \
+figma_curl -f \
+  "$FIGMA_API/files/${FILE_KEY}/styles" \
   -o "$TMPFILE"
 
 python3 - "$TMPFILE" <<'PYEOF'

@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate ─────────────────────────────────────────────────────────────────
-: "${FIGMA_TOKEN:?FIGMA_TOKEN environment variable is required. See SKILL.md#credential-setup}"
+source "$(dirname "${BASH_SOURCE[0]}")/_http.sh"
 [[ -z "$FILE_KEY" ]] && { echo "Error: --file-key is required" >&2; exit 1; }
 [[ -z "$PAGE_ID" ]]  && { echo "Error: --page-id is required (run get-metadata.sh to find page IDs)" >&2; exit 1; }
 
@@ -44,9 +44,8 @@ ENCODED_PAGE_ID="${NORMALISED_PAGE_ID//:/%3A}"
 
 echo "Fetching full page tree (depth=${DEPTH})..."
 
-HTTP_STATUS=$(curl -s -w "%{http_code}" \
-  -H "X-Figma-Token: $FIGMA_TOKEN" \
-  "https://api.figma.com/v1/files/${FILE_KEY}/nodes?ids=${ENCODED_PAGE_ID}&depth=${DEPTH}" \
+HTTP_STATUS=$(figma_curl -w "%{http_code}" \
+  "$FIGMA_API/files/${FILE_KEY}/nodes?ids=${ENCODED_PAGE_ID}&depth=${DEPTH}" \
   -o "$OUTPUT")
 
 if [[ "$HTTP_STATUS" != "200" ]]; then

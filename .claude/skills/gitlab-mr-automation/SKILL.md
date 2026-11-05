@@ -19,6 +19,7 @@ argument-hint: 'REPO_DIR, BRANCH_PATTERN (with {TICKET} placeholder), optional T
 | Max consecutive failures | 3 → `BLOCKED` |
 
 > All `fetch`/`pull`/`push`/`clone` and API `curl` calls need network — request network access proactively, not after a sandbox block.
+> API `curl`: `--silent --show-error --connect-timeout 10 --max-time 60`, token via `-K <(printf 'header = "PRIVATE-TOKEN: %s"\n' "$GITLAB_TOKEN")` (never argv), check `-w '%{http_code}'` before using the body, never `--retry` a POST.
 
 ## Input → Output
 
