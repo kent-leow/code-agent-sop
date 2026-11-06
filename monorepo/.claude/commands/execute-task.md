@@ -77,7 +77,7 @@ Load **docs-folder**, **git-workflow**, **deep-think** and **app-blueprint** ski
 
 ### 5b — Poll Until Clean
 
-- CALL: FIX_THREADS_FIRST(ENCODED, MR_IID)
+- CALL: FIX_THREADS_FIRST(ENCODED, MR_IID) → COMMITTED
 - CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED)
 - LOOP: until (pipeline=success AND open_threads=0) OR terminal exit
   - ON_SUCCESS + threads>0: evaluate → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → RESOLVE → reset poll

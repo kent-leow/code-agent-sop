@@ -169,14 +169,14 @@ Resolve only `to_fix[]` threads. Leave `to_reject[]` open.
 
 ## FIX_THREADS_FIRST
 
-**Inputs:** `ENCODED`, `MR_IID` — run right after ENSURE_MR, **before** POLL_PIPELINE.
+**Inputs:** `ENCODED`, `MR_IID` — run right after ENSURE_MR, **before** POLL_PIPELINE. **Outputs:** `COMMITTED` (set `true` if this step pushed). Never polls itself — the caller runs POLL_PIPELINE next.
 
 > Pushing restarts the pipeline, so fixing open threads before waiting avoids a wasted pipeline cycle.
 
-1. FETCH_OPEN_THREADS → IF: 0 → POLL_PIPELINE
+1. FETCH_OPEN_THREADS → IF: 0 → return
 2. Evaluate: actionable → `to_fix[]`; commentary/questions → `to_reject[]`
-3. IF: only `to_reject[]` → POST_THREAD_REPLIES → POLL_PIPELINE
-4. WORKTREE_SETUP → apply fixes → COMMIT → PUSH → TEARDOWN → POST_THREAD_REPLIES → RESOLVE_THREADS → POLL_PIPELINE (`POLL=0`)
+3. IF: only `to_reject[]` → POST_THREAD_REPLIES → return
+4. WORKTREE_SETUP → apply fixes → COMMIT → PUSH → TEARDOWN → POST_THREAD_REPLIES → RESOLVE_THREADS → `COMMITTED=true` → return
 
 ---
 
