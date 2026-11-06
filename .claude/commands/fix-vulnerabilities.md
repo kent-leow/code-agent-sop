@@ -81,7 +81,7 @@ Load **docs-folder** and **git-workflow** skills. Autonomous — never pause onc
 - LOOP: until (pipeline=success AND vulns=0 AND threads=0) OR terminal exit
   - ON_SUCCESS + vulns>0: diff → fix → COMMIT → PUSH → reset poll
   - ON_SUCCESS + threads>0: evaluate → fix → COMMIT → PUSH → RESOLVE → reset poll
-  - ON_FAILURE: fetch MR-scoped vulns → fix → COMMIT → PUSH → reset poll
+  - ON_FAILURE: git-apis FETCH_FAILED_JOBS (non-scanner failure → fix it too) + fetch MR-scoped vulns → fix → COMMIT → PUSH → reset poll
 
 ### Terminal Exits
 

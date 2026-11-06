@@ -112,8 +112,8 @@ Intermittent vs persistent? Same app? Time-of-day? Put last-success time in the 
 
 ## Step 6 — Generate report
 
-Write a Markdown file to `<DOCS_DIR>/investigation-<identifier>/apex-report.md` (`DOCS_DIR` from docs-folder skill DOCS_FOLDER).  
-Use the identifier from: correlation ID prefix, endpoint slug, or date+agency (e.g., `526-spf-28sep`).
+Write a Markdown file to `<DOCS_DIR>/investigation-<kebab-topic>/apex-report.md` (`DOCS_DIR` from docs-folder skill DOCS_FOLDER).  
+Topic = **agency + endpoint/symptom + status**, per docs-folder Sub-folder naming (e.g. `investigation-spf-plus2c-526`, `investigation-nparks-validation-403`). Never use the correlation ID or a hash as the folder name — put IDs in the report header.
 
 ### Report structure
 

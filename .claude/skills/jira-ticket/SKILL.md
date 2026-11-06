@@ -1,6 +1,6 @@
 ---
 name: jira-ticket
-description: "Read/create/update Jira issues (summary, description, comments, story points, sub-tasks) and read Confluence pages via Atlassian REST. Requires JIRA_EMAIL, JIRA_TOKEN, JIRA_BASE_URL (+ JIRA_PROJECT_KEY to create)."
+description: "Read/search/create/update Jira issues (summary, description, comments, story points, sub-tasks; JQL search) and read/search Confluence pages (CQL) via Atlassian REST. Use for prior-art lookup (similar bugs, runbooks, KT pages). Requires JIRA_EMAIL, JIRA_TOKEN, JIRA_BASE_URL (+ JIRA_PROJECT_KEY to create)."
 argument-hint: '<issue key | page id/url | title> [description] [story_points] [parent_key]'
 ---
 
@@ -20,6 +20,8 @@ argument-hint: '<issue key | page id/url | title> [description] [story_points] [
 | Read issue (fields, links, description, comments as text) | `bash $S/get-issue.sh --issue-key PROJ-1 [--no-comments] [--json]` | no |
 | Read comments (+ inline images → `/tmp/jira-images/<KEY>/`) | `bash $S/get-comments.sh --issue-key PROJ-1 [--max-results N] [--order-by -created]` | no |
 | Read Confluence page (text + version) | `bash $S/get-page.sh --page-id N \| --url <page URL> [--json]` | no |
+| Search issues (JQL) → `KEY \| type \| status \| updated \| summary` | `bash $S/search-issues.sh --jql '<JQL>' [--max-results 20] [--json]` | no |
+| Search Confluence (CQL) → id, space, modified, title, URL, excerpt | `bash $S/search-pages.sh --text "<words>" [--space MOLBLT] [--limit 10]` · or `--cql '<CQL>'` | no |
 | Find story-points field | `bash $S/get-fields.sh` (default `customfield_10274`) | no |
 | Create issue / sub-task | `bash $S/create-ticket.sh --title T [--description MD] [--issue-type Story] [--story-points N] [--parent PROJ-1] [--assignee <accountId>]` | **yes** |
 | Update title/description/SP | `bash $S/update-ticket.sh --issue-key PROJ-1 [--title T] [--description MD] [--story-points N]` | **yes** |
@@ -27,7 +29,8 @@ argument-hint: '<issue key | page id/url | title> [description] [story_points] [
 
 - `--description` is Markdown → ADF. Pipe-tables become native Jira tables: always pass Acceptance Criteria as pipe-tables (same shape as `plan.md` `| **AC1** | <title> |` + Given/When/Then rows), never bullets. Headings, emphasis, code, lists, blockquotes preserved.
 - Issue type names are case-sensitive and per-project (`Story`, `Task`, `Bug`, `Sub-task`; team-managed projects use `Child Issue`).
-- `create-ticket` is not retried: on network error/5xx, search Jira for the title before re-running (avoid duplicates).
+- `create-ticket` is not retried: on network error/5xx, search Jira for the title before re-running (avoid duplicates) — `search-issues.sh --jql 'summary ~ "<title>" AND created >= -1d'`.
+- Prior-art JQL: `project = <KEY> AND text ~ "<symptom words>" ORDER BY updated DESC` (add `AND type = Bug` for past bugs). Confluence text search is fuzzy — prefer 2–4 distinctive words (service, error, agency).
 
 ## Persist State
 

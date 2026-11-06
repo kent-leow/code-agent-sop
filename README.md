@@ -123,14 +123,22 @@ Reduces token waste; unambiguous for LLMs to parse.
 
 .claude/                     # Claude Code integration (root)
 ├── commands/                # Agents as Claude commands
+├── skills/                  # Synced copy of .github/skills
+├── hooks/                   # session_start.sh (offline integration readiness) · guard_bash.py (blocks secret leaks / prod bypasses)
+├── settings.json            # Registers the hooks (shared); settings.local.json stays personal
 └── CLAUDE.md
+
+tests/                       # Not distributed — guards the SOP itself: python3 -m unittest discover -s tests -t .
 
 general/                     # Integration-free variant
 ├── .github/
 │   ├── agents/              # Core agents only
-│   └── instructions/
+│   ├── instructions/
+│   └── skills/              # app-blueprint, deep-think, docs-folder, figma-design-context, jira-ticket
 └── .claude/
-    └── commands/
+    ├── commands/
+    ├── skills/
+    └── hooks/ + settings.json
 
 monorepo/                    # Monorepo workspace variant
 ├── .github/
@@ -140,6 +148,7 @@ monorepo/                    # Monorepo workspace variant
     └── commands/
 
 .docs/                       # One folder per ticket, created by agents (docs-folder skill)
+├── KNOWN-ISSUES.md          # Cross-ticket index of confirmed root causes (investigate / fix-task append; searched first)
 └── <JIRA-KEY>-<kebab-title>/  # general/: <kebab-title>/
     ├── plan.md              # Requirements + AC
     ├── spike.md, spike-report.md
@@ -148,7 +157,7 @@ monorepo/                    # Monorepo workspace variant
     ├── task-NNN.md          # Vertical slices
     ├── figma/               # Cached Figma assets
     ├── fixes/fix-{dt}-{name}.md        # Fix logs
-    ├── investigation-<topic>/          # investigate / investigate-apex reports
+    ├── investigation-<kebab-topic>/    # investigate / investigate-apex reports — symptom + component, never a hash/ID
     ├── cft-checklist.md
     ├── env-chope/cleanup-*.sql  # Draft Flyway cleanup for choped env cards
     └── vulnerability/vulnerabilities-{date}.md
@@ -169,7 +178,7 @@ The agent: applies these instructions → reads `monorepo/AGENTS.md` for routing
 
 ## Extended Variant
 
-Root `.github/` and `.qwen/` add:
+Root `.github/` and `.claude/` add:
 
 | Extra | Purpose |
 |---|---|
@@ -178,14 +187,32 @@ Root `.github/` and `.qwen/` add:
 | `fix-vulnerabilities` | Fetch + fix GitLab security vulnerabilities |
 | `env-chope` | Chope/release DEV/QA/STAGING env cards on the MOLBLT Chope Env board from a GitLab MR (touched apps + Flyway) |
 | `figma-design-context` skill | Fetch design context from Figma REST API |
-| `jira-ticket` skill | Create/update Jira stories and sub-tasks |
+| `jira-ticket` skill | Create/update Jira stories and sub-tasks; JQL issue search + Confluence CQL search (prior art) |
 | `opensearch-logs` skill | Read-only log search/count/aggregate/trace on MOLB OpenSearch (dev/qa/stg/prod; VPN) — used by `investigate` |
 | `postgres-query` skill | psql access to licence / agency-portal / formbuilder / onboarding-portal / payment DBs (PROD read-only; lower-env writes need approval) — used by `investigate` |
 | `aws-access` skill | Read-only AWS (ECS, RDS, SQS DLQs, CloudWatch, ALB, Lambda, schedules) for staging + prod via GCC SSO profiles; guarded wrapper, prod writes need double confirmation — used by `investigate` |
-| `git-workflow` skill | Branch → commit → push → MR → pipeline polling |
-| `git-apis` skill | Shared GitLab + GitHub REST API primitives |
+| `git-workflow` skill | Branch → commit → push → MR → fix threads first → pipeline polling (absorbed `gitlab-mr-automation`) |
+| `git-apis` skill | Shared GitLab + GitHub REST API primitives, incl. failed CI jobs + log tail |
+| `integration-health` skill | One-shot readiness check (Jira, GitLab, Figma, OpenSearch, APEX, Postgres, AWS SSO, Slack); offline booleans or `--net` live probes — used by `investigate` preflight + SessionStart hook |
+| `change-timeline` skill | "What changed" table for env + window: GitLab deployments, merged MRs, Chope occupants, ECS events — used by `investigate` |
+| Claude hooks | `.claude/hooks/` — SessionStart readiness context; PreToolUse guard denying tokens on argv/echo, raw prod AWS/psql, prod DB writes, prod OpenSearch writes |
 
 Requires tokens in `~/.zshenv` — see `.env.example` for the full list. AWS uses SSO profiles in `~/.aws/config` (see `aws-access` skill), not tokens.
+
+## Tests
+
+```
+python3 -m unittest discover -s tests -t .
+```
+
+| Suite | Guards |
+|---|---|
+| `test_sync.py` | Every `.claude/`, `general/`, `monorepo/` copy equals root after broadcast-sync transforms; no orphans; general has no integration items |
+| `test_guard_bash.py` | Hook denies leaks/bypasses **and** never blocks a command documented in any agent/skill |
+| `test_safety_scripts.py` | Postgres read-only screen + PROD write refusal, `aws_ro.sh` write/sensitive refusal, health check never prints secrets, timeline/jira input validation |
+| `test_docs_validator.py` | `.docs/` naming (Jira key, investigation topics, fix logs) |
+
+Offline — no network or real credentials. Run after editing agents/skills and after broadcast-sync.
 
 ## Workflow Details
 

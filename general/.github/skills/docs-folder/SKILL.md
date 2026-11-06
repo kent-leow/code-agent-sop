@@ -24,6 +24,18 @@ description: "Shared .docs/ work-folder resolver + naming convention: one folder
 
 - One folder per ticket (gobiz) / per topic (general) — never two folders sharing a Jira key
 - Every artefact for that ticket lives inside it (see Folder Layout) — never create standalone `.docs/fix-*`, `.docs/investigation-*`, `.docs/.vulnerability/` folders
+- Only exception at `.docs/` root: `KNOWN-ISSUES.md` (cross-ticket index, see Known Issues) and `archive/`
+
+### Sub-folder naming
+
+| Artefact | Pattern | Rule |
+|---|---|---|
+| Investigation (investigate, investigate-apex) | `investigation-<kebab-topic>/` | 2–6 words naming **symptom + component** (e.g. `investigation-nparks-validation-403`, `investigation-status-push-draft-approved`); ≥1 word of ≥3 letters; ≤60 chars; **never** a hash, correlation/trace ID, UUID, or bare number — those go inside the report. Same topic re-investigated later → append `-YYYYMMDD` |
+| Fix log | `fixes/fix-{YYYYMMDD-HHMMSS}-{kebab-name}.md` | one per issue batch |
+
+### Validate
+
+`python3 .github/skills/docs-folder/scripts/validate_docs.py [--root .docs] [--folder <DOCS_DIR name>]` — read-only lint (profile from this file's PROFILE line); exit `1` lists violations. Every agent that writes under `.docs/` runs it on its own `DOCS_DIR` before finishing and fixes its own violations (rename only what it created this session; legacy violations → report, rename only after user confirmation).
 
 ## Folder Layout
 
@@ -36,8 +48,7 @@ description: "Shared .docs/ work-folder resolver + naming convention: one folder
 ├── task-NNN.md                            # generate-task / execute-task
 ├── figma/                                 # figma-design-context cache
 ├── fixes/fix-{YYYYMMDD-HHMMSS}-{name}.md  # fix-task (one per issue batch)
-├── investigation-<kebab-topic>/           # investigate → report.md, flowchart.mmd
-├── investigation-<identifier>/            # investigate-apex → apex-report.md
+├── investigation-<kebab-topic>/           # investigate → report.md, flowchart.mmd · investigate-apex → apex-report.md
 ├── cft-checklist[-<agency>].md            # cft-onboarding (suffix only when >1 agency)
 └── vulnerability/vulnerabilities-{YYYYMMDD}.md  # fix-vulnerabilities
 ```
@@ -63,6 +74,26 @@ description: "Shared .docs/ work-folder resolver + naming convention: one folder
 6. DO: `mkdir -p "${DOCS_DIR}"`
    - gobiz AND no `jira.json` → write `{ "parent": { "key": "<JIRA_KEY>", "url": "${JIRA_BASE_URL}/browse/<JIRA_KEY>" } }` (omit `url` if `JIRA_BASE_URL` unset)
 7. EMIT: `DOCS_DIR` (and `JIRA_KEY`)
+
+## Known Issues
+
+`.docs/KNOWN-ISSUES.md` — cross-ticket index of confirmed root causes, so future investigations start from prior art. Append-only; one row per confirmed root cause; newest last; create with the header if missing.
+
+```markdown
+# Known Issues
+
+| Date | Key | Area | Symptom (searchable words) | Root cause | Fix / workaround | Report |
+|---|---|---|---|---|---|---|
+| YYYY-MM-DD | PROJ-123 | <service> · <feature> | <symptom words people would search> | <one-line cause> | <fix, MR !iid / workaround> | <folder>/investigation-<topic>/report.md |
+```
+
+| Who | When |
+|---|---|
+| investigate / investigate-apex | Root cause **confirmed** (not hypothesis) → append row (Fix = recommended option until shipped) |
+| fix-task | Fix applied for a bug → append row, or update `Fix` cell of an existing row for the same root cause |
+
+- Lookup: `grep -i -E '<word1>\|<word2>' .docs/KNOWN-ISSUES.md` + `grep -ril '<word>' .docs/*/investigation-*/` before forming hypotheses
+- Mask personal data (NRIC, names, emails, phones); no secrets; keep cells to one line
 
 ## Constraints
 

@@ -18,6 +18,7 @@ Load **docs-folder**, **git-workflow** and **deep-think** skills. Autonomous —
 - IF: raw text → treat each line/bullet as issue
 - DO: skim `plan.md` (80 lines), `task-NNN.md` headings/checklists, `jira.json`
 - IF: existing `fixes/*.md` (or legacy `fix-*.md`) → DO NOT read them
+- DO: prior art per issue — `grep -i -E '<symptom words>' .docs/KNOWN-ISSUES.md` (if present); a matching row's root cause/fix is a lead to verify, not a fix to copy
 - CALL: BRANCH_SETUP(REPO_DIR, `GOBIZWKST2-{TICKET}-{kebab-task-title}`) → TICKET_NUM, BRANCH, DEFAULT_BRANCH
 - CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORKTREE_DIR
 - STORE: `WORK_DIR="${WORKTREE_DIR}"` — **all edits in Phase 2–4 target WORK_DIR only**
@@ -58,10 +59,11 @@ Load **docs-folder**, **git-workflow** and **deep-think** skills. Autonomous —
 
 ### 5b — Poll Until Clean
 
+- CALL: FIX_THREADS_FIRST(ENCODED, MR_IID)
 - CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED)
 - LOOP: until (pipeline=success AND threads=0) OR terminal exit
   - ON_SUCCESS + threads>0: evaluate → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → RESOLVE → reset poll
-  - ON_FAILURE: inspect logs → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → reset poll
+  - ON_FAILURE: git-apis FETCH_FAILED_JOBS + FETCH_OPEN_THREADS → WORKTREE_SETUP → fix both → COMMIT → PUSH → TEARDOWN → RESOLVE → reset poll
 
 ### 5c — Terminal Exits
 
@@ -74,7 +76,10 @@ Load **docs-folder**, **git-workflow** and **deep-think** skills. Autonomous —
 ## Phase 6 — Report
 
 - EMIT: jira-prompt (A: comment | B: changes | C: skip)
+- IF: an issue was a bug with a confirmed root cause → append/update its row in `.docs/KNOWN-ISSUES.md` (docs-folder Known Issues)
+- DO: docs-folder Validate on `DOCS_DIR` → fix own naming violations
 - EMIT: summary — fix file path, items resolved, files, tests, MR URL, pipeline, Follow-up Recommendations (if any)
+- EMIT: next-step offer (never run without the user saying so): **env-chope** → workspace **lower-env-deployment** → **post-deploy-verification** — list only those available
 
 ## Constraints
 

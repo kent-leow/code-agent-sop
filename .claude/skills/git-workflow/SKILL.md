@@ -1,11 +1,12 @@
 ---
 name: git-workflow
-description: "Shared Git + platform workflow: branch setup, commit, push, MR creation, adaptive pipeline polling, review-thread lifecycle (inline + general). Load alongside git-apis skill."
+description: "Shared Git + GitLab/GitHub workflow: ticket → branch → worktree → commit → push → MR → threads-first fix → adaptive pipeline polling until pipeline=success AND open threads=0. Use for: implement task, fix review, submit code, push changes, create merge request, fix pipeline, resolve threads. Load alongside git-apis skill."
 ---
 
 # git-workflow
 
 > CALL: git-apis skill for raw platform API calls.
+> End-to-end run order (callers pick the steps they need): BRANCH_SETUP → WORKTREE_SETUP → *(agent edits in WORK_DIR)* → COMMIT → PUSH → WORKTREE_TEARDOWN → ENSURE_MR → FIX_THREADS_FIRST → POLL_PIPELINE → terminal state.
 
 ## Globals
 
@@ -166,6 +167,19 @@ Resolve only `to_fix[]` threads. Leave `to_reject[]` open.
 
 ---
 
+## FIX_THREADS_FIRST
+
+**Inputs:** `ENCODED`, `MR_IID` — run right after ENSURE_MR, **before** POLL_PIPELINE.
+
+> Pushing restarts the pipeline, so fixing open threads before waiting avoids a wasted pipeline cycle.
+
+1. FETCH_OPEN_THREADS → IF: 0 → POLL_PIPELINE
+2. Evaluate: actionable → `to_fix[]`; commentary/questions → `to_reject[]`
+3. IF: only `to_reject[]` → POST_THREAD_REPLIES → POLL_PIPELINE
+4. WORKTREE_SETUP → apply fixes → COMMIT → PUSH → TEARDOWN → POST_THREAD_REPLIES → RESOLVE_THREADS → POLL_PIPELINE (`POLL=0`)
+
+---
+
 ## POLL_PIPELINE
 
 **Inputs:** `ENCODED`, `MR_IID`, `COMMITTED` — IF: `COMMITTED=false` → skip.
@@ -179,7 +193,8 @@ INTERVALS=(180 120 90 60 30); POLL=0; MAX_POLLS=20; CONSECUTIVE_FAILURES=0
 while [ ${POLL} -lt ${MAX_POLLS} ]; do
   IDX=$(( POLL < ${#INTERVALS[@]} ? POLL : ${#INTERVALS[@]} - 1 ))
   sleep ${INTERVALS[${IDX}]}; POLL=$(( POLL + 1 ))
-  PIPELINE_STATUS=$(curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+  PIPELINE_STATUS=$(/usr/bin/curl --silent --show-error --connect-timeout 10 --max-time 60 --retry 3 \
+    -K <(printf 'header = "PRIVATE-TOKEN: %s"\n' "$GITLAB_TOKEN") \
     "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/merge_requests/${MR_IID}/pipelines" \
     | /usr/bin/jq -r '.[0].status')
   case "${PIPELINE_STATUS}" in
@@ -191,9 +206,9 @@ while [ ${POLL} -lt ${MAX_POLLS} ]; do
 done
 ```
 
-**ON_SUCCESS:** Check threads → if 0 → done; if >0 → evaluate → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → RESOLVE → reset poll
+**ON_SUCCESS:** FETCH_OPEN_THREADS → if 0 → done; only `to_reject[]` → POST_THREAD_REPLIES → done; else WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → POST_THREAD_REPLIES → RESOLVE_THREADS → reset poll
 
-**ON_FAILURE:** Inspect CI logs → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → reset poll
+**ON_FAILURE:** git-apis FETCH_FAILED_JOBS (failed jobs + first error in trace) **and** FETCH_OPEN_THREADS → WORKTREE_SETUP → fix pipeline + actionable threads in the same pass (saves a cycle) → COMMIT → PUSH → TEARDOWN → POST_THREAD_REPLIES → RESOLVE_THREADS → reset poll
 
 ### Terminal Exits
 
@@ -228,5 +243,6 @@ Fallback: job artifact `gl-dependency-scanning-report.json`. Do NOT use `/merge_
 - Never fix beyond what was explicitly requested
 - Paginate all list API calls until empty
 - Post replies before pipeline wait
+- Fix open threads before waiting on the pipeline (FIX_THREADS_FIRST) — a push restarts it anyway
 - Resolve only `to_fix[]` — leave `to_reject[]` open
 - Run full workflow to completion without pausing

@@ -79,7 +79,7 @@ IF: multiple URLs → LOOP sequentially; failure on one → log + continue.
 - CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED)
 - LOOP: until (pipeline=success AND threads=0) OR terminal exit
   - ON_SUCCESS: RESOLVE fixed threads → re-fetch → if new threads: evaluate → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → reset poll
-  - ON_FAILURE: inspect logs → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → reset poll
+  - ON_FAILURE: git-apis FETCH_FAILED_JOBS + re-fetch threads → WORKTREE_SETUP → fix both → COMMIT → PUSH → TEARDOWN → RESOLVE → reset poll
 
 ### Terminal Exits
 

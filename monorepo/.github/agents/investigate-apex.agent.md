@@ -4,16 +4,20 @@ tools: [read, search, execute, edit, todo]
 argument-hint: "Incident description, correlation ID, endpoint, agency, timeframe, and/or HTTP status. Add 'prod'/'production' for production (defaults to staging)."
 ---
 
-**Input**: incident signal (any combination of description / correlation ID / endpoint / agency / timeframe / HTTP status) → **Output**: `<DOCS_DIR>/investigation-<identifier>/apex-report.md` + Slack-ready summary in chat.
+**Input**: incident signal (any combination of description / correlation ID / endpoint / agency / timeframe / HTTP status) → **Output**: `<DOCS_DIR>/investigation-<kebab-topic>/apex-report.md` + Slack-ready summary in chat.
 
 Load **docs-folder** skill, then **investigate-apex skill** — follow its Steps 0–7 end to end. The skill owns credential handling, ES queries, bridging detection, root-cause classification, and report + Slack summary generation.
 
 ## Orchestrator responsibilities
 
 - Map the user's raw request onto the skill's Step 0 input types; ask at most 1 clarifying question if nothing matches
+- IF: **integration-health** skill available → `health.py --net --only apex,opensearch` first; 401/403 → STOP and ask user to refresh the token
+- Prior art: grep `.docs/KNOWN-ISSUES.md` + `.docs/*/investigation-*/apex-report.md` for the agency / endpoint / status; cite matches as hypotheses, not conclusions
 - CALL: DOCS_FOLDER(REQUEST, PATH=<folder if given>, CAN_CREATE_JIRA=true) → DOCS_DIR before the skill writes its report (Jira key prompt is separate from the 1 clarifying question)
 - Default to staging; switch to production only when the user says "prod"/"production"
-- IF: multiple incidents/correlation IDs given → loop the skill sequentially, one `investigation-<identifier>/` per incident, all under the same `DOCS_DIR` (unless different tickets given)
+- IF: multiple incidents/correlation IDs given → loop the skill sequentially, one `investigation-<kebab-topic>/` per incident (distinct topics; same topic → `-YYYYMMDD` suffix), all under the same `DOCS_DIR` (unless different tickets given)
+- After the skill completes → run docs-folder Validate on `DOCS_DIR`; fix own naming violations
+- IF: root cause confirmed → append a row to `.docs/KNOWN-ISSUES.md` (docs-folder Known Issues)
 - After the skill completes → confirm the report file path back to the user
 
 ## Constraints

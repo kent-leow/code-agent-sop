@@ -1,6 +1,6 @@
 ---
 name: git-apis
-description: "Shared GitLab + GitHub REST API operations: fetch discussions, post inline/general comments, reply, resolve threads, approve MR/PR."
+description: "Shared GitLab + GitHub REST API operations: fetch discussions, post inline/general comments, reply, resolve threads, approve MR/PR, fetch failed CI jobs + logs."
 ---
 
 # git-apis
@@ -22,7 +22,8 @@ Every call: network escalation up front · `curl --silent --show-error --connect
 
 **GitLab:**
 ```bash
-curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+curl --silent --show-error --connect-timeout 10 --max-time 60 --retry 3 \
+  -K <(printf 'header = "PRIVATE-TOKEN: %s"\n' "$GITLAB_TOKEN") \
   "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}/merge_requests/${MR_IID}/discussions?per_page=100"
 ```
 
@@ -85,3 +86,23 @@ IF: node ID unavailable → REPLY(`"Resolved."`) and note limitation.
 
 **GitLab:** `POST .../merge_requests/${MR_IID}/approve`
 **GitHub:** `POST /repos/{owner}/{repo}/pulls/{PR_ID}/reviews` → `{"commit_id":"$HEAD_SHA","event":"APPROVE","body":"LGTM!"}`
+
+---
+
+## FETCH_FAILED_JOBS
+
+Read-only CI evidence: failed jobs of a pipeline + log tail (GitLab; verified 2026-11-06).
+
+**Inputs:** `ENCODED`, `PIPELINE_ID` (or `MR_IID` → latest: `GET .../merge_requests/${MR_IID}/pipelines` → `.[0].id`) → **Outputs:** per failed job `{id, name, stage, failure_reason, allow_failure, web_url}` + last `TAIL` lines of trace
+
+```bash
+GL() { /usr/bin/curl --silent --show-error --connect-timeout 10 --max-time 60 --retry 3 \
+  -K <(printf 'header = "PRIVATE-TOKEN: %s"\n' "$GITLAB_TOKEN") "https://sgts.gitlab-dedicated.com/api/v4/projects/${ENCODED}$1"; }
+GL "/pipelines/${PIPELINE_ID}/jobs?scope[]=failed&per_page=100" \
+  | /usr/bin/jq -c '.[] | {id, name, stage, failure_reason, allow_failure, web_url}'
+GL "/jobs/${JOB_ID}/trace" | sed -E 's/\x1b\[[0-9;]*[A-Za-z]//g; s/^[0-9TZ:.-]+ [0-9A-Z]+ //' | tail -n "${TAIL:-120}"
+```
+
+- `allow_failure: true` jobs don't fail the pipeline — report but don't fix first
+- Search the trace for the first error, not just the tail: `grep -nE 'ERROR|FAILED|error:|Exception|AssertionError' | head`
+- Other read-only CI lookups: recent failed pipelines `GET .../pipelines?status=failed&ref=<branch>&per_page=5` · a pipeline's jobs `GET .../pipelines/${PIPELINE_ID}/jobs?per_page=100`

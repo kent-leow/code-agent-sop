@@ -55,6 +55,10 @@ Load **git-apis skill**. IF: multiple URLs → LOOP sequentially.
 - `GET /environments?name=<app>/<env>` for `external_url`; if null, take the URL from Jira/docs — never invent one
 - EMIT: table of env · status · sha · URL
 
+## Step 2C — Pipeline Status (first run / summarise)
+
+- `GET /merge_requests/<iid>/pipelines` → `.[0].status`; IF `failed` → git-apis FETCH_FAILED_JOBS → include failed job + first error line in the review summary (blocking finding if not `allow_failure`)
+
 ## Step 3 — Code Review (first run)
 
 Evaluate diff against:
@@ -71,6 +75,8 @@ Evaluate diff against:
 | 8 | Observability — logging; metrics |
 | 9 | API & Contract — breaking changes? |
 | 10 | Documentation — complex logic commented |
+| 11 | Requirements — diff satisfies the linked Jira AC (key from MR title/branch → jira-ticket `get-issue.sh`; or workspace **mr-evaluation** skill when available) |
+| 12 | Blast radius — shared package/contract changed → consumers checked (workspace `blast-radius` / `service-graph.json` when available) |
 
 - EMIT: findings (Critical / Major / Minor / Positive)
 
