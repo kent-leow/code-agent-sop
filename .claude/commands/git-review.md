@@ -46,6 +46,15 @@ Load **git-apis skill**. IF: multiple URLs → LOOP sequentially.
 
 - `git diff origin/<target>...<local-ref>` (stat + full)
 
+## Step 2B — Check Deployment (when asked "is it deployed / how to test")
+
+- Source of truth: GitLab Environments (`https://sgts.gitlab-dedicated.com/wog/gvt/gobiz/molb-gobusiness/molb-monorepo/-/environments`), not pipeline job names
+- `GET /deployments?ref=<source_branch>&order_by=created_at&sort=desc&per_page=20` → per env: `environment.name`, `status`, `sha`
+  - `success` = deployed · `blocked` = manual job not triggered · `skipped`/`failed` = not deployed
+  - MR pipelines deploy the merge-ref commit (`refs/merge-requests/<iid>/merge`), so `sha` ≠ MR head; compare via `GET /pipelines/<id>` → `ref`
+- `GET /environments?name=<app>/<env>` for `external_url`; if null, take the URL from Jira/docs — never invent one
+- EMIT: table of env · status · sha · URL
+
 ## Step 3 — Code Review (first run)
 
 Evaluate diff against:
