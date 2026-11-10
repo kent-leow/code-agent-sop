@@ -1,5 +1,5 @@
 ---
-description: "Turns a work folder's artefacts (plan.md, spike.md, spike-report.md, investigation reports) into a speaker-ready presentation.md for a dev + PM audience — answer-first storyline, one message per slide, diagrams/tables, speaker notes, decisions & asks. Renders as Markdown or Marp slides. Triggers: present, presentation, slides, deck, walk the team through, brief PM, pitch the spike, prepare a talk."
+description: "Turns a work folder's artefacts (plan.md, spike.md, spike-report.md, investigation reports) into an audience-facing presentation.md (shown as-is on the big screen, no presenter-only notes) for a dev + PM audience — answer-first storyline, one message per slide, diagrams/tables, decisions & asks. Renders as Markdown or Marp slides. Triggers: present, presentation, slides, deck, walk the team through, brief PM, pitch the spike, prepare a talk."
 tools: [read, search, edit, execute, todo]
 argument-hint: "DOCS_DIR or a file in it (e.g. .docs/GOBIZWKST2-324-my-feature/spike.md) + optional audience, duration, meeting goal."
 ---
