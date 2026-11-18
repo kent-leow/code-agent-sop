@@ -1,6 +1,6 @@
 ---
 name: apex-onboarding
-description: Configure or update APEX (API Portal v2) for an agency licence onboarding card (MOLBLT "[APEX][STG/PROD]" cards, label apex-onboarding). Reads the card, picks the scenario, and produces a step-by-step APEX checklist (create API, subscribe, bridge, test, grant access, update). Use when asked to onboard/update APEX for an agency, set up an APEX API, bridge APEX zones, subscribe to an agency API, grant an agency access, or work a card like MOLBLT-7824.
+description: Configure or update APEX (API Portal v2) for an agency licence onboarding card (MOLBLT "[APEX][STG/PROD]" cards, label apex-onboarding). Reads the card, picks the scenario, and produces a step-by-step APEX checklist (create API, subscribe, bridge, test, grant access, update). Use when asked to onboard/update APEX for an agency, set up an APEX API, bridge APEX zones, subscribe to an agency API, grant an agency access, onboard an agency to Status Push (APIs exposed by GoBiz), or work a card like MOLBLT-7824.
 metadata:
   category: operations
   tier: advanced
@@ -20,7 +20,7 @@ Card → concrete APEX task list. Guidance only: the user does portal clicks unl
 |---|---|
 | Environment | Staging / Production portal |
 | APIs onboarding to / exposed to GoBiz | Gobiz → agency |
-| APIs exposed by GoBiz | agency → Gobiz |
+| APIs exposed by GoBiz (Status Push / LCP / Auto Renewal) | agency → Gobiz; Status Push → task **I** (not OP common API rows) |
 | Server Zone · APEX setup | agency on Internet/Intranet; own APEX + zone? |
 | APEX API name(s) | agency API to subscribe to |
 | Endpoints (name + URL) | paths + base URL for spec |
@@ -42,7 +42,9 @@ Gobiz → agency:
 | 3 | GobizInternet-AgencyIntranet | agency APEX on intranet | subscribe to agency API; Gobiz Internet API for the hop |
 | 4 | AgencyInternet | agency APEX on internet | subscribe to agency API only |
 
-Agency → Gobiz (LCP/SFA/LAR): publish Gobiz API in the agency's zone, grant access to the agency's APEX org in the **same zone**. Card's scenario guide link (Tech Notes) wins.
+Agency → Gobiz (Status Push/LCP/LAR): publish Gobiz API in the agency's zone, grant access to the agency's APEX org in the **same zone**. Status Push → task **I**. Card's scenario guide link (Tech Notes) wins.
+
+A card can need both directions (agency API for Validate/Pre-populate etc. **and** Status Push) → run 2b/A–H for the first and **I** for the second; the two are independent.
 
 ## 2b. Check current state (read-only, mandatory before proposing)
 
@@ -139,6 +141,16 @@ Required rows → JSON array (only after a successful fetch), one object per end
 
 **H. Certificates** — auto-fetched at creation; backend URL change → install manually (Manage trusted certs). Ask agency for ROOT cert (leaf ~1 yr). HTTP 526 = install root. Published API: use Edit to upload.
 
+**I. Status Push (agency → Gobiz, API `molb-l1t-status-push`)** — agency calls Gobiz when status changes; replaces Status Update / Status Poll (Gobiz polling the agency). Not a common API: **no OP API rows** for it. Guide: Confluence BIZSG "Status push onboarding guide for Devs" (id 2700351244), KT: "Status Push KT" (id 2864383493); example card MOLBLT-7558. Read the guide via `jira-ticket` `get-page.sh` if steps may have changed.
+
+1. Grant access (see **F**): Publish > Manage APIs > `molb-l1t-status-push` > Access → agency org from the card, same zone.
+2. Get `x-gobiz-apikey`: licence + operation type configured in OP, form exists in Form Builder, wait ~5 min for sync, then `SELECT gobiz_l1t_api_key FROM licence_metadata WHERE licence_id = '<LICENCE_ID>';` (licence DB, `postgres-query`; staging read OK, **PROD: one session, 1/task**). No row → recheck config, wait for next sync. Never print the key.
+3. Share securely: password-protected ZIP attached to the card; password via a separate approved channel. Never paste the key into Jira/email/Teams/Slack/Confluence.
+4. Tell the agency: subscribe its APEX app to `molb-l1t-status-push`, then connectivity test per the dev portal getting-started "Step 3: Test APEX Connection".
+5. **Only for agencies migrating from Status Update/Poll**, after the agency's go-live date: remove the Status Update/Poll endpoint from OP (and the status-update DynamoDB table if needed; keep it if other licences share the endpoint). Do not decom before go-live. Confirm MOLBLT-7645 is deployed to PROD first (Status Push depended on a registered Status Update endpoint before it).
+
+- Card wording can mislead (form may tick both Status Update **and** Status Push): if the agency says "Status Push", treat Status Update endpoint URLs on the card as ignored → open item for the agency to confirm, don't configure them (MOLBLT-7845).
+
 **Limits**: no path forwarding (list every endpoint) · static headers only (no dynamic/timestamp) · Draft works for own org; Published needed to share.
 
 ## 4. Output
@@ -148,7 +160,7 @@ Required rows → JSON array (only after a successful fetch), one object per end
 1. Scenario + why (one line)
 2. Current state table (2b), Required / Done / Mismatch + evidence
 3. OP API rows `json` block with per-row evidence — or "Not proposed: OP state not fetched" + SQL, no JSON
-4. Checklist mapped to Tech Notes steps, exact card values, `- [ ]` only for Required
+4. Checklist mapped to Tech Notes steps, exact card values, `- [ ]` only for Required; Tech Notes Step 4 (Status Push / LCP) → task **I** steps
 5. Open items for the agency
 6. Test evidence to attach (correlation ID, inbound/outbound log)
 
