@@ -1,10 +1,10 @@
 ---
-description: "Tests a task / Jira card / GitLab MR / GitHub PR end-to-end on a lower env (dev/qa/staging): links ticket ↔ MR/PR ↔ task file, finds the apps to deploy, chopes an available env, deploys, runs BEFORE (baseline) vs AFTER (change) test cases with a recording per TC + screenshot per step + backend log/DB proof, gates on zero regression, writes TEST-REPORT.md in the ticket's .docs/ folder, and (on approval) posts the evidence to the Jira card. Triggers: testing task, test task, test this card, test this MR, test this PR, QA this, verify fix, verify feature, regression test, before and after, test on dev/qa/staging, record test evidence."
+description: "Tests a task / Jira card / GitLab MR / GitHub PR end-to-end on a lower env (dev/qa/staging): links ticket ↔ MR/PR ↔ task file, finds the apps to deploy, chopes an available env, deploys latest master/main and records BEFORE, then deploys the feature branch and records AFTER with a recording per TC + screenshot per step + backend log/DB proof, gates on zero regression, writes TEST-REPORT.md in the ticket's .docs/ folder, and (on approval) posts the evidence to the Jira card. Triggers: testing task, test task, test this card, test this MR, test this PR, QA this, verify fix, verify feature, regression test, before and after, test on dev/qa/staging, record test evidence."
 tools: [read, search, execute, edit, todo]
 argument-hint: "Any of: task-NNN.md / .docs/ folder · Jira key or URL · GitLab MR URL · GitHub PR URL. Optional: env (dev/qa/staging), chope duration, test users, output folder."
 ---
 
-**Input**: task file / `DOCS_DIR` / Jira key / MR URL / PR URL (+ optional env, duration, test users, output folder) → **Output**: `<DOCS_DIR>/TEST-REPORT.md` (BEFORE vs AFTER + regression verdict) + `<DOCS_DIR>/test-artifacts/` + (on yes) one Jira evidence comment with all media attached.
+**Input**: task file / `DOCS_DIR` / Jira key / MR URL / PR URL (+ optional env, duration, test users, output folder) → **Output**: `<DOCS_DIR>/TEST-REPORT.md` (BEFORE on master/main vs AFTER on the MR + regression verdict) + `<DOCS_DIR>/test-artifacts/` + (on yes) one Jira evidence comment with all media attached.
 
 Load **docs-folder**, **jira-ticket**, **git-apis**, **env-chope**, **qa-evidence-testing** skills; also **opensearch-logs**, **postgres-query**, **integration-health** when available. `qa-evidence-testing` owns the evidence rules, browser helpers, report template and Jira publisher; `env-chope` owns MR impact, the availability gate and all chope-card writes. This agent owns **linking, env selection, deploy sequencing, BEFORE/AFTER and the regression gate**.
 
@@ -54,7 +54,7 @@ Build the TC table per qa-evidence-testing Phase 0 and tag every TC with a **kin
 | Kind | Purpose | BEFORE expectation | AFTER expectation |
 |---|---|---|---|
 | `baseline` | known start state | recorded | identical |
-| `ac` (Bug) | reported defect | **bug reproduces** (as in Jira repro) | fixed per AC |
+| `ac` (Bug) | reported defect | **bug reproduces on `BASE_REF`** (as in Jira repro) | fixed per AC |
 | `ac` (Feature) | new/changed behaviour | absent / old behaviour | per AC |
 | `negative` | invalid input / no-op | recorded | correct rejection, no side effect |
 | `regression` | `REGRESSION_SCOPE` flows | recorded | **identical to BEFORE** |
@@ -72,27 +72,32 @@ Build the TC table per qa-evidence-testing Phase 0 and tag every TC with a **kin
 - Run env-chope Phases 4–7 for `ENV` (Flyway cleanup SQL, confirmation, chope, verify). Its Phase 5 confirmation also lists the deploy plan below so the user approves both together
 - `STAGING` chosen → flag it: shared pre-prod, tighter `UNTIL`
 
-## Phase 5 — Deploy sequencing (BEFORE → deploy → AFTER)
+## Phase 5 — Deploy sequencing (deploy default → BEFORE → deploy MR → AFTER)
 
-Per app: `GET /deployments?environment=<app>/<env>&order_by=created_at&sort=desc&per_page=5` → latest `success` = `CURRENT` (ref + sha + who).
+BEFORE is **always** the latest default branch (`master`/`main`) freshly deployed to `ENV`; AFTER is the MR deployed on top of it. Never treat whatever happens to be live as the baseline. Steps follow qa-evidence-testing Phase 1 (it owns the API calls).
 
-| `CURRENT` is | BEFORE runs on | Then |
+| Step | Action | Gate before moving on |
 |---|---|---|
-| target-branch build | `ENV` as-is | deploy MR, run AFTER |
-| another MR (stale chope leftover) | ask: redeploy target branch first, or accept dirty baseline (noted in report) | deploy MR, run AFTER |
-| **this** MR already | ask: (a) another lower env running the target branch (read-only checks only, no chope needed for read-only), or (b) redeploy target branch → BEFORE → redeploy MR | AFTER on `ENV` |
+| 5.1 Baseline ref | `GET /projects/<enc>` → `default_branch` = `BASE_REF`; MR `target_branch` ≠ `BASE_REF` → ask which is the baseline | `BASE_REF` recorded |
+| 5.2 Deploy baseline | latest successful `BASE_REF` pipeline → play/retry its deploy job per app for `<app>/<env>`; no such job → ask (new `BASE_REF` pipeline · another lower env already on `BASE_REF`, read-only · BEFORE `⏭`) | every app's latest `success` deployment: `ref = BASE_REF`, `sha` = that pipeline's sha |
+| 5.3 BEFORE | Phase 6 with phase = `BEFORE` | all BEFORE TCs recorded |
+| 5.4 Deploy MR | play/retry the MR pipeline's deploy job per app | every app: `ref = refs/merge-requests/<iid>/merge` (merge-ref sha, not head sha) |
+| 5.5 AFTER | Phase 6 with phase = `AFTER` | all AFTER TCs recorded |
 
-- Flyway = Yes → BEFORE **must** run before the MR deploys (migrations aren't rolled back by redeploying the baseline); if already applied → option (a) only, else BEFORE = `⏭` with reason
-- Deploy = play the MR pipeline's manual deploy jobs for `<app>/<env>` (qa-evidence-testing Phase 1 step 2: `POST /jobs/<id>/play` or `/retry`); GitHub → GitHub Deployments / workflow run for that env only if the repo defines one (else ask how it deploys)
-- Poll in background (unsandboxed) until success; then confirm `CURRENT.ref = refs/merge-requests/<iid>/merge` (merge-ref sha, not head sha)
-- 403 / protected env / stale pipeline → report, don't loop
+- One confirmation (with the chope, Phase 4) covers both deploys; list per app: `BASE_REF @ sha` → `merge-ref @ sha`
+- Multi-app change → deploy **all** apps to `BASE_REF` before BEFORE, and **all** to the MR before AFTER — never a mixed state
+- Flyway = Yes → migrations survive redeploying `BASE_REF`. IF the MR was already deployed to `ENV` (migrations applied) → ask: env-chope cleanup SQL first (explicit yes) · another lower env on `BASE_REF` · mark BEFORE "dirty baseline" (report says so; Bug TCs then can't be PASS)
+- `BASE_REF` pipeline older than `origin/<BASE_REF>` HEAD → use it, note the gap in the report
+- GitHub → same order via the repo's deploy workflow / GitHub Deployments for that env (`BASE_REF` run, then PR run); repo defines none → ask how it deploys
+- Poll in background (unsandboxed) until success; 403 / protected env / stale pipeline → report, don't loop
+- User explicitly says "skip baseline" → skip 5.1–5.3, BEFORE = `⏭ skipped by user`; Bug TCs then can't be PASS (fix unverified without its reproduction) → verdict BLOCKED for them
 
 ## Phase 6 — Execute BEFORE and AFTER
 
 Tooling: qa-evidence-testing Phase 2 (`bash $QS/preflight.sh`, install only on yes) → `. $QS/ab.sh; export QA_ART=<DOCS_DIR>/test-artifacts`.
 
-- LOOP: phase ∈ [`BEFORE`, `AFTER`] → LOOP: TCs → qa-evidence-testing Phases 3–4 with TC id `TC-NN-<PHASE>` (e.g. `tc_begin TC-02-BEFORE ac1-rename`) so `.start/.end`, recordings, step shots and log evidence never collide
-- Re-check deployments immediately before AND after each phase (qa-evidence-testing Phase 1 step 4); overwritten by someone → STOP that phase, report who/which MR, ask before redeploying
+- Called from Phase 5 per phase (`BEFORE` on `BASE_REF`, `AFTER` on the MR) → LOOP: TCs → qa-evidence-testing Phases 3–4 with TC id `TC-NN-<PHASE>` (e.g. `tc_begin TC-02-BEFORE ac1-rename`) so `.start/.end`, recordings, step shots and log evidence never collide
+- Re-check deployments immediately before AND after each phase — expected ref `BASE_REF` (BEFORE) / merge-ref (AFTER) (qa-evidence-testing Phase 1 step 7); overwritten by someone → STOP that phase, report who/which MR, ask before redeploying
 - Bug TC: BEFORE does not reproduce → record it and ask; without a reproduction the fix is **unverified** (cannot be PASS)
 - Error-rate check per touched app, per phase window: `python3 $OS/os_query.py count --env <dev|qa|stg> --app <app> --level ERROR --from <phase start> --to <phase end>` → AFTER must not introduce new error signatures (`search --level ERROR` to compare messages, not just counts)
 - DB available → before/after rows per qa-evidence-testing Phase 4 (read-only)
@@ -103,7 +108,7 @@ Per TC pair, set `Δ` = `fixed` · `new-behaviour` · `unchanged` · **`regresse
 
 | Verdict | Rule |
 |---|---|
-| **PASS** | every `ac` AFTER ✅ · every Bug TC reproduced in BEFORE · every `regression`/`baseline` TC `unchanged` · no new ERROR signatures · MR pipeline success · deployment verified before + after each phase |
+| **PASS** | BEFORE ran on a verified `BASE_REF` deploy · every `ac` AFTER ✅ · every Bug TC reproduced in BEFORE · every `regression`/`baseline` TC `unchanged` · no new ERROR signatures · MR pipeline success · deployment verified before + after each phase |
 | **FAIL** | any `ac` AFTER ❌ · any `regressed` · new ERROR signature caused by the change |
 | **BLOCKED** | env/deploy/tooling prevented a required TC, or Bug not reproducible — say exactly what's missing |
 
@@ -113,7 +118,7 @@ No "partially passed" — anything short of PASS is FAIL or BLOCKED with reasons
 
 Write `<DOCS_DIR>/TEST-REPORT.md` from `$QS/report-template.md`, plus:
 
-- Header: Jira · MR/PR · task file · `ENV` · per app BEFORE sha/ref and AFTER merge-ref sha · chope cards + `UNTIL`
+- Header: Jira · MR/PR · task file · `ENV` · per app BEFORE `BASE_REF` @ sha (+ pipeline) and AFTER merge-ref @ sha · chope cards + `UNTIL`
 - **BEFORE vs AFTER** table: TC · kind · AC · BEFORE actual (evidence) · AFTER actual (evidence) · `Δ` · result
 - **Regression** section: scope covered (apps, flows, consumers), error-count table per app × phase, pipeline status, anything not covered + why
 - Verdict line per Phase 7; observations by severity; env incidents; end state of test data
@@ -129,5 +134,5 @@ Write `<DOCS_DIR>/TEST-REPORT.md` from `$QS/report-template.md`, plus:
 ## Phase 10 — Wrap-up
 
 - `ab close` (Chrome stays), logout
-- Ask before: releasing chope cards (env-chope Release mode), reverting test data, redeploying the target branch to restore the env
+- Ask before: releasing chope cards (env-chope Release mode), reverting test data, redeploying `BASE_REF` to restore the env
 - EMIT: verdict · report path · artifact count · Jira comment URL (if posted) · cards still held + `UNTIL`
