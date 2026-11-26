@@ -152,6 +152,7 @@ monorepo/                    # Monorepo workspace variant
 └── <JIRA-KEY>-<kebab-title>/  # general/: <kebab-title>/
     ├── plan.md              # Requirements + AC
     ├── spike.md, spike-report.md
+    ├── presentation.md      # Public discussion doc (presentation-deck, offered after spike)
     ├── blueprint.md         # Greenfield only: stack, envs, commands, route map, nav
     ├── jira.json            # Jira story + sub-task keys
     ├── task-NNN.md          # Vertical slices

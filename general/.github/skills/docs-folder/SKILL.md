@@ -43,6 +43,7 @@ description: "Shared .docs/ work-folder resolver + naming convention: one folder
 .docs/<folder>/
 ├── plan.md                                # generate-plan
 ├── spike.md, spike-report.md              # spike-plan
+├── presentation.md, presentation-assets/  # presentation-deck (offered after spike-plan)
 ├── blueprint.md                           # generate-task (greenfield)
 ├── jira.json                              # Jira story + sub-task keys
 ├── task-NNN.md                            # generate-task / execute-task

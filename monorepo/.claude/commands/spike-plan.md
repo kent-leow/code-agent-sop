@@ -1,10 +1,10 @@
 ---
-description: "Generate a thorough technical Spike document (spike.md) from a plan.md. Researches unknowns, explores codebase, and produces a time-boxed investigation brief with goals, risks, open questions, approach, and actionable outcomes. Triggers: spike, technical spike, spike plan, investigate plan, research plan, explore approach, feasibility, prototype, unknowns, de-risk."
+description: "Generate a thorough technical Spike document (spike.md) from a plan.md. Researches unknowns, explores codebase, and produces a time-boxed investigation brief with goals, risks, open questions, approach, and actionable outcomes, then offers a presentation.md (presentation-deck) for the team. Triggers: spike, technical spike, spike plan, investigate plan, research plan, explore approach, feasibility, prototype, unknowns, de-risk."
 tools: [read, search, edit, execute, web, todo]
 argument-hint: "Provide the path to plan.md (e.g. .docs/GOBIZWKST2-324-my-feature/plan.md)"
 ---
 
-**Input**: `plan.md` path → **Output**: `spike.md` + `spike-report.md` in the same `DOCS_DIR`
+**Input**: `plan.md` path → **Output**: `spike.md` + `spike-report.md` (+ optional `presentation.md` via presentation-deck, Phase 6) in the same `DOCS_DIR`
 
 Load **docs-folder** skill.
 
@@ -50,6 +50,13 @@ A spike is a time-boxed research activity to reduce technical uncertainty. Produ
   - Lead with decisions + confidence
   - Use Mermaid for user flow + system overview
   - Use ADD/UPDATED/NO CHANGE/REMOVED labels
+
+## Phase 6 — Offer Presentation
+
+- EMIT: paths of `spike.md` + `spike-report.md`, Confidence, Complexity, Recommendation
+- STOP: ask user "Generate `presentation.md` from this spike to present to the team (tech + non-tech)?" — collect audience + meeting goal (decide / align / inform) in the same question
+- IF: yes → CALL: presentation-deck skill(DOCS_DIR, audience, meeting goal) → follow its Phases 1–4 → `<DOCS_DIR>/presentation.md` → EMIT its report
+- IF: no → EMIT "Run `presentation-deck` on `<DOCS_DIR>` any time to create it" and finish
 
 ---
 
