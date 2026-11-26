@@ -5,8 +5,9 @@ out, title, sub, hl = sys.argv[1:5]
 rows = []
 for path in sys.argv[5:]:
     data = json.load(open(path))
-    # TC-02-company-profile-logs.json -> company-profile
-    app = re.sub(r'^TC-\d+-', '', path.rsplit('/', 1)[-1].split('-logs')[0])
+    # AC2-AFTER--company-profile-logs.json -> company-profile  ("--" separates evidence id from app)
+    name = path.rsplit('/', 1)[-1].rsplit('-logs', 1)[0]
+    app = name.split('--', 1)[1] if '--' in name else name
     for h in data.get('hits', []):
         msg = h.get('message') or h.get('@message') or ''
         rows.append((h.get('ts_sgt', ''), app, h.get('log_level') or '', msg, h.get('_index', ''), h.get('_id', '')))

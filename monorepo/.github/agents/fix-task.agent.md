@@ -16,7 +16,7 @@ Load **feature-flow** (stage 9 Fix), **docs-folder**, **git-workflow**, **git-ap
 - CALL: DOCS_FOLDER(REQUEST, PATH=folder) → DOCS_DIR, JIRA_KEY (validates/renames legacy folder)
 - IF: `issues.md` path → read + extract numbered items
 - IF: raw text → treat each line/bullet as issue
-- IF: `TEST-REPORT.md` → each ❌ / `regressed` TC = one issue (steps, BEFORE vs AFTER evidence, log/DB proof as repro)
+- IF: `TEST-REPORT.md` → each ❌ AC section and each regressed No-regression flow = one issue (its steps, BEFORE vs AFTER evidence, log/DB proof as repro)
 - DO: read `investigation-*/report.md` in `DOCS_DIR` when present — its root cause is the starting hypothesis
 - DO: skim `plan.md` (80 lines), `task-NNN.md` headings/checklists, `jira.json`
 - IF: existing `fixes/*.md` (or legacy `fix-*.md`) → DO NOT read them

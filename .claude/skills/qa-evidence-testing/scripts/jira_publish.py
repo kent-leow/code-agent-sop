@@ -6,20 +6,28 @@ with a plain-language caption explaining what it proves.
   preview --manifest M --art DIR                 read-only: validate files, check issue, print the comment
   publish --manifest M --art DIR --confirmed     upload missing attachments, post the comment, write journal
 
-Manifest (JSON):
+Manifest (JSON) — one entry per acceptance criterion; each AC carries its own BEFORE and AFTER proof:
 {
   "issue_key": "CMS-1530",
   "run_id": "CMS-1530-dev-20261124T1445",           # unique per test run; used as duplicate guard
-  "title": "QA test evidence — DEV — MR !1251",
-  "header": [["MR", "[!1251|https://...]"], ["Env", "DEV @ 472d0a25"]],
+  "title": "QA evidence — DEV — MR !1251",
+  "header": [["MR", "[!1251|https://...]"], ["Env", "DEV"], ["BEFORE", "master @ 1a2b3c4d"], ["AFTER", "merge-ref @ 472d0a25"]],
   "verdict": "PASS",                                 # PASS | FAIL | BLOCKED
-  "verdict_note": "All in-scope ACs pass.",
-  "cases": [{
-     "tc": "TC-02", "ac": "AC1 — renamed on Corppass → stored name updated", "result": "PASS",   # PASS|FAIL|NA
-     "summary": "Logged in as the NEW-name user; company-profile wrote the new name once.",
-     "evidence": [{"file": "TC-02-ac1-rename-new-name.mp4", "caption": "Recording: login → dashboard → profile → logout"},
-                  {"file": "TC-02-step1-dashboard.png",     "caption": "Dashboard header shows the NEW name"}]
-  }],
+  "verdict_note": "All 3 ACs proven.",
+  "acs": [{
+     "ac": "AC1", "source": "Jira",
+     "criterion": "Given a company renamed on Corppass, when the user logs in, then the stored name is updated",
+     "result": "PASS",                               # PASS | FAIL | NA | BLOCKED
+     "before": {"summary": "master: dashboard still shows the OLD name (bug reproduces).",
+                "evidence": [{"file": "AC1-BEFORE-step1-dashboard.png", "caption": "Header shows OLD name"}]},
+     "after":  {"summary": "MR: dashboard shows the NEW name; DB written once.",
+                "evidence": [{"file": "AC1-AFTER-rename.mp4", "caption": "Recording: login → dashboard → profile → logout"},
+                             {"file": "AC1-AFTER-step1-dashboard.png", "caption": "Header shows NEW name"},
+                             {"file": "AC1-AFTER-log-evidence.png", "caption": "'Synced entity name' ×1 at 14:46:53"}]},
+     "explanation": "Same steps, same user: BEFORE shows the old name, AFTER shows the new one and the log proves one DB write."
+  }],                                                # before may be {"skipped": "<reason>"} instead
+  "regression": [{"check": "Login without rename", "result": "PASS", "before": {...}, "after": {...},
+                  "explanation": "Unchanged behaviour"}],   # optional, same shape, keyed by "check"
   "observations": ["Minor: sync fires on every /userInfo/basic call"],
   "footer": "Full report: TEST-REPORT.md"
 }
@@ -85,50 +93,87 @@ def esc(text: str) -> str:
     return text.replace("\n", " ")
 
 
+def items(m: dict):
+    """(label, item) for every AC then every regression check, in manifest order."""
+    for c in m.get("acs", []):
+        yield c.get("ac", "?"), c
+    for c in m.get("regression", []):
+        yield f"Regression: {c.get('check', '?')}", c
+
+
 def load(manifest: str, art: str) -> dict:
     m = json.load(open(manifest))
-    for k in ("issue_key", "run_id", "title", "verdict", "cases"):
+    for k in ("issue_key", "run_id", "title", "verdict", "acs"):
         if not m.get(k):
             die(f"manifest missing '{k}'")
     if not re.fullmatch(r"[A-Z][A-Z0-9_]+-\d+", m["issue_key"]):
         die(f"invalid issue_key {m['issue_key']}")
     files, seen = [], set()
-    for c in m["cases"]:
+    for label, c in items(m):
         if c.get("result", "").upper() not in ICON:
-            die(f"{c.get('tc')}: result must be PASS|FAIL|NA|BLOCKED")
-        for ev in c.get("evidence", []):
-            if not ev.get("caption"):
-                die(f"{c['tc']}: evidence {ev.get('file')} has no caption — every file needs an explanation")
-            p = os.path.join(art, ev["file"])
-            if not os.path.isfile(p):
-                die(f"evidence file not found: {p}")
-            if ev["file"] not in seen:
-                seen.add(ev["file"])
-                files.append((ev["file"], p, os.path.getsize(p)))
+            die(f"{label}: result must be PASS|FAIL|NA|BLOCKED")
+        if c.get("result", "").upper() in ("PASS", "FAIL") and not c.get("explanation"):
+            die(f"{label}: missing 'explanation' — say why the evidence proves (or disproves) it")
+        for phase in ("before", "after"):
+            ph = c.get(phase) or {}
+            if c.get("result", "").upper() == "PASS" and phase == "after" and not ph.get("evidence"):
+                die(f"{label}: PASS needs AFTER evidence")
+            for ev in ph.get("evidence", []):
+                if not ev.get("caption"):
+                    die(f"{label} {phase}: evidence {ev.get('file')} has no caption — every file needs an explanation")
+                p = os.path.join(art, ev["file"])
+                if not os.path.isfile(p):
+                    die(f"evidence file not found: {p}")
+                if ev["file"] not in seen:
+                    seen.add(ev["file"])
+                    files.append((ev["file"], p, os.path.getsize(p)))
     m["_files"] = files
     return m
 
 
+def phase_cell(ph: dict | None) -> str:
+    if not ph:
+        return "—"
+    if ph.get("skipped"):
+        return "skipped"
+    return "recorded"
+
+
+def render_phase(name: str, ph: dict | None) -> list[str]:
+    if not ph:
+        return [f"\n*{name}:* not run"]
+    if ph.get("skipped"):
+        return [f"\n*{name}:* skipped — {esc(ph['skipped'])}"]
+    out = [f"\n*{name}:* {esc(ph.get('summary', ''))}"]
+    for i, ev in enumerate(ph.get("evidence", []), 1):
+        f = ev["file"]
+        if f.lower().endswith(IMG):
+            out.append(f"*{i}. Screenshot* — {esc(ev['caption'])}\n!{f}|width=720!")
+        else:
+            out.append(f"*{i}. Recording* (open the attachment to play) — {esc(ev['caption'])}\n[^{f}]")
+    return out
+
+
 def render(m: dict) -> str:
     # Layout rule: images (!f|width=N!) and links ([t|url]) contain "|" and break wiki TABLE cells,
-    # so tables only hold plain text; media goes in numbered evidence items below each TC heading.
+    # so tables only hold plain text; media goes in numbered lists under each AC heading.
     out = [f"h3. {esc(m['title'])}"]
     for k, v in m.get("header", []):
         out.append(f"* *{esc(k)}:* {v}")  # v may contain a [text|url] link — kept raw, bullets are pipe-safe
     out.append(f"\n*Verdict:* {ICON[m['verdict'].upper()]} — {esc(m.get('verdict_note', ''))}\n")
-    out.append("||TC||Acceptance criterion||Result||")
-    for c in m["cases"]:
-        out.append(f"|{esc(c['tc'])}|{esc(c.get('ac', ''))}|{ICON[c['result'].upper()]}|")
-    for c in m["cases"]:
-        out.append(f"\n----\nh4. {esc(c['tc'])} · {esc(c.get('ac', ''))} — {ICON[c['result'].upper()]}")
-        if c.get("summary"):
-            out.append(esc(c["summary"]))
-        for i, ev in enumerate(c.get("evidence", []), 1):
-            f = ev["file"]
-            if f.lower().endswith(IMG):
-                out.append(f"\n*{i}. Screenshot* — {esc(ev['caption'])}\n!{f}|width=720!")
-            else:
-                out.append(f"\n*{i}. Recording* (open the attachment to play) — {esc(ev['caption'])}\n[^{f}]")
+    out.append("||AC||Acceptance criterion||BEFORE||AFTER||Result||")
+    for label, c in items(m):
+        out.append(f"|{esc(label)}|{esc(c.get('criterion', 'unchanged behaviour'))}|"
+                   f"{phase_cell(c.get('before'))}|{phase_cell(c.get('after'))}|{ICON[c['result'].upper()]}|")
+    for label, c in items(m):
+        out.append(f"\n----\nh4. {esc(label)} — {ICON[c['result'].upper()]}")
+        if c.get("criterion"):
+            src = f" _({esc(c['source'])})_" if c.get("source") else ""
+            out.append(f"bq. {esc(c['criterion'])}{src}")
+        out += render_phase("BEFORE (default branch)", c.get("before"))
+        out += render_phase("AFTER (MR)", c.get("after"))
+        if c.get("explanation"):
+            out.append(f"\n*Why this proves it:* {esc(c['explanation'])}")
     if m.get("observations"):
         out.append("\n----\nh4. Observations")
         out += [f"* {esc(o)}" for o in m["observations"]]

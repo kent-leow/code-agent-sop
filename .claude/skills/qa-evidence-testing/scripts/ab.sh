@@ -1,5 +1,5 @@
 # qa-evidence-testing helpers — SOURCE me:  . ab.sh
-# Env: QA_ART (artifact dir, required before tc_begin), DASHBOARD_URL (default GoBiz dev dashboard).
+# Env: QA_ART (artifact dir, required before ac_begin), DASHBOARD_URL (default GoBiz dev dashboard).
 # Requires: nvm Node 24, ~/.agent-browser/tools (agent-browser + ffmpeg) — see install.sh.
 
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
@@ -28,15 +28,17 @@ header() { ab eval "document.body.innerText.match(/Dashboard\\n([^\\n]+)\\n([A-Z
 shot() { [ -n "${QA_ART:-}" ] || { die "QA_ART not set"; return 1; }; mkdir -p "$QA_ART"
          ab screenshot "$QA_ART/$1.png" ${2:-} >/dev/null && echo "shot $1.png"; }
 
-# step TC-02 1 dashboard "<observed value>" [--full]  → TC-02-step1-dashboard.png + log line
-step() { local tc=$1 n=$2 what=$3 obs=$4; shift 4
-         echo "$tc step$n $what: $obs"; shot "$tc-step$n-$what" "$@"
-         echo "$(date -u +%FT%TZ)	$tc	step$n	$what	$obs" >> "$QA_ART/steps.tsv"; }
+# Evidence id = AC<n>-<BEFORE|AFTER>[-<scenario>]  (e.g. AC2-AFTER, AC2-AFTER-invalid-uen, REG-login-BEFORE)
+# step AC2-AFTER 1 dashboard "<observed value>" [--full]  → AC2-AFTER-step1-dashboard.png + log line
+step() { local id=$1 n=$2 what=$3 obs=$4; shift 4
+         echo "$id step$n $what: $obs"; shot "$id-step$n-$what" "$@"
+         echo "$(date -u +%FT%TZ)	$id	step$n	$what	$obs" >> "$QA_ART/steps.tsv"; }
 
-tc_begin() { [ -n "${QA_ART:-}" ] || { die "QA_ART not set"; return 1; }; mkdir -p "$QA_ART"
+# ac_begin AC2-AFTER rename-new-name  → AC2-AFTER.start (UTC) + starts AC2-AFTER-rename-new-name.mp4
+ac_begin() { [ -n "${QA_ART:-}" ] || { die "QA_ART not set"; return 1; }; mkdir -p "$QA_ART"
              date -u +%Y-%m-%dT%H:%M:%SZ > "$QA_ART/$1.start"
              ab record start "$QA_ART/$1-$2.mp4" --cursor 2>&1 | tail -1; }
-tc_end()   { ab record stop 2>&1 | tail -1; date -u +%Y-%m-%dT%H:%M:%SZ > "$QA_ART/$1.end"; }
+ac_end()   { ab record stop 2>&1 | tail -1; date -u +%Y-%m-%dT%H:%M:%SZ > "$QA_ART/$1.end"; }
 
 # ---- GoBiz dashboard (dev) specifics -------------------------------------------------------
 # Mockpass is gated by an Agency Portal session: Government Email → System Admin.

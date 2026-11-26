@@ -1,6 +1,6 @@
 ---
 name: qa-evidence-testing
-description: "Test a Jira card / GitLab MR end-to-end on a lower env (dev/qa/staging) with proof for every step and AC: maps ACs → test cases, deploys the latest default branch (master/main) to record BEFORE, then deploys the MR to record AFTER, drives a real browser (agent-browser) with a video recording per test case + a screenshot per step, pulls backend proof from OpenSearch (and Postgres when available) rendered as highlighted screenshots, writes TEST-REPORT.md, then asks whether to post the results as a Jira comment with every screenshot/recording attached and explained (posts only on yes). Use when: test this card, QA this ticket, start testing MR, verify AC on dev/qa/staging, record test evidence, screenshot proof."
+description: "Test a Jira card / GitLab MR end-to-end on a lower env (dev/qa/staging) proving each acceptance criterion (Jira / plan.md) with BEFORE vs AFTER evidence: deploys the latest default branch (master/main) to record BEFORE, then deploys the MR to record AFTER, drives a real browser (agent-browser) with a video recording per AC per phase + a screenshot per step, pulls backend proof from OpenSearch (and Postgres when available) rendered as highlighted screenshots, writes a per-AC TEST-REPORT.md (BEFORE vs AFTER + why it proves the AC), then asks whether to post it as a Jira comment with every screenshot/recording attached and explained (posts only on yes). Use when: test this card, QA this ticket, start testing MR, verify AC on dev/qa/staging, record test evidence, screenshot proof."
 argument-hint: "Jira key/URL and/or MR URL + env (default dev)"
 metadata:
   category: qa
@@ -10,43 +10,48 @@ metadata:
 
 # qa-evidence-testing
 
-**Input**: Jira card and/or MR + env → **Output**: `<DOCS_DIR>/TEST-REPORT.md` + `<DOCS_DIR>/test-artifacts/` (per TC id `TC-NN-BEFORE` / `TC-NN-AFTER`: `.mp4`, `stepN-*.png`, `*-log-evidence.png`, raw `*-logs.json`, `.start/.end`) + (on user approval) one Jira evidence comment with all media attached.
+**Input**: Jira card and/or MR + env → **Output**: `<DOCS_DIR>/TEST-REPORT.md` (one section per AC) + `<DOCS_DIR>/test-artifacts/` (per evidence id `AC<n>-BEFORE` / `AC<n>-AFTER`: `.mp4`, `stepN-*.png`, `-log-evidence.png`, raw `--<app>-logs.json`, `.start/.end`) + (on user approval) one Jira evidence comment with all media attached.
 
 `S=.github/skills/qa-evidence-testing/scripts` · `DOCS_DIR` from **docs-folder** skill (`.docs/<JIRA-KEY>…/`).
 
 ## Evidence rule (non-negotiable)
 
-| Every… | Must have |
-|---|---|
-| test case (TC) | one video `TC-NN-<slug>.mp4` covering login → steps → logout |
-| UI step | screenshot `TC-NN-stepN-<what>.png` taken **after** the result is visible |
-| backend assertion (DB write, API call, no-call) | OpenSearch/DB rows saved as JSON **and** rendered to `TC-NN-log-evidence.png` with the key lines highlighted |
-| AC | ≥1 TC row in the report citing its artifacts; AC not testable → `⏭ N/A` + reason (never silently dropped) |
+The unit of proof is the **acceptance criterion**. No test-case or scenario numbering — every artefact, report section and Jira block is named by its AC id.
 
-UI that is computed from the request (e.g. "show live value") can't prove persistence → assert on backend evidence.
+| Every AC | Must have |
+|---|---|
+| BEFORE run (default branch) | recording `AC<n>-BEFORE-<slug>.mp4` + screenshot per step `AC<n>-BEFORE-stepN-<what>.png` — or `skipped: <reason>` (Phase 0 rules) |
+| AFTER run (MR) | recording `AC<n>-AFTER-<slug>.mp4` + screenshot per step `AC<n>-AFTER-stepN-<what>.png` |
+| backend assertion (DB write, API call, no-call) | OpenSearch/DB rows saved as JSON **and** rendered to `AC<n>-<PHASE>-log-evidence.png`, key lines highlighted |
+| verdict | ✅ / ❌ / ⏭ + **Why this proves it**: one or two sentences linking BEFORE vs AFTER evidence to the AC's Then |
+
+- Screenshot **after** the result is visible; recording covers login → steps → logout
+- An AC with several conditions (e.g. valid + invalid input) → one run per condition under the same AC: id `AC<n>-<PHASE>-<condition>` (e.g. `AC2-AFTER-invalid-uen`); still reported under AC<n>
+- Not testable → `⏭ Not testable — <reason>` under that AC; never silently dropped
+- UI computed from the request (e.g. "show live value") can't prove persistence → assert on backend evidence
 
 ## Phase 0 — Scope (read-only)
 
-1. Jira: `jira-ticket` `get-issue.sh --issue-key <KEY>` → AC / QA scenarios / in/out of scope.
+1. ACs: `jira-ticket` `get-issue.sh --issue-key <KEY>` → AC / QA scenarios / repro steps; merge with `plan.md` ACs (caller's AC inventory wins when given). Each AC → Given / When / Then.
 2. MR: search `GET /projects/<enc>/merge_requests?search=<KEY>`; IF none → `git branch -r | grep -i <KEY>` → `?source_branch=<branch>&state=all`. Read diff (`git-review` Steps 1–2) to learn *what to observe* (endpoints, log lines, tables) — the diff is a hint, not the oracle.
-3. EMIT TC table → confirm with user before executing:
+3. EMIT AC proof plan → confirm with user before executing:
 
-| TC | AC | Steps | BEFORE expected (default branch) | AFTER expected (MR) | Proof (video / screenshots / logs / DB) |
+| AC | Given (setup + data) | When (steps) | Then — BEFORE expected | Then — AFTER expected | Proof (screen / log / DB) |
 |---|---|---|---|---|---|
 
-BEFORE expectation: Bug → the defect reproduces; feature → old/absent behaviour; unaffected/regression path → same as AFTER. Include a baseline TC (known starting state), each AC, one negative/no-op TC, one "unaffected path" TC, and a resilience TC if the change is best-effort/async.
+BEFORE expected: Bug → the defect reproduces · changed rule → old behaviour · new screen/field/endpoint → run up to the missing point and record the absence · needs data/config only the MR creates → `skipped: <reason>`. Plus a **No regression** list: neighbouring flows named by what they do (evidence id `REG-<flow>-<PHASE>`), each expected unchanged.
 
 ## Phase 1 — Environment (BEFORE = default branch, AFTER = MR)
 
-Every TC runs twice on the **same env and test-data setup**: `BEFORE` on the latest default branch (`master`/`main`), then `AFTER` on the MR. Order is fixed: **deploy default → BEFORE → deploy MR → AFTER**. Book cards with `env-chope` first; each deploy needs the user's yes (one confirmation may cover both).
+Every AC runs twice on the **same env and test-data setup**: `BEFORE` on the latest default branch (`master`/`main`), then `AFTER` on the MR. Order is fixed: **deploy default → BEFORE → deploy MR → AFTER**. Book cards with `env-chope` first; each deploy needs the user's yes (one confirmation may cover both).
 
 GitLab Environments are the truth (`git-review` Step 2B). Per app: `GET /deployments?environment=<app>/<env>&order_by=created_at&sort=desc&per_page=5` → latest `success` = what's live.
 
 1. **Baseline ref** — `GET /projects/<enc>` → `default_branch` = `BASE_REF`. IF MR `target_branch` ≠ `BASE_REF` → ask which to use as baseline (record the choice).
 2. **Deploy baseline** — `GET /projects/<enc>/pipelines?ref=<BASE_REF>&status=success&order_by=id&sort=desc&per_page=1` → `BASE_PIPELINE` (record its `sha`; IF it's older than `origin/<BASE_REF>` HEAD → say so in the report). `GET /pipelines/<id>/jobs?per_page=100` → the deploy job for `<app>/<env>` (same job name as in the MR pipeline) → play/retry (step 4).
    - No deploy job for that env in the default-branch pipeline → ask: trigger a new pipeline `POST /projects/<enc>/pipeline` with `ref=<BASE_REF>` (write, needs yes) · or another lower env already on `BASE_REF` (read-only checks only) · or `BEFORE = ⏭` + reason. Never test BEFORE on a build that isn't `BASE_REF`.
-   - Verify: latest `success` deployment `ref = <BASE_REF>` and `sha = BASE_PIPELINE.sha` → then run all BEFORE TCs (Phases 3–4).
-3. **Deploy MR** — play/retry the MR pipeline's deploy job for `<app>/<env>` → verify latest `success` has `ref = refs/merge-requests/<iid>/merge` (MR pipelines deploy the **merge-ref sha**, not the MR head sha) → run all AFTER TCs.
+   - Verify: latest `success` deployment `ref = <BASE_REF>` and `sha = BASE_PIPELINE.sha` → then run every AC's BEFORE (Phases 3–4).
+3. **Deploy MR** — play/retry the MR pipeline's deploy job for `<app>/<env>` → verify latest `success` has `ref = refs/merge-requests/<iid>/merge` (MR pipelines deploy the **merge-ref sha**, not the MR head sha) → run every AC's AFTER.
 4. Play = `POST /jobs/<id>/play` (`manual`) or `POST /jobs/<id>/retry` (already ran). 403 on play = env protection / stale pipeline → report, don't loop; a fresh pipeline (e.g. rebase) often clears it.
 5. **Flyway** (`env-chope` `mr_impact.py` verdict Yes) — redeploying the baseline does **not** roll migrations back. IF the MR's migrations are already applied on the env (MR deployed earlier) → BEFORE is not a true baseline: ask → run the env-chope cleanup SQL first (lower env, `postgres-query --write`, explicit yes) · or another lower env on `BASE_REF` · or mark BEFORE "dirty baseline" in the report.
 6. Poll with `run_in_background` Bash (unsandboxed). **Not** the Monitor tool — it runs sandboxed (no network, no `~/.zshenv`) and stays silent.
@@ -60,34 +65,34 @@ GitLab Environments are the truth (`git-review` Step 2B). Per app: `GET /deploym
 
 Then: `. $S/ab.sh` (sets PATH incl. ffmpeg **before** the agent-browser daemon starts; if `record start` says "ffmpeg not found" → `ab close` then retry — Chrome on :9222 survives).
 
-## Phase 3 — Execute (per TC, once per phase)
+## Phase 3 — Execute (per AC, once per phase)
 
-TC id carries the phase — `TC-NN-BEFORE` (default-branch deploy) / `TC-NN-AFTER` (MR deploy) — so `.start/.end`, recordings, shots and log evidence never collide. Run **all** BEFORE TCs, then switch deploy (Phase 1 step 3), then all AFTER TCs with identical steps.
+Evidence id carries AC + phase — `AC<n>-BEFORE` (default-branch deploy) / `AC<n>-AFTER` (MR deploy) — so `.start/.end`, recordings, shots and log evidence never collide. Run every AC's BEFORE, then switch deploy (Phase 1 step 3), then every AC's AFTER with identical steps and equivalent data.
 
 ```bash
 . $S/ab.sh; export QA_ART=<DOCS_DIR>/test-artifacts
-ensure_logged_out                       # clean state; a stale session silently skips the login steps
-tc_begin TC-02-AFTER ac1-rename-new-name   # writes TC-02-AFTER.start (UTC) + starts video
-login_cp "<mockpass dropdown label>"   # GoBiz dashboard Corppass helper; write your own for other apps
-step TC-02-AFTER 1 dashboard "$(header)"   # screenshot + echo observed value
+ensure_logged_out                          # clean state; a stale session silently skips the login steps
+ac_begin AC1-AFTER rename-new-name         # writes AC1-AFTER.start (UTC) + starts AC1-AFTER-rename-new-name.mp4
+login_cp "<mockpass dropdown label>"      # GoBiz dashboard Corppass helper; write your own for other apps
+step AC1-AFTER 1 dashboard "$(header)"     # screenshot + echo observed value
 ab open "$DASHBOARD_URL/profile" >/dev/null; idle
-step TC-02-AFTER 2 profile "$(field 'Official Company Name')" --full
-logout_ui; step TC-02-AFTER 3 logged-out "$(ab get url)"
-tc_end TC-02-AFTER                      # stops video, writes TC-02-AFTER.end
+step AC1-AFTER 2 profile "$(field 'Official Company Name')" --full
+logout_ui; step AC1-AFTER 3 logged-out "$(ab get url)"
+ac_end AC1-AFTER                           # stops video, writes AC1-AFTER.end
 ```
 
 - Verify each step actually happened (URL/text changed) before screenshotting; a helper that "succeeds" on a missing ref is a false pass.
 - Prefer UI actions; `eval` only to READ (web-exploration rules). App quirks: monorepo `skills/web-exploration/testing-context/<host>.md`.
 - One user per tab; never reuse a test user someone else may be on (DUPLICATE_USER).
 
-## Phase 4 — Backend proof (per TC window)
+## Phase 4 — Backend proof (per AC run window)
 
 ```bash
 python3 <opensearch-logs>/os_query.py search --env dev --app <app> --q '<entity/key>' \
-  --from "$(cat $QA_ART/TC-02-AFTER.start)" --to "$(cat $QA_ART/TC-02-AFTER.end)" --size 200 --sort asc --max-chars 400 \
-  > $QA_ART/TC-02-AFTER-<app>-logs.json      # wait ~15s after tc_end for ingestion
-python3 $S/log_evidence.py $QA_ART/evidence-html/TC-02-AFTER.html "TC-02-AFTER / AC1 — <title>" "<env · index · window>" '<highlight regex>' $QA_ART/TC-02-AFTER-*-logs.json
-ab open "file://$QA_ART/evidence-html/TC-02-AFTER.html" >/dev/null; shot TC-02-AFTER-log-evidence --full
+  --from "$(cat $QA_ART/AC1-AFTER.start)" --to "$(cat $QA_ART/AC1-AFTER.end)" --size 200 --sort asc --max-chars 400 \
+  > $QA_ART/AC1-AFTER--<app>-logs.json      # "--" separates evidence id from app; wait ~15s after ac_end for ingestion
+python3 $S/log_evidence.py $QA_ART/evidence-html/AC1-AFTER.html "AC1 AFTER — <criterion title>" "<env · index · window>" '<highlight regex>' $QA_ART/AC1-AFTER--*-logs.json
+ab open "file://$QA_ART/evidence-html/AC1-AFTER.html" >/dev/null; shot AC1-AFTER-log-evidence --full
 ```
 
 - Assert counts, not vibes: "Synced ×1", "PATCH 200 ×2, Synced ×0", "0 calls for UEN X".
@@ -95,23 +100,28 @@ ab open "file://$QA_ART/evidence-html/TC-02-AFTER.html" >/dev/null; shot TC-02-A
 
 ## Phase 5 — Report
 
-Write `<DOCS_DIR>/TEST-REPORT.md` from `$S/report-template.md`: header (ticket, MR head, pipeline, env, **BEFORE** `BASE_REF` @ deployed sha, **AFTER** merge-ref @ deployed sha, chope cards, tool versions, test users), **Verdict**, BEFORE vs AFTER results table (TC · AC · Steps · BEFORE actual · AFTER actual · Δ `fixed`/`new-behaviour`/`unchanged`/`regressed` · ✅/❌/⏭ · artifacts of both runs), observations (severity), environment incidents, end-state of test data. A Bug whose BEFORE didn't reproduce → not ✅ (unverified). Any `regressed` → FAIL. EMIT the table to the user.
+Write `<DOCS_DIR>/TEST-REPORT.md` from `$S/report-template.md`:
+- Header (ticket, MR head, pipeline, env, **BEFORE** `BASE_REF` @ deployed sha, **AFTER** merge-ref @ deployed sha, chope cards, tool versions, test users) + **Verdict** (N of M ACs proven)
+- **AC summary** table: AC · source · Then · BEFORE · AFTER · ✅/❌/⏭
+- One `## AC<n>` section per AC: criterion quoted → how it was proven → BEFORE vs AFTER table (observed, recording, backend proof) → side-by-side screenshots per step → **Why this proves AC<n>**
+- **No regression** (flows named, BEFORE = AFTER), observations (severity), environment incidents, end-state of test data
+- A Bug AC whose BEFORE didn't reproduce → not ✅ (unverified). Any regression → FAIL. EMIT the AC summary table to the user.
 
 ## Phase 6 — Publish to Jira (ALWAYS ask; post only on yes)
 
 1. Write `<DOCS_DIR>/jira-evidence.json` (manifest; schema in `$S/jira_publish.py` docstring):
    - `run_id` = `<KEY>-<env>-<YYYYMMDDTHHMM>` (duplicate guard), `title`, `header` rows (MR, pipeline, env, BEFORE `BASE_REF` @ sha, AFTER merge-ref @ sha, tested window, test users), `verdict` + `verdict_note`
-   - one `cases[]` entry per TC id of the report (`TC-NN-BEFORE`, then `TC-NN-AFTER`; incl. `NA` ACs with the reason in `summary`), in report order; BEFORE `summary` names the default-branch sha, AFTER the merge-ref sha
-   - `evidence[]` per TC, ordered **recording → step screenshots → log-evidence screenshot**; every file gets a `caption` in plain language for a PO/QA reader that says **what is on screen and what it proves**, e.g.
-     - `TC-02-AFTER-ac1-rename-new-name.mp4` → "Recording of the full flow: log in as the renamed entity → dashboard → My Account → log out."
-     - `TC-02-AFTER-step1-dashboard.png` → "Dashboard header after login shows the NEW Corppass name 'CMS-1530 New Foreign Co Pte Ltd'."
-     - `TC-02-AFTER-log-evidence.png` → "company-profile logs (highlighted): 'Upserted … C99887766Z' + 'Synced entity name' at 14:46:53 = the DB was updated exactly once."
-     - `TC-02-BEFORE-step1-dashboard.png` → "BEFORE (master @ 1a2b3c4d): dashboard header still shows the OLD name — reproduces the reported bug."
+   - one `acs[]` entry per AC, in AC order: `ac`, `source`, `criterion`, `result`, `before` (`summary` + `evidence[]`, or `skipped`), `after` (`summary` + `evidence[]`), `explanation` (why this proves it); `regression[]` same shape keyed by `check`
+   - `evidence[]` ordered **recording → step screenshots → log-evidence screenshot**; every file gets a plain-language `caption` for a PO/QA reader saying **what is on screen and what it proves**, e.g.
+     - `AC1-BEFORE-step1-dashboard.png` → "master @ 1a2b3c4d: dashboard header still shows the OLD name — reproduces the reported bug."
+     - `AC1-AFTER-rename-new-name.mp4` → "Recording: log in as the renamed entity → dashboard → My Account → log out."
+     - `AC1-AFTER-step1-dashboard.png` → "Dashboard header after login shows the NEW Corppass name 'CMS-1530 New Foreign Co Pte Ltd'."
+     - `AC1-AFTER-log-evidence.png` → "company-profile logs (highlighted): 'Synced entity name' at 14:46:53 = the DB was updated exactly once."
    - Never caption beyond what the file shows; no NRIC/UEN of real users; raw `*.json`/`.html` are not attached (screenshots of them are)
    - `observations` = report observations (severity first); `footer` = where the full report lives
 2. `source ~/.zshenv && python3 $S/jira_publish.py preview --manifest <DOCS_DIR>/jira-evidence.json --art <DOCS_DIR>/test-artifacts` (read-only, network escalation) → fails on any missing file/caption; reports upload list, files already attached, >10 MB files, name conflicts, and whether this run was already posted.
 3. Ask the user (AskUserQuestion) — question must stand alone: issue key, N files / X MB, verdict, and whether a comment already exists. Options: **Post comment + attach all** · **Show me the comment first** (print the rendered wiki markup, then ask again) · **Don't post**.
-4. Yes → `python3 $S/jira_publish.py publish --manifest … --art … --confirmed` → uploads only missing attachments (sequential, POST never retried), posts ONE comment (wiki: thumbnails for images, attachment links for recordings, per-TC evidence tables), writes `jira-evidence.json.published.json`.
+4. Yes → `python3 $S/jira_publish.py publish --manifest … --art … --confirmed` → uploads only missing attachments (sequential, POST never retried), posts ONE comment (wiki: AC summary table, then per AC: criterion → BEFORE evidence → AFTER evidence → why it proves it; thumbnails for images, attachment links for recordings), writes `jira-evidence.json.published.json`.
    - Partial failure → script prints what was uploaded; report it exactly; re-running `publish` skips attached files but refuses to post a 2nd comment for the same `run_id`.
    - Report the comment URL + attachment count to the user. No → say nothing was posted; artifacts stay local.
 5. GitLab MR comment = a separate ask (not bundled with Jira).
