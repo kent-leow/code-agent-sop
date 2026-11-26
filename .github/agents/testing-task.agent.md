@@ -48,7 +48,7 @@ ACs define PASS. The diff, task checkboxes and the agent's own reading never add
 | Jira AC (description table / AC field / "Acceptance Criteria" section) | primary when present — it's what the card is accepted against |
 | `plan.md` `## Acceptance Criteria` | primary when Jira has none; else cross-check |
 | Jira QA scenarios, Bug repro steps | extra conditions under the AC they prove; repro steps = Bug BEFORE steps |
-| `task-NNN.md` Done When / Edge Cases | hints for invalid-input / edge conditions inside an AC, never new ACs |
+| `task-NNN.md` Done When / Edge Cases, `plan.md` `## Considerations` | hints for invalid-input / edge conditions inside an AC, never new ACs |
 | Neither has ACs | STOP: ask the user for the ACs (or approve ACs drafted from the Jira summary) — never test without an agreed oracle |
 
 - DO: STORE `ACS[]` — one row per AC: `id` (Jira `AC<n>` / plan `AC<n>` / `F<n>-AC<m>`) · source · Given · When · Then (split prose ACs into Given/When/Then; keep the original wording quoted)

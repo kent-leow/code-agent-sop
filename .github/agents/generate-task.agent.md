@@ -25,6 +25,7 @@ Load **feature-flow** (stage 5 Tasks), **docs-folder**, **deep-think**, **app-bl
 
 - IF: unresolved blocking questions in `plan.md` → STOP
 - DO: read every artefact in `DOCS_DIR` — `spike.md` Recommendation, `presentation.md` decisions, investigation root cause bind the design; never pick a different option silently
+- DO: plan `## Considerations` → each row into the owning slice's `Edge Cases & Failure Modes` / `Non-Functional Notes` (never into `Covers`; they are not ACs)
 - DO: explore codebase (structure, patterns, test locations, shared utils)
 - IF: slice changes a shared contract/package → workspace blast-radius / `service-graph.json` → add consumer checks to that slice's `Verify`
 - IF: slice changes DB schema/data → postgres-query read-only `describe` on DEV/QA → migration task matches the real current schema (columns, constraints, row counts for backfill)
