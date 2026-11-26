@@ -186,6 +186,7 @@ Root `.github/` and `.claude/` add:
 | `git-fix-review` | Fix open review threads, commit, push, poll pipeline |
 | `fix-vulnerabilities` | Fetch + fix GitLab security vulnerabilities |
 | `env-chope` | Chope/release DEV/QA/STAGING env cards on the MOLBLT Chope Env board from a GitLab MR (touched apps + Flyway) |
+| `testing-task` | Task / Jira / MR / PR → linked, env choped + deployed, BEFORE vs AFTER evidence (recording + screenshots + logs), regression gate, `TEST-REPORT.md`, Jira evidence comment on approval |
 | `figma-design-context` skill | Fetch design context from Figma REST API |
 | `jira-ticket` skill | Create/update Jira stories and sub-tasks; JQL issue search + Confluence CQL search (prior art) |
 | `opensearch-logs` skill | Read-only log search/count/aggregate/trace on MOLB OpenSearch (dev/qa/stg/prod; VPN) — used by `investigate` |

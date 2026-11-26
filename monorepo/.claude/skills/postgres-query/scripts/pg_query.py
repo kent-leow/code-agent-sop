@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """PostgreSQL access for MOLB / GoBusiness databases via psql.
 
-Databases: licence | agency-portal | formbuilder | onboarding-portal | payment
+Databases: licence | agency-portal | formbuilder | onboarding-portal | payment | company-profile
 Envs:      dev | qa | stg | prod
 
 Subcommands (errors -> stderr `ERROR:` + exit 1):
@@ -32,6 +32,7 @@ DBS = {
     "FORMBUILDER": ("formbuilder", "form-builder", "fb"),
     "ONBOARDING_PORTAL": ("onboarding-portal", "onboarding", "op"),
     "PAYMENT": ("payment", "payment-service", "pay"),
+    "COMPANY_PROFILE": ("company-profile", "companyprofile", "cp"),
 }
 ENVS = {"dev": "DEV", "qa": "QA", "stg": "STG", "staging": "STG", "prod": "PROD", "production": "PROD"}
 FIELDS = ("HOST", "PORT", "NAME", "USER", "PASSWORD", "ROLE")

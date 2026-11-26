@@ -36,7 +36,7 @@ argument-hint: "[--dry-run] to preview changes without writing"
 
 `tests/test_sync.py` parses these two lines — keep the format.
 
-**Integration Agents**: `cft-onboarding`, `env-chope`, `fix-vulnerabilities`, `git-fix-review`, `git-review`, `investigate-apex`
+**Integration Agents**: `cft-onboarding`, `env-chope`, `fix-vulnerabilities`, `git-fix-review`, `git-review`, `investigate-apex`, `testing-task`
 **Integration Skills**: `apex-onboarding`, `aws-access`, `cft-agency-onboarding`, `change-timeline`, `env-chope`, `fix-vulnerabilities`, `git-apis`, `git-workflow`, `integration-health`, `investigate-apex`, `opensearch-logs`, `postgres-query`, `qa-evidence-testing`
 
 ---
