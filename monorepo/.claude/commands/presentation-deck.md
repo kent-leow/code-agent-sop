@@ -6,7 +6,7 @@ argument-hint: "DOCS_DIR or a file in it (e.g. .docs/GOBIZWKST2-324-my-feature/s
 
 **Input**: `DOCS_DIR` (or any artefact path in it) + audience / meeting goal → **Output**: `<DOCS_DIR>/presentation.md`
 
-Load **docs-folder** skill, then **presentation-deck** skill — follow Phases 1–4 end to end. The skill owns the first-principles method, fixed section structure, visuals, anchors and self-check.
+Load **feature-flow** (stage 4 Present), **docs-folder**, then **presentation-deck** skill — follow Phases 1–4 end to end. The skill owns the first-principles method, fixed section structure, visuals, anchors and self-check.
 
 ## Orchestrator responsibilities
 
@@ -15,6 +15,7 @@ Load **docs-folder** skill, then **presentation-deck** skill — follow Phases 1
 - User answers to open questions in the artefacts → reflect them in the document; do not edit other artefacts unless asked (list any conflicts instead)
 - RUN: `python3 .github/skills/docs-folder/scripts/validate_docs.py --folder <DOCS_DIR name>` → fix own violations
 - After the skill completes → report path, options shortlisted (+ recommended), story-point totals, decisions table, and any artefact conflicts found
+- CALL: SUGGEST_NEXT(Present, decisions made)
 
 ## Constraints
 

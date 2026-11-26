@@ -6,7 +6,7 @@ argument-hint: "One or more PR/MR URLs (space-separated). Fetches open threads, 
 
 **Input**: PR/MR URL(s) → **Output**: fixes applied, threads resolved, pipeline green.
 
-Load **git-apis** + **git-workflow** skills. Autonomous — never pause once started.
+Load **feature-flow** (stage 7 Review, author side), **git-apis**, **git-workflow** skills. Autonomous — never pause once started.
 
 ## Globals
 
@@ -76,22 +76,12 @@ IF: multiple URLs → LOOP sequentially; failure on one → log + continue.
 
 > **Do NOT stop until pipeline green AND zero unresolved threads.**
 
-- CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED)
-- LOOP: until (pipeline=success AND threads=0) OR terminal exit
-  - ON_SUCCESS: RESOLVE fixed threads → re-fetch → if new threads: evaluate → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → reset poll
-  - ON_FAILURE: git-apis FETCH_FAILED_JOBS + re-fetch threads → WORKTREE_SETUP → fix both → COMMIT → PUSH → TEARDOWN → RESOLVE → reset poll
-
-### Terminal Exits
-
-| Condition | Action |
-|---|---|
-| Pipeline success + 0 threads | ✅ Done |
-| 3 consecutive failures | BLOCKED — stop |
-| 20 polls | TIMEOUT — stop |
+- CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED) — its ON_SUCCESS / ON_FAILURE cycles and Terminal Exits apply; every fix cycle follows Steps 3–5 (incl. Thread Reply Rules)
 
 ## Step 7 — Summary
 
 - EMIT: fixed & resolved (N), rejected & open (M), pipeline status, branch, MR URL
+- CALL: SUGGEST_NEXT(Review, findings posted) → reviewer re-runs git-review follow-up; approved → testing-task
 
 ## Constraints
 

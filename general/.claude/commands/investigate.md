@@ -6,7 +6,7 @@ argument-hint: "Describe the query or problem + Jira key (gobiz) or existing .do
 
 **Input**: problem description (+ Jira key / `.docs/` folder) → **Output**: `report.md` + `flowchart.mmd` in `<DOCS_DIR>/investigation-<kebab-topic>/`
 
-Load **docs-folder** skill. Load **opensearch-logs** (logs), **postgres-query** (DB), **aws-access** (ECS/RDS/SQS/CloudWatch infra), **change-timeline** (deploys/merges), **integration-health** (preflight) and **jira-ticket** (Jira/Confluence search) skills when available and the query needs them.
+Load **feature-flow** (stage 1 Investigate) and **docs-folder** skills. Load **opensearch-logs** (logs), **postgres-query** (DB), **aws-access** (ECS/RDS/SQS/CloudWatch infra), **change-timeline** (deploys/merges), **git-apis** (CI jobs), **integration-health** (preflight) and **jira-ticket** (Jira/Confluence search) when available and the query needs them. APEX gateway failure → route to investigate-apex.
 
 ## Constraints
 
@@ -32,7 +32,7 @@ Load **docs-folder** skill. Load **opensearch-logs** (logs), **postgres-query** 
 
 - DO: `grep -i -E '<symptom|service|error words>' .docs/KNOWN-ISSUES.md` + `grep -ril '<word>' .docs/*/investigation-*/` → read matching reports
 - IF: **jira-ticket** available → `search-issues.sh --jql 'project = <KEY> AND text ~ "<2-4 words>" ORDER BY updated DESC' --max-results 10` (past bugs) · `search-pages.sh --text "<service> <symptom>"` (runbooks / KT pages)
-- IF: workspace has a **slack-search** skill AND `SLACK_TOKEN` set → search incident channels for the symptom in the time window
+- IF: slack-search (workspace) available AND `SLACK_TOKEN` set → search incident channels for the symptom in the time window
 - EMIT: prior-art matches → seed Phase 2 hypotheses (still must be re-verified with fresh evidence; never copy a past root cause as proof)
 
 ## Phase 2 — Plan
@@ -47,7 +47,7 @@ Load **docs-folder** skill. Load **opensearch-logs** (logs), **postgres-query** 
 - IF: infra/runtime platform in question (service down/restarting, deploys, DLQ backlog, alarms, DB instance health, scheduled jobs) → **aws-access**: `preflight` → `health.sh --env E --prefix <env>` → targeted recipes (stopped-task reasons, service events, CloudWatch logs/metrics, DLQ age)
 - IF: "started failing" / regression / onset time known → **change-timeline**: `timeline.py --env E --since <onset − 24h> --until <onset + 1h> [--app A] [--ecs]` → line up deploys/merges against the error onset from `opensearch-logs agg --interval`
 - IF: CI/pipeline failure in question → **git-apis** FETCH_FAILED_JOBS (failed jobs + first error in trace)
-- IF: code path found AND workspace provides impact tooling (`factory-graph-query` / `blast-radius` skills, `service-graph.json`) → use it for callers/implementations and affected services instead of broad grep
+- IF: code path found → factory-graph-query / blast-radius / `service-graph.json` (workspace) for callers and affected services instead of broad grep
 - DO: correlate log timestamps, trace IDs, and DB rows with code paths (log message → `grep` source for the emitting line)
 - DO: run safe diagnostics (grep, curl, test runs, build checks)
 - DO: update `todo` as findings confirm/rule out hypotheses
@@ -96,3 +96,4 @@ Load **docs-folder** skill. Load **opensearch-logs** (logs), **postgres-query** 
 ## Phase 7 — Summarise
 
 - EMIT: one-line verdict + paths to outputs + top recommendation + open questions
+- CALL: SUGGEST_NEXT(Investigate, small fix | needs scoping | needs team decision)

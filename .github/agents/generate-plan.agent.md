@@ -6,7 +6,7 @@ argument-hint: "Create: paste raw requirements. Refine: provide path to plan.md 
 
 **Input**: raw requirements (+ Jira key for gobiz) (Create) or `plan.md` path + changes (Refine) → **Output**: `<DOCS_DIR>/plan.md` (e.g. `.docs/GOBIZWKST2-324-create-form/plan.md`)
 
-Load **docs-folder**, **deep-think** and **app-blueprint** skills.
+Load **feature-flow** (stage 2 Plan), **docs-folder**, **deep-think**, **app-blueprint** skills; **jira-ticket** and **figma-design-context** when the step needs them.
 
 ## Mode Detection
 
@@ -22,27 +22,19 @@ Load **docs-folder**, **deep-think** and **app-blueprint** skills.
 
 ## Create Mode
 
-- DO: parse requirements — never invent unstated items
-- DO: search codebase for affected domain context
 - CALL: DOCS_FOLDER(REQUEST, CAN_CREATE_JIRA=true) → DOCS_DIR, JIRA_KEY
+- DO: collect sources — request · Jira card when `JIRA_KEY` exists (jira-ticket `get-issue.sh` → summary, description, AC, comments, links) · every artefact already in `DOCS_DIR` (investigation report root cause, spike Recommendation, presentation decisions)
+- DO: parse requirements from those sources only — never invent unstated items; source conflict → `## Open Questions`
+- DO: prior art — jira-ticket `search-issues.sh` (similar stories/bugs) + `search-pages.sh` (Confluence specs) → cite in `## Notes`
+- DO: search codebase for affected domain context
 - IF: Figma URL → CALL: figma-design-context skill (Workflow A step 1-2 outline + Workflow B UX flow, not deep per-node styling) → cache under `<DOCS_DIR>/figma/` (shared by all downstream agents — check cache before re-fetching) → fold into AC
 - DO: draft Scope + Acceptance Criteria
 - CALL: DEEP_THINK_PASS(draft, SCOPE=business) → fold Known-fact/Strong-inference gaps into Scope/AC; fold Assumptions into `## Assumptions` (with Confidence); route Unknowns to `## Open Questions`
 - DO: draft Invariants — business-language statements of what must remain true (existing behaviour, data, compatibility); evidence-based only, never invented
-- DO: estimate SP (holistic — layers touched × regression risk × uncertainty; re-check after gaps folded):
-
-| SP | Category | Signal |
-|---|---|---|
-| 0.5 | Tiny | One file/config; no logic; near-zero risk |
-| 1 | Small | Existing path; basic correctness |
-| 2 | Bounded | New capability in one layer |
-| 3 | Moderate | Multi-layer; one sprint; regression checks |
-| 5 | Significant | Cross-layer; auth/security; workflow change |
-
-> \>5 SP → STOP and split into sub-cards
-
-- DO: write `plan.md` per Structure below
+- DO: estimate SP per feature-flow **Story Points** (re-check after gaps folded); \>5 SP → STOP and split into sub-cards
+- DO: write `plan.md` per Structure below; run Readiness Check
 - EMIT: jira-prompt (A: create/update story | B: edit | C: skip)
+- CALL: SUGGEST_NEXT(Plan, ready | needs spike)
 
 ## Greenfield Create Mode
 
@@ -59,20 +51,22 @@ Product-level plan for an app that does not exist yet. Still business language o
   - Acceptance Criteria grouped per feature with IDs `F<n>-AC<m>`
 - CALL: DEEP_THINK_PASS(draft, SCOPE=business) → route as in Create; additionally check: every feature reachable from some screen, every screen serves ≥1 feature or system need, every role's journey has an entry point
 - DO: draft Invariants — for greenfield usually business rules that must always hold (data ownership, privacy, audit); "None identified" if none
-- DO: estimate SP per feature (same table); a feature >5 SP → split into F<n>a/F<n>b; plan total = sum of MVP features + `Foundation` line (environment, scaffold, delivery pipeline, app shell — estimated holistically). The >5 SP STOP rule applies per feature, not to the whole plan
+- DO: estimate SP per feature (feature-flow **Story Points**); a feature >5 SP → split into F<n>a/F<n>b; plan total = sum of MVP features + `Foundation` line (environment, scaffold, delivery pipeline, app shell — estimated holistically). The >5 SP STOP rule applies per feature, not to the whole plan
 - DO: write `plan.md`; run Readiness Check (+ Greenfield criteria)
-- EMIT: jira-prompt; next step → `@generate-task <plan.md>` produces `blueprint.md` for approval, then phased tasks
+- EMIT: jira-prompt
+- CALL: SUGGEST_NEXT(Plan, ready) → generate-task produces `blueprint.md` for approval, then phased tasks
 
 ## Refine Mode
 
 - CALL: DOCS_FOLDER(REQUEST, PATH=plan.md) → DOCS_DIR, JIRA_KEY (validates/renames legacy folder)
 - DO: read existing `plan.md`; apply Figma if relevant
-- DO: fold answered questions into AC; revise for new/changed reqs
+- DO: fold answered questions, spike Recommendation and presentation decisions into Scope/AC; revise for new/changed reqs
 - CALL: DEEP_THINK_PASS(revised plan, SCOPE=business) → fold Known-fact/Strong-inference gaps into Scope/AC; fold Assumptions into `## Assumptions`; route Unknowns to `## Open Questions`; revise `## Invariants`
 - DO: append `## Changelog`; recompute estimate
 - DO: run Readiness Check
-- IF: `task-NNN.md` files exist → run Task Cascade (update impacted files only)
+- IF: `task-NNN.md` files exist → list tasks whose `Covers` ACs changed → offer generate-task Refine for exactly those
 - EMIT: jira-prompt
+- CALL: SUGGEST_NEXT(Plan, ready | needs spike)
 
 ### Readiness Check
 
@@ -169,4 +163,4 @@ Context, constraints.
 - AC must be concrete and testable
 - Assumptions must carry a Confidence level; Unknowns never get invented answers
 - One `plan.md` per folder — update in place; folder name per docs-folder Naming Convention (gobiz: Jira key required)
-- Only touch task files genuinely impacted
+- Never edit task files — impacted tasks go to generate-task Refine

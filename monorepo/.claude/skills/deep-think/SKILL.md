@@ -1,6 +1,6 @@
 ---
 name: deep-think
-description: "Shared multi-lens self-interrogation checklist to surface gaps in plans, tasks, and implementations before finalizing. Iterates until no new gaps surface. Load from generate-plan, generate-task, execute-task, fix-task."
+description: "Shared multi-lens self-interrogation checklist to surface gaps in plans, tasks, and implementations before finalizing. Iterates until no new gaps surface. Load from generate-plan, spike-plan, generate-task, execute-task, fix-task."
 ---
 
 # deep-think

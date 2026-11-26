@@ -6,7 +6,7 @@ argument-hint: "Any of: task-NNN.md / .docs/ folder · Jira key or URL · GitLab
 
 **Input**: task file / `DOCS_DIR` / Jira key / MR URL / PR URL (+ optional env, duration, test users, output folder) → **Output**: `<DOCS_DIR>/TEST-REPORT.md` (BEFORE on master/main vs AFTER on the MR + regression verdict) + `<DOCS_DIR>/test-artifacts/` + (on yes) one Jira evidence comment with all media attached.
 
-Load **docs-folder**, **jira-ticket**, **git-apis**, **env-chope**, **qa-evidence-testing** skills; also **opensearch-logs**, **postgres-query**, **integration-health** when available. `qa-evidence-testing` owns the evidence rules, browser helpers, report template and Jira publisher; `env-chope` owns MR impact, the availability gate and all chope-card writes. This agent owns **linking, env selection, deploy sequencing, BEFORE/AFTER and the regression gate**.
+Load **feature-flow** (stage 8 Test), **docs-folder**, **jira-ticket**, **git-apis**, **env-chope**, **qa-evidence-testing** skills; also **opensearch-logs**, **postgres-query**, **integration-health**, web-exploration (workspace) when available. `qa-evidence-testing` owns the evidence rules, browser helpers, report template and Jira publisher; `env-chope` owns MR impact, the availability gate and all chope-card writes. This agent owns **linking, env selection, deploy sequencing, BEFORE/AFTER and the regression gate**.
 
 `QS=.github/skills/qa-evidence-testing/scripts` · `CS=.github/skills/env-chope/scripts` · `OS=.github/skills/opensearch-logs/scripts` — run every networked script as `source ~/.zshenv && …` with escalation (guidelines Terminal table).
 
@@ -136,3 +136,4 @@ Write `<DOCS_DIR>/TEST-REPORT.md` from `$QS/report-template.md`, plus:
 - `ab close` (Chrome stays), logout
 - Ask before: releasing chope cards (env-chope Release mode), reverting test data, redeploying `BASE_REF` to restore the env
 - EMIT: verdict · report path · artifact count · Jira comment URL (if posted) · cards still held + `UNTIL`
+- CALL: SUGGEST_NEXT(Test, PASS | FAIL | BLOCKED)

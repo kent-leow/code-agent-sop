@@ -27,8 +27,8 @@ Load **docs-folder** and **git-workflow** skills. Autonomous — never pause onc
 
 - LOOP: each input → extract/construct project path → URL-encode as ENCODED
 - STORE: DATE=`YYYYMMDD`
-- IF: no `GOBIZWKST2-` key in input → EMIT: `GOBIZWKST2 ticket number?` → STORE: TICKET_NUM
-- CALL: DOCS_FOLDER(REQUEST, TICKET=`GOBIZWKST2-${TICKET_NUM}`, TITLE=`fix-vulnerability-${DATE}`) → DOCS_DIR (reuses existing folder for that key)
+- IF: no Jira key (`[A-Z][A-Z0-9]+-[0-9]+`) in input → EMIT: `Jira key for this fix?` → STORE: JIRA_KEY
+- CALL: DOCS_FOLDER(REQUEST, TICKET=JIRA_KEY, TITLE=`fix-vulnerability-${DATE}`) → DOCS_DIR (reuses existing folder for that key)
 - STORE: OUT_DIR=`${DOCS_DIR}/vulnerability/`, OUT_FILE=`${OUT_DIR}/vulnerabilities-${DATE}.md`
 
 ## Step 0b — Mode Detection
@@ -38,7 +38,7 @@ Load **docs-folder** and **git-workflow** skills. Autonomous — never pause onc
 
 ## Step 0c — Branch Pattern (first run)
 
-- STORE: BRANCH pattern from TICKET_NUM (Step 0)
+- STORE: BRANCH pattern from JIRA_KEY (Step 0)
 
 ## Step 1 — Branch + Worktree (first run)
 
@@ -71,7 +71,7 @@ Load **docs-folder** and **git-workflow** skills. Autonomous — never pause onc
 
 ## Step 5 — Commit, Push, MR
 
-- CALL: COMMIT(WORK_DIR, `[GOBIZWKST2-${TICKET_NUM}] Vulnerability Fixes`) → PUSH → WORKTREE_TEARDOWN → ENSURE_MR
+- CALL: COMMIT(WORK_DIR, `[${JIRA_KEY}] Vulnerability Fixes`) → PUSH → WORKTREE_TEARDOWN → ENSURE_MR
 
 ## Step 6 — Poll Until Clean
 

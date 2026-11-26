@@ -6,7 +6,7 @@ argument-hint: "Provide the path to task-NNN.md (e.g. .docs/GOBIZWKST2-324-creat
 
 **Input**: `task-NNN.md` path → **Output**: all tasks implemented, tests pass, checkboxes marked.
 
-Load **docs-folder**, **git-workflow**, **deep-think** and **app-blueprint** skills. Autonomous — never pause once started.
+Load **feature-flow** (stage 6 Build), **docs-folder**, **git-workflow**, **git-apis**, **deep-think**, **app-blueprint** skills; others from the feature-flow Skill Registry when a step needs them. Autonomous — never pause once started.
 
 ---
 
@@ -18,7 +18,7 @@ Load **docs-folder**, **git-workflow**, **deep-think** and **app-blueprint** ski
 - IF: any `[ ]` in prerequisites → STOP: report open items
 - DO: sync siblings — add warnings for shared files, mark satisfied Done-Whens, fix stale refs, append changelogs
 - IF: greenfield AND (REPO_DIR has no git repo, no commits, or no `origin` remote) → **Local Bootstrap**: `git init` if needed (default branch `main`) → STORE `WORK_DIR="${REPO_DIR}"`, `LOCAL_ONLY=true` → skip BRANCH_SETUP/WORKTREE_SETUP → continue to Phase 2
-- CALL: BRANCH_SETUP(REPO_DIR, `GOBIZWKST2-{TICKET}-{kebab-task-title}`) → TICKET_NUM, BRANCH, DEFAULT_BRANCH
+- CALL: BRANCH_SETUP(REPO_DIR, `{JIRA_KEY}-{kebab-task-title}`) → JIRA_KEY, BRANCH, DEFAULT_BRANCH
 - CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORKTREE_DIR
 - STORE: `WORK_DIR="${WORKTREE_DIR}"` — **all edits in Phase 2–4 target WORK_DIR only**
 
@@ -29,8 +29,8 @@ Load **docs-folder**, **git-workflow**, **deep-think** and **app-blueprint** ski
 - DO: identify reusable utilities, base classes, test helpers
 - STORE: impl order = entity → repo → service → controller → frontend → test (greenfield P0–P4: follow task order as written — toolchain → generator → config → wiring → tests)
 - IF: Figma URL → CALL: figma-design-context skill (Workflow A: metadata → targeted design context → summarize) → cache under `<DOCS_DIR>/figma/` per skill's Caching Convention — check cache before re-fetching; implement strictly from the cached spec, never from memory
-- IF: task uses a library/framework API not already used in the repo, or a version newer than what you know → workspace **live-docs** skill (Context7) when available; else official docs at the pinned version — never guess signatures
-- IF: change touches a shared contract/package AND workspace provides impact tooling (`blast-radius` / `factory-graph-query` skills, `service-graph.json`) → list affected consumers → add them to Phase 4 verification scope
+- IF: task uses a library/framework API not already used in the repo, or a version newer than what you know → live-docs (workspace) else official docs at the pinned version — never guess signatures
+- IF: change touches a shared contract/package → blast-radius / factory-graph-query / `service-graph.json` (workspace) → add affected consumers to Phase 4 verification scope
 
 ## Phase 3 — Implementation
 
@@ -57,7 +57,7 @@ Load **docs-folder**, **git-workflow**, **deep-think** and **app-blueprint** ski
 - DO: run full test suite from `WORK_DIR`; fix regressions
 - DO: run every command in the task's `Verify` section; greenfield → also run blueprint `install` (clean), `lint`, `typecheck`, `build`, `test` (and `e2e` once P1 created it) — all must pass
 - IF: greenfield P1+ OR task has `Routes & Navigation` rows → start `dev` from `WORK_DIR` → hit health endpoint + every route in the task (and nav links) → confirm expected status/content → stop the server
-- IF: UI task AND a browser tool is available (workspace **web-exploration** skill / IDE browser) → open each changed screen on the running `dev` server → exercise the task's states (loading/empty/error/success) → screenshot to `<DOCS_DIR>/figma/verify-<task>-<state>.png` → compare against the cached spec
+- IF: UI task AND a browser tool is available (web-exploration (workspace) / IDE browser) → open each changed screen on the running `dev` server → exercise the task's states (loading/empty/error/success) → screenshot to `<DOCS_DIR>/figma/verify-<task>-<state>.png` → compare against the cached spec
 - IF: local service verification needed → start from `WORK_DIR`
 - LOOP: each Done When → mark `[x]` + `<!-- verified YYYY-MM-DD -->` or `[ ]` + `<!-- blocked: reason -->`
 - DO: re-scan siblings for stale cross-references
@@ -66,34 +66,14 @@ Load **docs-folder**, **git-workflow**, **deep-think** and **app-blueprint** ski
 
 > **Do NOT stop until pipeline green AND zero unresolved threads.**
 
-> IF: `LOCAL_ONLY=true` → stage task files + commit in `WORK_DIR` with the 5a message format (ticket suffix omitted if none) → skip push/MR/polling → Phase 6 reports "local commit only — no remote configured". Once a remote exists, later tasks follow the normal flow.
+> IF: `LOCAL_ONLY=true` → stage task files + commit in `WORK_DIR` with the SHIP_MR commit message (ticket suffix omitted if none) → skip push/MR/polling → Phase 6 reports "local commit only — no remote configured". Once a remote exists, later tasks follow the normal flow.
 
-### 5a — Commit & Push
-
-- CALL: COMMIT(WORK_DIR, `feat({repo}): {title} [GOBIZWKST2-{TICKET_NUM}]`) → COMMITTED
-- CALL: PUSH(WORK_DIR, BRANCH)
-- CALL: WORKTREE_TEARDOWN(REPO_DIR, WORKTREE_DIR)
-- CALL: ENSURE_MR(ENCODED, BRANCH, DEFAULT_BRANCH, title, body) → MR_IID, MR_URL
-
-### 5b — Poll Until Clean
-
-- CALL: FIX_THREADS_FIRST(ENCODED, MR_IID) → COMMITTED
-- CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED)
-- LOOP: until (pipeline=success AND open_threads=0) OR terminal exit
-  - ON_SUCCESS + threads>0: evaluate → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → RESOLVE → reset poll
-  - ON_FAILURE: git-apis FETCH_FAILED_JOBS + FETCH_OPEN_THREADS → WORKTREE_SETUP → fix both → COMMIT → PUSH → TEARDOWN → RESOLVE → reset poll
-
-### 5c — Terminal Exits
-
-| Condition | Action |
-|---|---|
-| Pipeline success + 0 threads | ✅ Proceed to Phase 6 |
-| 3 consecutive failures | BLOCKED — stop |
-| 20 polls | TIMEOUT — stop |
+- CALL: SHIP_MR(REPO_DIR, WORK_DIR, BRANCH, DEFAULT_BRANCH, ENCODED, `feat({repo}): {title} [{JIRA_KEY}]`, title, body) → MR_IID, MR_URL, RESULT
+- IF: RESULT ≠ Done → Phase 6 reports BLOCKED / TIMEOUT with the last failing job or open threads
 
 ## Phase 6 — Completion
 
-- EMIT: jira-prompt (A: update SP | B: changes | C: skip)
+- EMIT: jira-prompt (A: update SP on this task's sub-task (`jira.json` `subtasks`), else the story | B: changes | C: skip)
 - EMIT: evidence-based summary — no claim without an executed check behind it:
   - **Implemented**: paths touched, per layer
   - **Verified**: test suite result (pass/fail counts, not "looks good"), Done When status
@@ -102,7 +82,7 @@ Load **docs-folder**, **git-workflow**, **deep-think** and **app-blueprint** ski
   - **Risks / Follow-ups**: anything deferred or out of scope
   - MR URL, pipeline status, next task
 - DO: docs-folder Validate on `DOCS_DIR` → fix own naming violations
-- EMIT: next-step offer (never run without the user saying so): **env-chope** (reserve env for the MR) → workspace **lower-env-deployment** → **post-deploy-verification** → workspace **mr-evaluation** (MR vs Jira AC) — list only those available
+- CALL: SUGGEST_NEXT(Build, more tasks | slice testable) — testing-task owns env chope, deploy and evidence
 
 ## Constraints
 

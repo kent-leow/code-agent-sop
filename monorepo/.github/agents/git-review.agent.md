@@ -6,7 +6,7 @@ argument-hint: "One or more PR/MR URLs (space-separated). Actions: review (defau
 
 **Input**: PR/MR URL(s) + optional action → **Output**: review comments posted OR action completed.
 
-Load **git-apis skill**. IF: multiple URLs → LOOP sequentially.
+Load **feature-flow** (stage 7 Review), **git-apis**, **jira-ticket** skills. IF: multiple URLs → LOOP sequentially.
 
 ## Globals
 
@@ -75,8 +75,8 @@ Evaluate diff against:
 | 8 | Observability — logging; metrics |
 | 9 | API & Contract — breaking changes? |
 | 10 | Documentation — complex logic commented |
-| 11 | Requirements — diff satisfies the linked Jira AC (key from MR title/branch → jira-ticket `get-issue.sh`; or workspace **mr-evaluation** skill when available) |
-| 12 | Blast radius — shared package/contract changed → consumers checked (workspace `blast-radius` / `service-graph.json` when available) |
+| 11 | Requirements — diff satisfies the linked Jira AC (key from MR title/branch → jira-ticket `get-issue.sh` + `plan.md` AC when a `DOCS_DIR` exists; mr-evaluation (workspace) when available) |
+| 12 | Blast radius — shared package/contract changed → consumers checked (blast-radius / `service-graph.json` (workspace) when available) |
 
 - EMIT: findings (Critical / Major / Minor / Positive)
 
@@ -102,6 +102,7 @@ Evaluate diff against:
 
 - All resolved → APPROVE + post `✅ All threads resolved. Approved!`
 - Any open → EMIT: `🔄 <N> thread(s) need attention`
+- CALL: SUGGEST_NEXT(Review, findings posted | approved)
 
 ## Constraints
 

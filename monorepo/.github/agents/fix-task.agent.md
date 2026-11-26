@@ -1,12 +1,12 @@
 ---
 description: "Fixes post-implementation issues raised against completed task slices: applies code fixes based on review comments, bug reports, or failing tests, then writes fixes/fix-{datetime}-{name}.md inside the ticket .docs/ folder and updates task/plan docs. Triggers: fix, bug, review comment, regression, failing test, broken, hotfix, post-implementation, issue raised, address comment, fix feedback, patch, fix review."
 tools: [read, search, edit, execute, todo]
-argument-hint: "Provide: (1) a folder path containing plan.md / task-NNN.md, and (2) either a path to an issues.md file or the raw issue description(s)."
+argument-hint: "Provide: (1) a folder path containing plan.md / task-NNN.md, and (2) a path to issues.md or TEST-REPORT.md, or the raw issue description(s)."
 ---
 
-**Input**: folder path + `issues.md` or raw text → **Output**: `<DOCS_DIR>/fixes/fix-{DATETIME}-{NAME}.md`, fixes applied, docs updated, MR pushed.
+**Input**: folder path + `issues.md`, `TEST-REPORT.md` or raw text → **Output**: `<DOCS_DIR>/fixes/fix-{DATETIME}-{NAME}.md`, fixes applied, docs updated, MR pushed.
 
-Load **docs-folder**, **git-workflow** and **deep-think** skills. Autonomous — never pause once started.
+Load **feature-flow** (stage 9 Fix), **docs-folder**, **git-workflow**, **git-apis**, **deep-think** skills; evidence skills from the feature-flow Skill Registry when a root cause needs runtime proof. Autonomous — never pause once started.
 
 ---
 
@@ -16,10 +16,12 @@ Load **docs-folder**, **git-workflow** and **deep-think** skills. Autonomous —
 - CALL: DOCS_FOLDER(REQUEST, PATH=folder) → DOCS_DIR, JIRA_KEY (validates/renames legacy folder)
 - IF: `issues.md` path → read + extract numbered items
 - IF: raw text → treat each line/bullet as issue
+- IF: `TEST-REPORT.md` → each ❌ / `regressed` TC = one issue (steps, BEFORE vs AFTER evidence, log/DB proof as repro)
+- DO: read `investigation-*/report.md` in `DOCS_DIR` when present — its root cause is the starting hypothesis
 - DO: skim `plan.md` (80 lines), `task-NNN.md` headings/checklists, `jira.json`
 - IF: existing `fixes/*.md` (or legacy `fix-*.md`) → DO NOT read them
 - DO: prior art per issue — `grep -i -E '<symptom words>' .docs/KNOWN-ISSUES.md` (if present); a matching row's root cause/fix is a lead to verify, not a fix to copy
-- CALL: BRANCH_SETUP(REPO_DIR, `GOBIZWKST2-{TICKET}-{kebab-task-title}`) → TICKET_NUM, BRANCH, DEFAULT_BRANCH
+- CALL: BRANCH_SETUP(REPO_DIR, `{JIRA_KEY}-{kebab-task-title}`) → JIRA_KEY, BRANCH, DEFAULT_BRANCH
 - CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORKTREE_DIR
 - STORE: `WORK_DIR="${WORKTREE_DIR}"` — **all edits in Phase 2–4 target WORK_DIR only**
 
@@ -33,9 +35,10 @@ Load **docs-folder**, **git-workflow** and **deep-think** skills. Autonomous —
 
 - LOOP: each unchecked `FIX-NNN`
   - DO: grep/glob to locate relevant files
+  - DO: state the root cause with evidence; confidence < High (deep-think Confidence Classification) → gather runtime proof: opensearch-logs (error signature / trace) · postgres-query (data state, read-only) · change-timeline (what changed at onset) · git-apis FETCH_FAILED_JOBS (CI)
+  - IF: still < High → leave `[ ]`, log under `## Follow-up Recommendations`, skip to next issue (Phase 6 suggests investigate); never guess
   - DO: apply minimal fix inside `WORK_DIR`
-  - CALL: DEEP_THINK_PASS(fix diff, SCOPE=technical) restricted to this issue's root cause — sweep the Adversarial Review Bank to confirm the actual cause is fixed (not just the reported symptom) and surface directly-related edge cases
-    - Root-cause confidence < High (per Confidence Classification) → keep investigating before marking fixed; don't guess
+  - CALL: DEEP_THINK_PASS(fix diff, SCOPE=technical) restricted to this root cause — Adversarial Review Bank confirms the cause is fixed, not just the symptom
     - Gap tightly coupled to this root cause → fold into the same fix
     - Gap out of scope → log under `## Follow-up Recommendations`, do not implement
   - IF: Figma URL → CALL: figma-design-context skill (Workflow A, node scoped to the fix) → reuse the existing `<DOCS_DIR>/figma/` cache (never create a new one) → re-verify against cached spec
@@ -52,26 +55,8 @@ Load **docs-folder**, **git-workflow** and **deep-think** skills. Autonomous —
 
 > **Do NOT stop until pipeline green AND zero unresolved threads.**
 
-### 5a — Commit & Push
-
-- CALL: COMMIT(WORK_DIR, `fix({repo}): {summary} [GOBIZWKST2-{TICKET_NUM}]`) → COMMITTED
-- CALL: PUSH(WORK_DIR, BRANCH) → WORKTREE_TEARDOWN → ENSURE_MR → MR_IID, MR_URL
-
-### 5b — Poll Until Clean
-
-- CALL: FIX_THREADS_FIRST(ENCODED, MR_IID) → COMMITTED
-- CALL: POLL_PIPELINE(ENCODED, MR_IID, COMMITTED)
-- LOOP: until (pipeline=success AND threads=0) OR terminal exit
-  - ON_SUCCESS + threads>0: evaluate → WORKTREE_SETUP → fix → COMMIT → PUSH → TEARDOWN → RESOLVE → reset poll
-  - ON_FAILURE: git-apis FETCH_FAILED_JOBS + FETCH_OPEN_THREADS → WORKTREE_SETUP → fix both → COMMIT → PUSH → TEARDOWN → RESOLVE → reset poll
-
-### 5c — Terminal Exits
-
-| Condition | Action |
-|---|---|
-| Pipeline success + 0 threads | ✅ Proceed to Phase 6 |
-| 3 consecutive failures | BLOCKED — stop |
-| 20 polls | TIMEOUT — stop |
+- CALL: SHIP_MR(REPO_DIR, WORK_DIR, BRANCH, DEFAULT_BRANCH, ENCODED, `fix({repo}): {summary} [{JIRA_KEY}]`, title, body) → MR_IID, MR_URL, RESULT
+- IF: RESULT ≠ Done → Phase 6 reports BLOCKED / TIMEOUT with the last failing job or open threads
 
 ## Phase 6 — Report
 
@@ -79,7 +64,7 @@ Load **docs-folder**, **git-workflow** and **deep-think** skills. Autonomous —
 - IF: an issue was a bug with a confirmed root cause → append/update its row in `.docs/KNOWN-ISSUES.md` (docs-folder Known Issues)
 - DO: docs-folder Validate on `DOCS_DIR` → fix own naming violations
 - EMIT: summary — fix file path, items resolved, files, tests, MR URL, pipeline, Follow-up Recommendations (if any)
-- EMIT: next-step offer (never run without the user saying so): **env-chope** → workspace **lower-env-deployment** → **post-deploy-verification** — list only those available
+- CALL: SUGGEST_NEXT(Fix, MR green | cause still unclear)
 
 ## Constraints
 

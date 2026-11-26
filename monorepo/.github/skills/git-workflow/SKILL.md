@@ -6,7 +6,7 @@ description: "Shared Git + GitLab/GitHub workflow: ticket → branch → worktre
 # git-workflow
 
 > CALL: git-apis skill for raw platform API calls.
-> End-to-end run order (callers pick the steps they need): BRANCH_SETUP → WORKTREE_SETUP → *(agent edits in WORK_DIR)* → COMMIT → PUSH → WORKTREE_TEARDOWN → ENSURE_MR → FIX_THREADS_FIRST → POLL_PIPELINE → terminal state.
+> End-to-end run order (callers pick the steps they need): BRANCH_SETUP → WORKTREE_SETUP → *(agent edits in WORK_DIR)* → COMMIT → PUSH → WORKTREE_TEARDOWN → ENSURE_MR → FIX_THREADS_FIRST → POLL_PIPELINE → terminal state. **SHIP_MR** runs everything after the edits in one call.
 
 ## Globals
 
@@ -28,10 +28,10 @@ Token pre-flight: `echo "GL: $([ -n "$GITLAB_TOKEN" ] && echo OK || echo MISSING
 
 ## BRANCH_SETUP
 
-**Inputs:** `REPO_DIR`, `BRANCH_PATTERN` → **Outputs:** `TICKET_NUM`, `BRANCH`, `DEFAULT_BRANCH`
+**Inputs:** `REPO_DIR`, `BRANCH_PATTERN` → **Outputs:** `JIRA_KEY`, `BRANCH`, `DEFAULT_BRANCH`
 
-1. Resolve ticket (first hit): caller-supplied → `jira.json` `.parent.key` → `DOCS_DIR` folder name `GOBIZWKST2-(\d+)-` (docs-folder skill) → current branch regex `GOBIZWKST2-(\d+)` → STOP: ask user
-2. `BRANCH` = substitute `{TICKET}` → `GOBIZWKST2-${TICKET_NUM}`
+1. Resolve `JIRA_KEY` — any Jira project, regex `[A-Z][A-Z0-9]+-[0-9]+` (first hit): caller-supplied → `jira.json` `.parent.key` → `DOCS_DIR` folder name prefix (docs-folder skill) → current branch name → STOP: ask user
+2. `BRANCH` = substitute `{JIRA_KEY}` in `BRANCH_PATTERN` (e.g. `MOLBLT-7759-add-licence-filter`, `GOBIZWKST2-324-create-form`)
 3. Sync default branch:
 ```bash
 cd "${REPO_DIR}"
@@ -43,8 +43,8 @@ DEFAULT_BRANCH=$(/usr/bin/git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null 
 
 | Context | Pattern |
 |---|---|
-| Task impl | `GOBIZWKST2-{TICKET}-{kebab-task-title}` |
-| Vuln fix | `GOBIZWKST2-{TICKET}-Fix-Vulnerability-{YYYYMMDD}` |
+| Task impl | `{JIRA_KEY}-{kebab-task-title}` |
+| Vuln fix | `{JIRA_KEY}-Fix-Vulnerability-{YYYYMMDD}` |
 | Review fix | branch exists — skip BRANCH_SETUP |
 
 ---
@@ -105,11 +105,11 @@ fi
 
 | Context | Template |
 |---|---|
-| Task impl | `feat({scope}): {title} [GOBIZWKST2-{TICKET}]` |
+| Task impl | `feat({scope}): {title} [{JIRA_KEY}]` |
 | Review fix | `fix: address review comments` |
 | Pipeline fix | `fix: resolve pipeline failure` |
-| Vuln fix | `[GOBIZWKST2-{TICKET}] Vulnerability Fixes - {changelog}` |
-| Post-impl fix | `fix({scope}): {summary} [GOBIZWKST2-{TICKET}]` |
+| Vuln fix | `[{JIRA_KEY}] Vulnerability Fixes - {changelog}` |
+| Post-impl fix | `fix({scope}): {summary} [{JIRA_KEY}]` |
 
 ---
 
@@ -220,6 +220,18 @@ done
 | 20 polls | TIMEOUT — stop |
 
 > **Do NOT stop before MR is in best state.**
+
+---
+
+## SHIP_MR
+
+**Inputs:** `REPO_DIR`, `WORK_DIR`, `BRANCH`, `DEFAULT_BRANCH`, `ENCODED`, `COMMIT_MSG`, `MR_TITLE`, `MR_BODY` → **Outputs:** `MR_IID`, `MR_URL`, `RESULT` (Done | BLOCKED | TIMEOUT)
+
+Composite for agents that change code (execute-task, fix-task). Runs without pausing until a Terminal Exit.
+
+1. COMMIT(WORK_DIR, COMMIT_MSG) → PUSH → WORKTREE_TEARDOWN
+2. ENSURE_MR → MR_IID, MR_URL
+3. FIX_THREADS_FIRST → POLL_PIPELINE (ON_SUCCESS / ON_FAILURE cycles) → Terminal Exits
 
 ---
 

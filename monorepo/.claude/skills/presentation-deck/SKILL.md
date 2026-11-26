@@ -12,7 +12,7 @@ metadata:
 
 **Input**: `DOCS_DIR` artefacts (+ audience, meeting goal) → **Output**: `<DOCS_DIR>/presentation.md` (+ optional `<DOCS_DIR>/presentation-assets/`)
 
-Load **docs-folder** skill. Never invent facts: every number, claim, estimate and risk traces to an artefact in `DOCS_DIR` or a source read this session (cited in section 10 References).
+Load **docs-folder** and **feature-flow** skills. Never invent facts: every number, claim, estimate and risk traces to an artefact in `DOCS_DIR` or a source read this session (cited in section 10 References).
 
 ## What this document is
 
@@ -51,17 +51,8 @@ Never pattern-match to "the usual fix". If the obvious approach breaks a fundame
 - DO: for each shortlisted option gather: end-to-end flow, what changes, story points, blockers/dependencies, trade-offs, risks — all from artefacts
 
 ### Story points
-- IF: artefact gives story points → use them as-is
-- ELSE: estimate per work item on the Fibonacci scale `1 · 2 · 3 · 5 · 8 · 13` using the rubric below and label the total **"Estimate for discussion"**. Show the basis (rubric row) per item; any item > 13 → split it
-- IF: artefact gives days/hours only → show them as given, add SP next to them, never silently convert
-
-| SP | Rubric (complexity · uncertainty · effort) |
-|---|---|
-| 1-2 | Known pattern · no unknowns · hours to 1 day |
-| 3 | Known pattern · small unknown · ~2 days |
-| 5 | Extends a pattern or 1 integration · some unknowns · ~3-4 days |
-| 8 | New pattern or 2 integrations · real unknowns · ~1 week |
-| 13 | New architecture / cross-team · major unknowns · > 1 week → split |
+- Use feature-flow **Story Points** (one scale across plan, spike, deck, Jira). Show the basis per work item; a work item > 5 SP → split it
+- Not from an artefact → label the total `Estimate for discussion`
 
 ## Phase 3: Write `presentation.md` (fixed structure)
 
@@ -171,7 +162,7 @@ Term · Plain meaning (every acronym/jargon used anywhere above)
 ### B. Technical detail
 Endpoints, configs, limits, error codes, field names, file paths — anything engineers need to verify later
 ### C. How we estimated
-Story-point rubric used + assumptions
+Story-point scale used (feature-flow) + basis per item + assumptions
 ```
 
 ### Writing rules
@@ -240,3 +231,4 @@ EMIT: path · section count · options shortlisted (+ recommended) · SP totals 
 - Documents only; no Jira/Confluence/Slack writes unless asked
 - Never edit other artefacts unless asked — list conflicts instead
 - Update `presentation.md` in place on re-run; don't create variants
+- After EMIT → CALL: SUGGEST_NEXT(Present, decisions made) — decisions flow back through generate-plan Refine

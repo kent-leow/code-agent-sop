@@ -87,6 +87,13 @@ Invoke via `@<agent-name>` in your IDE's AI chat.
 | `investigate` | Root-cause analysis + evidence-based report | investigate, why is, root cause, debug |
 | `snapshot-sync` | Create/update `SNAPSHOT.md` for repo orientation | snapshot, update snapshot |
 | `spike-plan` | Technical spike document from `plan.md` uncertainties | spike, feasibility, de-risk |
+| `presentation-deck` | Public `presentation.md` for tech + non-tech audiences (suggested after a spike) | present, deck, share |
+
+## Feature Flow
+
+`investigate → generate-plan → spike-plan → presentation-deck → generate-task → execute-task → git-review / git-fix-review → testing-task → fix-task`
+
+Stages, entry routing, exit gates, skill registry and story-point scale live in the **feature-flow** skill. Each agent ends with a suggested next step; nothing cascades automatically — enter, skip or reorder any stage.
 
 ## Instructions
 
@@ -134,7 +141,7 @@ general/                     # Integration-free variant
 ├── .github/
 │   ├── agents/              # Core agents only
 │   ├── instructions/
-│   └── skills/              # app-blueprint, deep-think, docs-folder, figma-design-context, jira-ticket
+│   └── skills/              # app-blueprint, deep-think, docs-folder, feature-flow, figma-design-context, jira-ticket, presentation-deck
 └── .claude/
     ├── commands/
     ├── skills/

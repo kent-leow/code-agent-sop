@@ -6,7 +6,7 @@ argument-hint: "Generate: provide path to plan.md. Greenfield: same, then approv
 
 **Input**: `plan.md` path (Generate) or `task-NNN.md` / `blueprint.md` path + changes (Refine) → **Output**: self-contained vertical-slice task files (greenfield: approved `blueprint.md` + phased tasks P0–P6).
 
-Load **docs-folder**, **deep-think** and **app-blueprint** skills.
+Load **feature-flow** (stage 5 Tasks), **docs-folder**, **deep-think**, **app-blueprint** skills; **figma-design-context**, **jira-ticket** and evidence skills from the feature-flow Skill Registry when the step needs them.
 
 ## Mode Detection
 
@@ -24,7 +24,10 @@ Load **docs-folder**, **deep-think** and **app-blueprint** skills.
 ## Generate Mode
 
 - IF: unresolved blocking questions in `plan.md` → STOP
+- DO: read every artefact in `DOCS_DIR` — `spike.md` Recommendation, `presentation.md` decisions, investigation root cause bind the design; never pick a different option silently
 - DO: explore codebase (structure, patterns, test locations, shared utils)
+- IF: slice changes a shared contract/package → workspace blast-radius / `service-graph.json` → add consumer checks to that slice's `Verify`
+- IF: slice changes DB schema/data → postgres-query read-only `describe` on DEV/QA → migration task matches the real current schema (columns, constraints, row counts for backfill)
 - IF: Figma URL → CALL: figma-design-context skill (Workflow A step 5: `get-components.sh`) → cache under `<DOCS_DIR>/figma/` per skill's Caching Convention — check cache before re-fetching → map INSTANCE nodes to codebase equivalents
 - DO: design slices — each complete, runnable, independently testable
   - Seams: data layer → service+API → frontend → e2e
@@ -32,6 +35,8 @@ Load **docs-folder**, **deep-think** and **app-blueprint** skills.
   - DO: sweep the deep-think Change Surface Checklist per slice — catch layers easy to forget (migrations, seed data, events, config/secrets, CI/CD, rollback)
 - LOOP: each slice → draft Tasks per Template → CALL: DEEP_THINK_PASS(slice draft, SCOPE=technical) → fold gaps into `Edge Cases & Failure Modes` / `Non-Functional Notes` (mark `N/A` if a dimension genuinely doesn't apply — never omit silently) → write `task-NNN.md`
 - EMIT: `Generated <N> task(s)`
+- DO: Jira Sub-task Prompt
+- CALL: SUGGEST_NEXT(Tasks, generated)
 
 ## Greenfield Generate Mode
 
@@ -65,6 +70,8 @@ Build order is fixed by app-blueprint **Build Phases** (P0 → P6). Features are
   - Every Env Var Catalogue entry is introduced by some task (`.env.example` + config validation)
   - Every blueprint Command is created by a P0/P1 task before any task's `Verify` uses it
 - EMIT: `Generated <N> task(s) across phases P0–P6` + Phase Roadmap table
+- DO: Jira Sub-task Prompt
+- CALL: SUGGEST_NEXT(Tasks, generated)
 
 ### Template
 
@@ -121,6 +128,15 @@ One sentence: what this slice delivers and how to verify.
 - `Verify` uses real commands: blueprint `## Commands` (greenfield) or existing scripts found in the repo (brownfield) — never invented
 - Scaffold/generator tasks: list the exact non-interactive generator command (pinned version) as a task, then the generated files the task keeps/modifies; files emitted by that listed command are in scope
 - Dependency tasks: name package + exact version from blueprint Stack; never unpinned
+
+### Jira Sub-task Prompt
+
+IF: no `JIRA_KEY` → skip.
+
+> ✅ Tasks saved. **A** — Create/update one Jira sub-task per `task-NNN.md` under `JIRA_KEY` · **C** — Skip
+
+- **A**: jira-ticket `create-ticket.sh --issue-type Sub-task --parent <JIRA_KEY> --title "<Task title>" --story-points <SP>` (team-managed project: `Child Issue`; existing key in `jira.json` `subtasks` → `update-ticket.sh` instead) → write keys to `jira.json` `subtasks`
+- SP per task: feature-flow **Story Points**; sum may differ from the story estimate → report the difference, don't adjust silently
 
 ## Refine Mode
 
