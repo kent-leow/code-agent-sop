@@ -15,11 +15,17 @@ Load **feature-flow** (stage 6 Build), **docs-folder**, **git-workflow**, **git-
 - CALL: DOCS_FOLDER(REQUEST, PATH=task-NNN.md) → DOCS_DIR, JIRA_KEY (validates/renames legacy folder — the only permitted pause)
 - DO: read `task-NNN.md`, sibling `plan.md`, `blueprint.md` (if present), all `task-*.md`, `jira.json`
 - IF: `blueprint.md` present AND `Status` ≠ `Approved` → STOP: blueprint not approved
-- IF: any `[ ]` in prerequisites → STOP: report open items
+- IF: an open prerequisite is only "sibling `task-NNN.md` merged" AND that sibling's commits are already on this repo's shared branch (see **One MR per plan** below) → treat as satisfied (the code ships in the same MR); annotate it `<!-- same MR: <MR_URL> -->`
+- IF: any other `[ ]` in prerequisites → STOP: report open items
 - DO: sync siblings — add warnings for shared files, mark satisfied Done-Whens, fix stale refs, append changelogs
 - IF: greenfield AND (REPO_DIR has no git repo, no commits, or no `origin` remote) → **Local Bootstrap**: `git init` if needed (default branch `main`) → STORE `WORK_DIR="${REPO_DIR}"`, `LOCAL_ONLY=true` → skip BRANCH_SETUP/WORKTREE_SETUP → continue to Phase 2
-- CALL: BRANCH_SETUP(REPO_DIR, `{JIRA_KEY}-{kebab-task-title}`) → JIRA_KEY, BRANCH, DEFAULT_BRANCH
-- CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORKTREE_DIR
+- **One MR per plan**: one `DOCS_DIR` (one `plan.md`) = one branch + one MR **per repository**. All `task-NNN.md` that change the same repo (e.g. several services in one monorepo) go into that single MR as separate commits. A second MR in the same repo is opened only when the earlier one is already merged or closed.
+  - DO: find this repo's shared MR — scan sibling `task-*.md` for a `**MR**:` line whose repo = REPO_DIR
+  - IF: found AND MR open → STORE `BRANCH` = its branch → skip BRANCH_SETUP (sync the default branch only)
+  - IF: found AND MR merged/closed → BRANCH_SETUP(REPO_DIR, `{JIRA_KEY}-{kebab-plan-title}-part-<N>`) (N = next free number)
+  - IF: none → BRANCH_SETUP(REPO_DIR, `{JIRA_KEY}-{kebab-plan-title}`) → JIRA_KEY, BRANCH, DEFAULT_BRANCH (title from `plan.md`, not the task)
+  - Task touches a different repo → that repo gets its own branch + MR under the same rules
+- CALL: WORKTREE_SETUP(REPO_DIR, BRANCH, DEFAULT_BRANCH) → WORKTREE_DIR (reuses the shared branch when it exists)
 - STORE: `WORK_DIR="${WORKTREE_DIR}"` — **all edits in Phase 2–4 target WORK_DIR only**
 
 ## Phase 2 — Exploration
@@ -69,6 +75,9 @@ Load **feature-flow** (stage 6 Build), **docs-folder**, **git-workflow**, **git-
 > IF: `LOCAL_ONLY=true` → stage task files + commit in `WORK_DIR` with the SHIP_MR commit message (ticket suffix omitted if none) → skip push/MR/polling → Phase 6 reports "local commit only — no remote configured". Once a remote exists, later tasks follow the normal flow.
 
 - CALL: SHIP_MR(REPO_DIR, WORK_DIR, BRANCH, DEFAULT_BRANCH, ENCODED, `feat({repo}): {title} [{JIRA_KEY}]`, title, body) → MR_IID, MR_URL, RESULT
+  - One commit per task on the shared branch — never squash or rewrite earlier tasks' commits
+  - Shared MR already existed (ENSURE_MR returned it) → update its title (plan title once it covers >1 task) and description: one section per task with changes + test evidence
+- DO: add `**MR**: <MR_URL> (repo `<repo>`, branch `<BRANCH>`)` under the header of `task-NNN.md` — sibling tasks find the shared MR from this line
 - IF: RESULT ≠ Done → Phase 6 reports BLOCKED / TIMEOUT with the last failing job or open threads
 
 ## Phase 6 — Completion
@@ -87,6 +96,7 @@ Load **feature-flow** (stage 6 Build), **docs-folder**, **git-workflow**, **git-
 ## Constraints
 
 - Implement only what `task-NNN.md` lists
+- One `plan.md` → one MR per repository; never open a second MR in the same repo for the same `DOCS_DIR` while one is open
 - Search codebase before asking user
 - Never mark done until code written + tests pass
 - Never skip test tasks
